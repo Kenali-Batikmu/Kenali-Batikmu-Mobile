@@ -1,0 +1,79 @@
+# Miscellaneous
+*.class
+*.log
+*.pyc
+*.swp
+.DS_Store
+.atom/
+.build/
+.buildlog/
+.history
+.svn/
+.swiftpm/
+migrate_working_dir/
+
+# IntelliJ related
+*.iml
+*.ipr
+*.iws
+.idea/
+
+# The .vscode folder contains launch configuration and tasks you configure in
+# VS Code
+.vscode/
+
+# Flutter/Dart/Pub related
+**/doc/api/
+**/ios/Flutter/.last_build_id
+.dart_tool/
+.flutter-plugins-dependencies
+.pub-cache/
+.pub/
+/build/
+/coverage/
+
+# Symbolication related
+app.*.symbols
+
+# Obfuscation related
+app.*.map.json
+
+# Android Studio & Build Artifacts
+/android/app/debug
+/android/app/profile
+/android/app/release
+/android/local.properties
+
+# Android Keystore & Sensitive Signing Files
+*.jks
+*.keystore
+key.properties
+android/key.properties
+
+# Environment Variables & Secrets
+.env
+.env.*
+*.env
+
+# Operating System Files (Windows & macOS)
+Thumbs.db
+Thumbs.db:encryptable
+ehthumbs.db
+ehthumbs_vista.db
+*.stackdump
+[Dd]esktop.ini
+
+# Project Documentation & Reference (Tidak berdampak pada runtime aplikasi)
+DOCS/
+*.docx
+
+# Temporary & Editor Backup Files
+*.tmp
+*.bak
+*~
+
+# Widget Preview & DevTools related
+.widget_preview/
+devtools_options.yaml
+.agents
+AGENTS.md
