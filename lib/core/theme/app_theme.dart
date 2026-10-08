@@ -1,32 +1,80 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+/// AppTheme sesuai dengan Design System resmi:
+/// - Primary: #7A4B29 (Batik Brown)
+/// - Secondary: #D49B45 (Warm Amber Gold)
+/// - Tertiary: #1B2B4A (Deep Indigo Navy)
+/// - Neutral: #FBF8F3 (Soft Warm Cream Background)
+/// - Headline Typography: Noto Serif
+/// - Body & Label Typography: Plus Jakarta Sans
 class AppTheme {
-  // Heritage Warm Brown Palette sesuai Figma & Budaya Batik Nusantara
-  static const Color primary = Color(0xFF7A4B29); // Batik Brown
+  // === PALET WARNA (DESIGN SYSTEM) ===
+  static const Color primary = Color(0xFF7A4B29);
   static const Color primaryDark = Color(0xFF543118);
   static const Color primaryLight = Color(0xFFA66D44);
-  
-  static const Color background = Color(0xFFF8F5EE); // Warm ivory background
+
+  static const Color secondary = Color(0xFFD49B45);
+  static const Color secondaryLight = Color(0xFFE4BA73);
+  static const Color secondaryDark = Color(0xFFA26F21);
+
+  static const Color tertiary = Color(0xFF1B2B4A);
+  static const Color tertiaryLight = Color(0xFF2C4370);
+  static const Color tertiaryDark = Color(0xFF0F1A2E);
+
+  static const Color neutral = Color(0xFFFBF8F3);
+  static const Color background = Color(0xFFFBF8F3);
   static const Color surface = Color(0xFFFFFFFF);
-  static const Color surfaceCard = Color(0xFFFDFBF7);
-  
+  static const Color surfaceCard = Color(0xFFFDFCF9);
+
+  // Text Colors
   static const Color textPrimary = Color(0xFF2B231D);
   static const Color textSecondary = Color(0xFF6B625B);
   static const Color textMuted = Color(0xFF9E958C);
-  
-  static const Color border = Color(0xFFE8E2D8);
-  static const Color borderLight = Color(0xFFF0EBE1);
-  
-  static const Color accentGold = Color(0xFFD49B45);
+
+  // Borders & Dividers
+  static const Color border = Color(0xFFEADBCE);
+  static const Color borderLight = Color(0xFFF3ECE3);
+
+  // Feedback Colors
   static const Color success = Color(0xFF2E7D32);
   static const Color error = Color(0xFFC62828);
+  static const Color warning = Color(0xFFED6C02);
 
-  // Typography: Satoshi (Headings) + Inter (Body/UI)
-  // Catatan: Satoshi dimuat via GoogleFonts atau fallback jika offline
-  static TextStyle satoshi({
+  // Dark Mode Tokens
+  static const Color darkBackground = Color(0xFF13100D);
+  static const Color darkSurface = Color(0xFF201B16);
+  static const Color darkCard = Color(0xFF2A231C);
+  static const Color darkBorder = Color(0xFF3E3328);
+
+  // Backward compatibility alias untuk kode lama
+  static const Color accentGold = secondary;
+
+  // === TIPOGRAFI SESUAI GAMBAR ===
+
+  /// Headline: Noto Serif (Elegan, Berkarakter Warisan Budaya)
+  static TextStyle notoSerif({
     double fontSize = 16,
     FontWeight fontWeight = FontWeight.w600,
+    Color color = textPrimary,
+    double? height,
+    double? letterSpacing,
+    FontStyle? fontStyle,
+  }) {
+    return GoogleFonts.notoSerif(
+      fontSize: fontSize,
+      fontWeight: fontWeight,
+      color: color,
+      height: height,
+      letterSpacing: letterSpacing,
+      fontStyle: fontStyle,
+    );
+  }
+
+  /// Body & Label: Plus Jakarta Sans (Modern, Bersih, Sangat Terbaca di Mobile)
+  static TextStyle plusJakartaSans({
+    double fontSize = 14,
+    FontWeight fontWeight = FontWeight.w400,
     Color color = textPrimary,
     double? height,
     double? letterSpacing,
@@ -42,6 +90,70 @@ class AppTheme {
     );
   }
 
+  // Alias semantik
+  static TextStyle headline({
+    double fontSize = 20,
+    FontWeight fontWeight = FontWeight.bold,
+    Color color = textPrimary,
+    double? height,
+    double? letterSpacing,
+  }) =>
+      notoSerif(
+        fontSize: fontSize,
+        fontWeight: fontWeight,
+        color: color,
+        height: height,
+        letterSpacing: letterSpacing,
+      );
+
+  static TextStyle body({
+    double fontSize = 14,
+    FontWeight fontWeight = FontWeight.w400,
+    Color color = textPrimary,
+    double? height,
+    double? letterSpacing,
+  }) =>
+      plusJakartaSans(
+        fontSize: fontSize,
+        fontWeight: fontWeight,
+        color: color,
+        height: height,
+        letterSpacing: letterSpacing,
+      );
+
+  static TextStyle label({
+    double fontSize = 12,
+    FontWeight fontWeight = FontWeight.w600,
+    Color color = textPrimary,
+    double? height,
+    double? letterSpacing,
+  }) =>
+      plusJakartaSans(
+        fontSize: fontSize,
+        fontWeight: fontWeight,
+        color: color,
+        height: height,
+        letterSpacing: letterSpacing,
+      );
+
+  // Backward compatibility untuk layar yang belum sempat direfaktor
+  static TextStyle satoshi({
+    double fontSize = 16,
+    FontWeight fontWeight = FontWeight.w600,
+    Color color = textPrimary,
+    double? height,
+    double? letterSpacing,
+    FontStyle? fontStyle,
+  }) =>
+      notoSerif(
+        fontSize: fontSize,
+        fontWeight: fontWeight,
+        color: color,
+        height: height,
+        letterSpacing: letterSpacing,
+        fontStyle: fontStyle,
+      );
+
   static TextStyle inter({
     double fontSize = 14,
     FontWeight fontWeight = FontWeight.w400,
@@ -49,22 +161,52 @@ class AppTheme {
     double? height,
     double? letterSpacing,
     FontStyle? fontStyle,
-  }) {
-    return GoogleFonts.inter(
-      fontSize: fontSize,
-      fontWeight: fontWeight,
-      color: color,
-      height: height,
-      letterSpacing: letterSpacing,
-      fontStyle: fontStyle,
-    );
-  }
+  }) =>
+      plusJakartaSans(
+        fontSize: fontSize,
+        fontWeight: fontWeight,
+        color: color,
+        height: height,
+        letterSpacing: letterSpacing,
+        fontStyle: fontStyle,
+      );
 
-  static const Color darkBackground = Color(0xFF14110E); // Deep Warm Black/Brown
-  static const Color darkSurface = Color(0xFF221C16); // Elevated dark brown card
-  static const Color darkCard = Color(0xFF2B231C);
-  static const Color darkBorder = Color(0xFF3D3228);
+  // === BUTTON STYLES DARI GAMBAR ===
+  static ButtonStyle get primaryButtonStyle => ElevatedButton.styleFrom(
+        backgroundColor: primary,
+        foregroundColor: Colors.white,
+        elevation: 0,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        textStyle: plusJakartaSans(fontSize: 14, fontWeight: FontWeight.w600, color: Colors.white),
+      );
 
+  static ButtonStyle get secondaryButtonStyle => ElevatedButton.styleFrom(
+        backgroundColor: neutral,
+        foregroundColor: textPrimary,
+        elevation: 0,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(12),
+          side: const BorderSide(color: border),
+        ),
+        textStyle: plusJakartaSans(fontSize: 14, fontWeight: FontWeight.w600, color: textPrimary),
+      );
+
+  static ButtonStyle get invertedButtonStyle => ElevatedButton.styleFrom(
+        backgroundColor: tertiary,
+        foregroundColor: Colors.white,
+        elevation: 0,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        textStyle: plusJakartaSans(fontSize: 14, fontWeight: FontWeight.w600, color: Colors.white),
+      );
+
+  static ButtonStyle get outlinedButtonStyle => OutlinedButton.styleFrom(
+        foregroundColor: textPrimary,
+        side: const BorderSide(color: border, width: 1.2),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        textStyle: plusJakartaSans(fontSize: 14, fontWeight: FontWeight.w600, color: textPrimary),
+      );
+
+  // === THEMEDATA LIGHT ===
   static ThemeData get lightTheme {
     return ThemeData(
       useMaterial3: true,
@@ -73,24 +215,29 @@ class AppTheme {
       primaryColor: primary,
       colorScheme: const ColorScheme.light(
         primary: primary,
-        secondary: accentGold,
+        secondary: secondary,
+        tertiary: tertiary,
         surface: surface,
         error: error,
         onPrimary: Colors.white,
         onSecondary: Colors.white,
+        onTertiary: Colors.white,
         onSurface: textPrimary,
         onError: Colors.white,
       ),
       textTheme: TextTheme(
-        headlineLarge: satoshi(fontSize: 28, fontWeight: FontWeight.bold),
-        headlineMedium: satoshi(fontSize: 22, fontWeight: FontWeight.bold),
-        headlineSmall: satoshi(fontSize: 18, fontWeight: FontWeight.w700),
-        titleLarge: satoshi(fontSize: 16, fontWeight: FontWeight.w600),
-        titleMedium: satoshi(fontSize: 14, fontWeight: FontWeight.w600),
-        bodyLarge: inter(fontSize: 15, fontWeight: FontWeight.w400, color: textPrimary),
-        bodyMedium: inter(fontSize: 13, fontWeight: FontWeight.w400, color: textSecondary),
-        bodySmall: inter(fontSize: 11, fontWeight: FontWeight.w400, color: textMuted),
-        labelLarge: satoshi(fontSize: 14, fontWeight: FontWeight.w600, color: Colors.white),
+        headlineLarge: notoSerif(fontSize: 28, fontWeight: FontWeight.bold),
+        headlineMedium: notoSerif(fontSize: 22, fontWeight: FontWeight.bold),
+        headlineSmall: notoSerif(fontSize: 18, fontWeight: FontWeight.w700),
+        titleLarge: notoSerif(fontSize: 16, fontWeight: FontWeight.w600),
+        titleMedium: plusJakartaSans(fontSize: 15, fontWeight: FontWeight.w600),
+        titleSmall: plusJakartaSans(fontSize: 13, fontWeight: FontWeight.w600),
+        bodyLarge: plusJakartaSans(fontSize: 15, fontWeight: FontWeight.w400, color: textPrimary),
+        bodyMedium: plusJakartaSans(fontSize: 13, fontWeight: FontWeight.w400, color: textSecondary),
+        bodySmall: plusJakartaSans(fontSize: 11, fontWeight: FontWeight.w400, color: textMuted),
+        labelLarge: plusJakartaSans(fontSize: 14, fontWeight: FontWeight.w600, color: Colors.white),
+        labelMedium: plusJakartaSans(fontSize: 12, fontWeight: FontWeight.w500, color: textSecondary),
+        labelSmall: plusJakartaSans(fontSize: 10, fontWeight: FontWeight.w500, color: textMuted),
       ),
       cardTheme: CardThemeData(
         color: surface,
@@ -101,16 +248,10 @@ class AppTheme {
         ),
       ),
       elevatedButtonTheme: ElevatedButtonThemeData(
-        style: ElevatedButton.styleFrom(
-          backgroundColor: primary,
-          foregroundColor: Colors.white,
-          elevation: 0,
-          minimumSize: const Size.fromHeight(50),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(14),
-          ),
-          textStyle: satoshi(fontSize: 15, fontWeight: FontWeight.w600, color: Colors.white),
-        ),
+        style: primaryButtonStyle,
+      ),
+      outlinedButtonTheme: OutlinedButtonThemeData(
+        style: outlinedButtonStyle,
       ),
       inputDecorationTheme: InputDecorationTheme(
         filled: true,
@@ -132,11 +273,12 @@ class AppTheme {
           borderRadius: BorderRadius.circular(12),
           borderSide: const BorderSide(color: error),
         ),
-        hintStyle: inter(color: textMuted, fontSize: 13),
+        hintStyle: plusJakartaSans(color: textMuted, fontSize: 13),
       ),
     );
   }
 
+  // === THEMEDATA DARK ===
   static ThemeData get darkTheme {
     return ThemeData(
       useMaterial3: true,
@@ -144,8 +286,9 @@ class AppTheme {
       scaffoldBackgroundColor: darkBackground,
       primaryColor: primary,
       colorScheme: const ColorScheme.dark(
-        primary: accentGold,
+        primary: secondary,
         secondary: primary,
+        tertiary: tertiaryLight,
         surface: darkSurface,
         error: error,
         onPrimary: darkBackground,
@@ -154,15 +297,18 @@ class AppTheme {
         onError: Colors.white,
       ),
       textTheme: TextTheme(
-        headlineLarge: satoshi(fontSize: 28, fontWeight: FontWeight.bold, color: Colors.white),
-        headlineMedium: satoshi(fontSize: 22, fontWeight: FontWeight.bold, color: Colors.white),
-        headlineSmall: satoshi(fontSize: 18, fontWeight: FontWeight.w700, color: Colors.white),
-        titleLarge: satoshi(fontSize: 16, fontWeight: FontWeight.w600, color: Colors.white),
-        titleMedium: satoshi(fontSize: 14, fontWeight: FontWeight.w600, color: Colors.white),
-        bodyLarge: inter(fontSize: 15, fontWeight: FontWeight.w400, color: Colors.white),
-        bodyMedium: inter(fontSize: 13, fontWeight: FontWeight.w400, color: Colors.white70),
-        bodySmall: inter(fontSize: 11, fontWeight: FontWeight.w400, color: Colors.white54),
-        labelLarge: satoshi(fontSize: 14, fontWeight: FontWeight.w600, color: Colors.white),
+        headlineLarge: notoSerif(fontSize: 28, fontWeight: FontWeight.bold, color: Colors.white),
+        headlineMedium: notoSerif(fontSize: 22, fontWeight: FontWeight.bold, color: Colors.white),
+        headlineSmall: notoSerif(fontSize: 18, fontWeight: FontWeight.w700, color: Colors.white),
+        titleLarge: notoSerif(fontSize: 16, fontWeight: FontWeight.w600, color: Colors.white),
+        titleMedium: plusJakartaSans(fontSize: 15, fontWeight: FontWeight.w600, color: Colors.white),
+        titleSmall: plusJakartaSans(fontSize: 13, fontWeight: FontWeight.w600, color: Colors.white70),
+        bodyLarge: plusJakartaSans(fontSize: 15, fontWeight: FontWeight.w400, color: Colors.white),
+        bodyMedium: plusJakartaSans(fontSize: 13, fontWeight: FontWeight.w400, color: Colors.white70),
+        bodySmall: plusJakartaSans(fontSize: 11, fontWeight: FontWeight.w400, color: Colors.white54),
+        labelLarge: plusJakartaSans(fontSize: 14, fontWeight: FontWeight.w600, color: Colors.white),
+        labelMedium: plusJakartaSans(fontSize: 12, fontWeight: FontWeight.w500, color: Colors.white70),
+        labelSmall: plusJakartaSans(fontSize: 10, fontWeight: FontWeight.w500, color: Colors.white54),
       ),
       cardTheme: CardThemeData(
         color: darkSurface,
@@ -177,11 +323,8 @@ class AppTheme {
           backgroundColor: primary,
           foregroundColor: Colors.white,
           elevation: 0,
-          minimumSize: const Size.fromHeight(50),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(14),
-          ),
-          textStyle: satoshi(fontSize: 15, fontWeight: FontWeight.w600, color: Colors.white),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          textStyle: plusJakartaSans(fontSize: 14, fontWeight: FontWeight.w600, color: Colors.white),
         ),
       ),
       inputDecorationTheme: InputDecorationTheme(
@@ -198,9 +341,9 @@ class AppTheme {
         ),
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(12),
-          borderSide: const BorderSide(color: accentGold, width: 1.5),
+          borderSide: const BorderSide(color: secondary, width: 1.5),
         ),
-        hintStyle: inter(color: Colors.white38, fontSize: 13),
+        hintStyle: plusJakartaSans(color: Colors.white38, fontSize: 13),
       ),
     );
   }
