@@ -77,7 +77,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                       mainAxisAlignment: MainAxisAlignment.end,
                       children: [
                         // Lewati Button (Hanya tampil di slide awal)
-                        if (_currentPage < _pages.length)
+                        if (_currentPage < _pages.length-1)
                           GestureDetector(
                             onTap: _navigateToLogin,
                             child: Container(
@@ -272,7 +272,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                         // Pill Action Button
                         GestureDetector(
                           onTap: () {
-                            if (_currentPage < _pages.length) {
+                            if (_currentPage < _pages.length-1) {
                               _pageController.nextPage(
                                 duration: const Duration(milliseconds: 320),
                                 curve: Curves.easeInOutCubic,
