@@ -212,24 +212,26 @@ class _DashboardScreenState extends State<DashboardScreen> {
                           }
 
                           // Carousel horizontal untuk > 1 modul belum selesai
-                          final cardWidth = screenWidth * 0.88;
-                          return SizedBox(
-                            height: 280, // Akan diisi IntrinsicHeight per kartu
-                            child: ListView.separated(
-                              scrollDirection: Axis.horizontal,
-                              padding: const EdgeInsets.symmetric(horizontal: 16),
-                              itemCount: unfinished.length,
-                              separatorBuilder: (context, index) =>
-                                  const SizedBox(width: 12),
-                              itemBuilder: (ctx, idx) {
-                                return SizedBox(
-                                  width: cardWidth,
-                                  child: KbModuleCard(
-                                    module: unfinished[idx],
-                                    isDark: isDark,
-                                  ),
-                                );
-                              },
+                          final cardWidth = screenWidth * 0.92;
+                          return SingleChildScrollView(
+                            scrollDirection: Axis.horizontal,
+                            padding: const EdgeInsets.only(left: 16, right: 16),
+                            child: IntrinsicHeight(
+                              child: Row(
+                                crossAxisAlignment: CrossAxisAlignment.stretch,
+                                children: [
+                                  for (int i = 0; i < unfinished.length; i++) ...[
+                                    if (i > 0) const SizedBox(width: 12),
+                                    SizedBox(
+                                      width: cardWidth,
+                                      child: KbModuleCard(
+                                        module: unfinished[i],
+                                        isDark: isDark,
+                                      ),
+                                    ),
+                                  ],
+                                ],
+                              ),
                             ),
                           );
                         }),
