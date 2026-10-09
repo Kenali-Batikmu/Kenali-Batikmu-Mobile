@@ -4,6 +4,7 @@ import '../../core/theme/app_theme.dart';
 import '../../providers/app_provider.dart';
 import '../../widgets/kb_module_card.dart';
 import '../modules/module_detail_screen.dart';
+import '../../services/search_history_service.dart';
 
 class DashboardScreen extends StatefulWidget {
   final VoidCallback onOpenModules;
@@ -554,10 +555,51 @@ class _SearchModalContent extends StatefulWidget {
 class _SearchModalContentState extends State<_SearchModalContent> {
   final TextEditingController _searchCtrl = TextEditingController();
   String _query = '';
+  List<int> _historyIds = [];
 
   // Warna ikon normal & pressed — reuse warna dari KbModuleCard
   static const Color _iconNormal = AppTheme.primaryDark; // 0xFF543118
   static const Color _iconPressed = Color(0xFF3E2418);   // _kBrown di kb_module_card
+
+  @override
+  void initState() {
+    super.initState();
+    _loadHistory();
+  }
+
+  Future<void> _loadHistory() async {
+    final history = await SearchHistoryService.getHistory();
+    if (mounted) {
+      setState(() {
+        _historyIds = history;
+      });
+    }
+  }
+
+  void _onModuleTapped(dynamic module) {
+    SearchHistoryService.addToHistory(module.id);
+    Navigator.pop(context);
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => ModuleDetailScreen(module: module),
+      ),
+    );
+  }
+
+  void _removeFromHistory(int moduleId) {
+    SearchHistoryService.removeFromHistory(moduleId);
+    setState(() {
+      _historyIds.remove(moduleId);
+    });
+  }
+
+  void _clearHistory() {
+    SearchHistoryService.clearHistory();
+    setState(() {
+      _historyIds.clear();
+    });
+  }
 
   @override
   void dispose() {
@@ -573,6 +615,15 @@ class _SearchModalContentState extends State<_SearchModalContent> {
       return m.title.toLowerCase().contains(_query.toLowerCase()) ||
           m.description.toLowerCase().contains(_query.toLowerCase());
     }).toList();
+
+    // Ambil data modul terbaru untuk riwayat pencarian (berdasarkan urutan _historyIds)
+    final historyModules = <dynamic>[];
+    for (final id in _historyIds) {
+      final matches = provider.modules.where((m) => m.id == id);
+      if (matches.isNotEmpty) {
+        historyModules.add(matches.first);
+      }
+    }
 
     final safeTop = MediaQuery.of(context).padding.top;
     final viewInsetsBottom = MediaQuery.of(context).viewInsets.bottom;
@@ -648,7 +699,7 @@ class _SearchModalContentState extends State<_SearchModalContent> {
                         color: AppTheme.primary, width: 2),
                   ),
                   contentPadding: const EdgeInsets.symmetric(
-                      horizontal: 16, vertical: 12),
+                       horizontal: 16, vertical: 12),
                 ),
               ),
               if (_query.isNotEmpty) ...[
@@ -684,18 +735,55 @@ class _SearchModalContentState extends State<_SearchModalContent> {
                               isDark: widget.isDark,
                               iconNormal: _iconNormal,
                               iconPressed: _iconPressed,
-                              onTap: () {
-                                Navigator.pop(context);
-                                Navigator.push(
-                                  context,
-                                  MaterialPageRoute(
-                                      builder: (_) =>
-                                          ModuleDetailScreen(module: m)),
-                                );
-                              },
+                              onTap: () => _onModuleTapped(m),
                             );
                           },
                         ),
+                ),
+              ] else if (historyModules.isNotEmpty) ...[
+                const SizedBox(height: 14),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text(
+                      'Riwayat Pencarian',
+                      style: AppTheme.satoshi(
+                          fontSize: 13, fontWeight: FontWeight.bold),
+                    ),
+                    GestureDetector(
+                      onTap: _clearHistory,
+                      behavior: HitTestBehavior.opaque,
+                      child: Text(
+                        'Hapus semua',
+                        style: AppTheme.inter(
+                          fontSize: 12,
+                          color: widget.isDark
+                              ? AppTheme.secondaryLight
+                              : AppTheme.primary,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                Flexible(
+                  child: ListView.builder(
+                    shrinkWrap: true,
+                    padding: EdgeInsets.zero,
+                    itemCount: historyModules.length,
+                    itemBuilder: (ctx, idx) {
+                      final m = historyModules[idx];
+                      return _SearchResultTile(
+                        module: m,
+                        isDark: widget.isDark,
+                        iconNormal: _iconNormal,
+                        iconPressed: _iconPressed,
+                        onTap: () => _onModuleTapped(m),
+                        onDelete: () => _removeFromHistory(m.id),
+                      );
+                    },
+                  ),
                 ),
               ],
             ],
@@ -713,6 +801,7 @@ class _SearchResultTile extends StatefulWidget {
   final Color iconNormal;
   final Color iconPressed;
   final VoidCallback onTap;
+  final VoidCallback? onDelete;
 
   const _SearchResultTile({
     required this.module,
@@ -720,6 +809,7 @@ class _SearchResultTile extends StatefulWidget {
     required this.iconNormal,
     required this.iconPressed,
     required this.onTap,
+    this.onDelete,
   });
 
   @override
@@ -732,54 +822,82 @@ class _SearchResultTileState extends State<_SearchResultTile> {
   @override
   Widget build(BuildContext context) {
     final m = widget.module;
-    return GestureDetector(
-      onTapDown: (_) => setState(() => _pressed = true),
-      onTapUp: (_) {
-        setState(() => _pressed = false);
-        widget.onTap();
-      },
-      onTapCancel: () => setState(() => _pressed = false),
-      behavior: HitTestBehavior.opaque,
-      child: Padding(
-        padding: const EdgeInsets.symmetric(vertical: 6),
-        child: Row(
-          children: [
-            AnimatedContainer(
-              duration: const Duration(milliseconds: 150),
-              width: 38,
-              height: 38,
-              decoration: BoxDecoration(
-                color: _pressed ? widget.iconPressed : widget.iconNormal,
-                borderRadius: BorderRadius.circular(10),
-              ),
-              child: const Center(
-                  child: Icon(Icons.menu_book,
-                      color: Colors.white, size: 18)),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 6),
+      child: Row(
+        children: [
+          Expanded(
+            child: GestureDetector(
+              onTapDown: (_) => setState(() => _pressed = true),
+              onTapUp: (_) {
+                setState(() => _pressed = false);
+                widget.onTap();
+              },
+              onTapCancel: () => setState(() => _pressed = false),
+              behavior: HitTestBehavior.opaque,
+              child: Row(
                 children: [
-                  Text(
-                    m.title.replaceAll('\n', ' '),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: AppTheme.satoshi(
-                        fontSize: 13, fontWeight: FontWeight.bold),
+                  AnimatedContainer(
+                    duration: const Duration(milliseconds: 150),
+                    width: 38,
+                    height: 38,
+                    decoration: BoxDecoration(
+                      color: _pressed ? widget.iconPressed : widget.iconNormal,
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: const Center(
+                        child: Icon(Icons.menu_book,
+                            color: Colors.white, size: 18)),
                   ),
-                  const SizedBox(height: 2),
-                  Text(
-                    'Kemajuan: ${m.progressPercent}% Selesai',
-                    style: AppTheme.inter(
-                        fontSize: 11, color: AppTheme.textMuted),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          m.title.replaceAll('\n', ' '),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: AppTheme.satoshi(
+                              fontSize: 13, fontWeight: FontWeight.bold),
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          'Kemajuan: ${m.progressPercent}% Selesai',
+                          style: AppTheme.inter(
+                              fontSize: 11, color: AppTheme.textMuted),
+                        ),
+                      ],
+                    ),
                   ),
                 ],
               ),
             ),
-            const Icon(Icons.chevron_right, size: 20),
-          ],
-        ),
+          ),
+          if (widget.onDelete != null)
+            GestureDetector(
+              behavior: HitTestBehavior.opaque,
+              onTap: widget.onDelete,
+              child: const Padding(
+                padding: EdgeInsets.symmetric(horizontal: 6, vertical: 8),
+                child: Icon(Icons.close, size: 18, color: AppTheme.textMuted),
+              ),
+            )
+          else
+            GestureDetector(
+              onTapDown: (_) => setState(() => _pressed = true),
+              onTapUp: (_) {
+                setState(() => _pressed = false);
+                widget.onTap();
+              },
+              onTapCancel: () => setState(() => _pressed = false),
+              behavior: HitTestBehavior.opaque,
+              child: const Padding(
+                padding: EdgeInsets.only(left: 4),
+                child: Icon(Icons.chevron_right, size: 20),
+              ),
+            ),
+        ],
       ),
     );
   }
