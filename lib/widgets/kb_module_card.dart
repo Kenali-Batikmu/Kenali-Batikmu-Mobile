@@ -318,9 +318,9 @@ class KbModuleCard extends StatelessWidget {
 class _KawungPainter extends CustomPainter {
   final Color color;
   final double opacity;
-  final double cell;
+  const _KawungPainter({required this.color, this.opacity = 1});
 
-  const _KawungPainter({required this.color, this.opacity = 1, this.cell = 26});
+  static const double cell = 26;
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -351,7 +351,7 @@ class _KawungPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(covariant _KawungPainter old) =>
-      old.color != color || old.opacity != opacity || old.cell != cell;
+      old.color != color || old.opacity != opacity;
 }
 
 // Tepi bawah header yang bergelombang, berwarna sama dengan badan kartu + garis emas tipis
