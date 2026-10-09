@@ -41,14 +41,22 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
   // ── Modal pencarian ──────────────────────────────────────────────────────
   void _showSearchSheet(BuildContext context, bool isDark) {
-    showModalBottomSheet(
+    showGeneralDialog(
       context: context,
-      isScrollControlled: true,
-      backgroundColor: isDark ? AppTheme.darkSurface : Colors.white,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-      ),
-      builder: (ctx) {
+      barrierDismissible: true,
+      barrierLabel: 'Tutup pencarian',
+      barrierColor: Colors.black54,
+      transitionDuration: const Duration(milliseconds: 280),
+      transitionBuilder: (ctx, anim, secondAnim, child) {
+        return SlideTransition(
+          position: Tween<Offset>(
+            begin: const Offset(0, -1),
+            end: Offset.zero,
+          ).animate(CurvedAnimation(parent: anim, curve: Curves.easeOut)),
+          child: child,
+        );
+      },
+      pageBuilder: (ctx, anim, secondAnim) {
         return _SearchModalContent(
           isDark: isDark,
           onOpenModules: widget.onOpenModules,
@@ -547,6 +555,10 @@ class _SearchModalContentState extends State<_SearchModalContent> {
   final TextEditingController _searchCtrl = TextEditingController();
   String _query = '';
 
+  // Warna ikon normal & pressed — reuse warna dari KbModuleCard
+  static const Color _iconNormal = AppTheme.primaryDark; // 0xFF543118
+  static const Color _iconPressed = Color(0xFF3E2418);   // _kBrown di kb_module_card
+
   @override
   void dispose() {
     _searchCtrl.dispose();
@@ -562,130 +574,212 @@ class _SearchModalContentState extends State<_SearchModalContent> {
           m.description.toLowerCase().contains(_query.toLowerCase());
     }).toList();
 
-    return Padding(
-      padding: EdgeInsets.only(
-        top: 20,
-        left: 20,
-        right: 20,
-        bottom: MediaQuery.of(context).viewInsets.bottom + 20,
-      ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Center(
-            child: Container(
-              width: 40,
-              height: 4,
-              decoration: BoxDecoration(
-                color: widget.isDark ? Colors.white24 : Colors.black12,
-                borderRadius: BorderRadius.circular(2),
-              ),
-            ),
+    final safeTop = MediaQuery.of(context).padding.top;
+    final viewInsetsBottom = MediaQuery.of(context).viewInsets.bottom;
+
+    return Align(
+      alignment: Alignment.topCenter,
+      child: Material(
+        color: Colors.transparent,
+        child: Container(
+          width: double.infinity,
+          constraints: BoxConstraints(
+            maxHeight: MediaQuery.of(context).size.height * 0.65,
           ),
-          const SizedBox(height: 16),
-          TextField(
-            controller: _searchCtrl,
-            autofocus: true,
-            onChanged: (val) => setState(() => _query = val),
-            style: AppTheme.inter(
-                color: widget.isDark ? Colors.white : AppTheme.textPrimary),
-            decoration: InputDecoration(
-              hintText: 'Cari motif atau modul batik...',
-              hintStyle: AppTheme.inter(fontSize: 13, color: const Color(0xFFA59284)),
-              prefixIcon: const Icon(Icons.search, color: Color(0xFF8A6D56)),
-              suffixIcon: _query.isNotEmpty
-                  ? IconButton(
-                      icon: const Icon(Icons.clear, size: 18),
-                      onPressed: () {
-                        _searchCtrl.clear();
-                        setState(() => _query = '');
-                      },
-                    )
-                  : null,
-              filled: true,
-              fillColor: widget.isDark ? AppTheme.darkSurface : Colors.white,
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(23),
-                borderSide: BorderSide(
-                    color: widget.isDark ? AppTheme.darkBorder : AppTheme.border),
-              ),
-              enabledBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(23),
-                borderSide: BorderSide(
-                    color: widget.isDark ? AppTheme.darkBorder : AppTheme.border),
-              ),
-              focusedBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(23),
-                borderSide: const BorderSide(color: AppTheme.primary, width: 2),
-              ),
-              contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-            ),
+          margin: EdgeInsets.only(bottom: viewInsetsBottom),
+          padding: EdgeInsets.only(
+            top: safeTop + 16,
+            left: 20,
+            right: 20,
+            bottom: 20,
           ),
-          const SizedBox(height: 14),
-          Text(
-            'Hasil Pencarian (${filteredModules.length}):',
-            style: AppTheme.satoshi(fontSize: 13, fontWeight: FontWeight.bold),
+          decoration: BoxDecoration(
+            color: widget.isDark ? AppTheme.darkSurface : Colors.white,
+            borderRadius: const BorderRadius.vertical(
+                bottom: Radius.circular(24)),
           ),
-          const SizedBox(height: 8),
-          ConstrainedBox(
-            constraints: const BoxConstraints(maxHeight: 280),
-            child: filteredModules.isEmpty
-                ? Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 24),
-                    child: Center(
-                      child: Text(
-                        'Tidak ada modul yang cocok dengan pencarian.',
-                        style: AppTheme.inter(
-                            fontSize: 13, color: AppTheme.textMuted),
-                      ),
-                    ),
-                  )
-                : ListView.builder(
-                    shrinkWrap: true,
-                    itemCount: filteredModules.length,
-                    itemBuilder: (ctx, idx) {
-                      final m = filteredModules[idx];
-                      return ListTile(
-                        contentPadding: EdgeInsets.zero,
-                        leading: Container(
-                          width: 38,
-                          height: 38,
-                          decoration: BoxDecoration(
-                            color: const Color(0xFF5A3416),
-                            borderRadius: BorderRadius.circular(10),
-                          ),
-                          child: const Center(
-                              child: Icon(Icons.menu_book,
-                                  color: Colors.white, size: 18)),
-                        ),
-                        title: Text(
-                          m.title.replaceAll('\n', ' '),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: AppTheme.satoshi(
-                              fontSize: 13, fontWeight: FontWeight.bold),
-                        ),
-                        subtitle: Text(
-                          'Kemajuan: ${m.progressPercent}% Selesai',
-                          style: AppTheme.inter(
-                              fontSize: 11, color: AppTheme.textMuted),
-                        ),
-                        trailing: const Icon(Icons.chevron_right, size: 20),
-                        onTap: () {
-                          Navigator.pop(context);
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                                builder: (_) =>
-                                    ModuleDetailScreen(module: m)),
-                          );
-                        },
-                      );
-                    },
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              TextField(
+                controller: _searchCtrl,
+                autofocus: true,
+                onChanged: (val) => setState(() => _query = val),
+                style: AppTheme.inter(
+                    color: widget.isDark
+                        ? Colors.white
+                        : AppTheme.textPrimary),
+                decoration: InputDecoration(
+                  hintText: 'Cari motif atau modul batik...',
+                  hintStyle: AppTheme.inter(
+                      fontSize: 13, color: const Color(0xFFA59284)),
+                  prefixIcon:
+                      const Icon(Icons.search, color: Color(0xFF8A6D56)),
+                  suffixIcon: _query.isNotEmpty
+                      ? IconButton(
+                          icon: const Icon(Icons.clear, size: 18),
+                          onPressed: () {
+                            _searchCtrl.clear();
+                            setState(() => _query = '');
+                          },
+                        )
+                      : null,
+                  filled: true,
+                  fillColor:
+                      widget.isDark ? AppTheme.darkSurface : Colors.white,
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(23),
+                    borderSide: BorderSide(
+                        color: widget.isDark
+                            ? AppTheme.darkBorder
+                            : AppTheme.border),
                   ),
+                  enabledBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(23),
+                    borderSide: BorderSide(
+                        color: widget.isDark
+                            ? AppTheme.darkBorder
+                            : AppTheme.border),
+                  ),
+                  focusedBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(23),
+                    borderSide: const BorderSide(
+                        color: AppTheme.primary, width: 2),
+                  ),
+                  contentPadding: const EdgeInsets.symmetric(
+                      horizontal: 16, vertical: 12),
+                ),
+              ),
+              if (_query.isNotEmpty) ...[
+                const SizedBox(height: 14),
+                Text(
+                  'Hasil Pencarian (${filteredModules.length}):',
+                  style: AppTheme.satoshi(
+                      fontSize: 13, fontWeight: FontWeight.bold),
+                ),
+                const SizedBox(height: 8),
+                Flexible(
+                  child: filteredModules.isEmpty
+                      ? Padding(
+                          padding:
+                              const EdgeInsets.symmetric(vertical: 24),
+                          child: Center(
+                            child: Text(
+                              'Modul tidak ditemukan',
+                              style: AppTheme.inter(
+                                  fontSize: 13,
+                                  color: AppTheme.textMuted),
+                            ),
+                          ),
+                        )
+                      : ListView.builder(
+                          shrinkWrap: true,
+                          padding: EdgeInsets.zero,
+                          itemCount: filteredModules.length,
+                          itemBuilder: (ctx, idx) {
+                            final m = filteredModules[idx];
+                            return _SearchResultTile(
+                              module: m,
+                              isDark: widget.isDark,
+                              iconNormal: _iconNormal,
+                              iconPressed: _iconPressed,
+                              onTap: () {
+                                Navigator.pop(context);
+                                Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                      builder: (_) =>
+                                          ModuleDetailScreen(module: m)),
+                                );
+                              },
+                            );
+                          },
+                        ),
+                ),
+              ],
+            ],
           ),
-        ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Item hasil pencarian dengan efek pressed (ikon menggelap).
+class _SearchResultTile extends StatefulWidget {
+  final dynamic module;
+  final bool isDark;
+  final Color iconNormal;
+  final Color iconPressed;
+  final VoidCallback onTap;
+
+  const _SearchResultTile({
+    required this.module,
+    required this.isDark,
+    required this.iconNormal,
+    required this.iconPressed,
+    required this.onTap,
+  });
+
+  @override
+  State<_SearchResultTile> createState() => _SearchResultTileState();
+}
+
+class _SearchResultTileState extends State<_SearchResultTile> {
+  bool _pressed = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final m = widget.module;
+    return GestureDetector(
+      onTapDown: (_) => setState(() => _pressed = true),
+      onTapUp: (_) {
+        setState(() => _pressed = false);
+        widget.onTap();
+      },
+      onTapCancel: () => setState(() => _pressed = false),
+      behavior: HitTestBehavior.opaque,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 6),
+        child: Row(
+          children: [
+            AnimatedContainer(
+              duration: const Duration(milliseconds: 150),
+              width: 38,
+              height: 38,
+              decoration: BoxDecoration(
+                color: _pressed ? widget.iconPressed : widget.iconNormal,
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: const Center(
+                  child: Icon(Icons.menu_book,
+                      color: Colors.white, size: 18)),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    m.title.replaceAll('\n', ' '),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: AppTheme.satoshi(
+                        fontSize: 13, fontWeight: FontWeight.bold),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    'Kemajuan: ${m.progressPercent}% Selesai',
+                    style: AppTheme.inter(
+                        fontSize: 11, color: AppTheme.textMuted),
+                  ),
+                ],
+              ),
+            ),
+            const Icon(Icons.chevron_right, size: 20),
+          ],
+        ),
       ),
     );
   }
