@@ -58,132 +58,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
     );
   }
 
-  // ── Detail motif (dari versi lama) ───────────────────────────────────────
-  void _showMotifDetailSheet(
-    BuildContext context,
-    String title,
-    String subtitle,
-    String region,
-    String philosophy,
-    IconData icon,
-    bool isDark,
-    AppProvider provider,
-  ) {
-    showModalBottomSheet(
-      context: context,
-      backgroundColor: isDark ? AppTheme.darkSurface : Colors.white,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-      ),
-      builder: (ctx) {
-        return Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Center(
-                child: Container(
-                  width: 40,
-                  height: 4,
-                  decoration: BoxDecoration(
-                    color: isDark ? Colors.white24 : Colors.black12,
-                    borderRadius: BorderRadius.circular(2),
-                  ),
-                ),
-              ),
-              const SizedBox(height: 18),
-              Row(
-                children: [
-                  Container(
-                    width: 56,
-                    height: 56,
-                    decoration: BoxDecoration(
-                      color: const Color(0xFF382516),
-                      borderRadius: BorderRadius.circular(16),
-                      border: Border.all(
-                          color: AppTheme.accentGold.withValues(alpha: 0.5)),
-                    ),
-                    child: Center(
-                      child:
-                          Icon(icon, color: AppTheme.accentGold, size: 28),
-                    ),
-                  ),
-                  const SizedBox(width: 14),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          title,
-                          style: AppTheme.satoshi(
-                              fontSize: 18, fontWeight: FontWeight.bold),
-                        ),
-                        const SizedBox(height: 4),
-                        Row(
-                          children: [
-                            const Icon(Icons.location_on,
-                                size: 13, color: AppTheme.primary),
-                            const SizedBox(width: 4),
-                            Text(
-                              region,
-                              style: AppTheme.inter(
-                                  fontSize: 12,
-                                  color: AppTheme.primary,
-                                  fontWeight: FontWeight.w600),
-                            ),
-                          ],
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 16),
-              Text('Makna & Filosofi:',
-                  style: AppTheme.satoshi(
-                      fontSize: 13, fontWeight: FontWeight.bold)),
-              const SizedBox(height: 6),
-              Text(
-                philosophy,
-                style: AppTheme.inter(
-                    fontSize: 13,
-                    height: 1.5,
-                    color: isDark ? Colors.white70 : AppTheme.textSecondary),
-              ),
-              const SizedBox(height: 20),
-              ElevatedButton.icon(
-                onPressed: () {
-                  Navigator.pop(ctx);
-                  final target = provider.modules.firstWhere(
-                    (m) => m.title
-                        .toLowerCase()
-                        .contains(title.toLowerCase().split(' ').first),
-                    orElse: () => provider.modules[2],
-                  );
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                        builder: (_) => ModuleDetailScreen(module: target)),
-                  );
-                },
-                icon: const Icon(Icons.menu_book, size: 16),
-                label: const Text('Pelajari Modul Motif Ini'),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFF5A3416),
-                  foregroundColor: Colors.white,
-                  minimumSize: const Size.fromHeight(48),
-                  shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(14)),
-                ),
-              ),
-              const SizedBox(height: 10),
-            ],
-          ),
-        );
-      },
-    );
-  }
+
 
   @override
   Widget build(BuildContext context) {
@@ -290,28 +165,35 @@ class _DashboardScreenState extends State<DashboardScreen> {
             ),
           ),
 
-          // ── Top bar + konten scrollable ──────────────────────────────
-          SafeArea(
-            bottom: false,
-            child: Column(
-              children: [
-                _buildTopBar(context, isDark, bgColor),
-                Expanded(
-                  child: SingleChildScrollView(
-                    controller: _scrollController,
-                    padding: const EdgeInsets.only(bottom: 120),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        // Ruang agar kartu muncul di bawah ilustrasi
-                        SizedBox(height: listStart),
+          // ── Konten scrollable (di bawah App Bar) ─────────────────────────
+          Column(
+            children: [
+              SizedBox(height: headerHeight), // Beri ruang untuk App Bar
+              Expanded(
+                child: SingleChildScrollView(
+                  controller: _scrollController,
+                  padding: const EdgeInsets.only(bottom: 120),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      // Ruang agar kartu muncul di bawah ilustrasi
+                      SizedBox(height: listStart - headerHeight),
 
-                        // ── Kartu modul aktif (1 KbModuleCard) ───────────
+                        // ── Header Rekomendasi Belajar ─────────────────
+                        Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 16),
+                          child: Text(
+                            'Rekomendasi Belajar',
+                            style: AppTheme.satoshi(
+                                fontSize: 14,
+                                fontWeight: FontWeight.bold,
+                                color: Colors.grey.shade500),
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+
+                        // ── Kartu modul aktif (3 KbModuleCard) ───────────
                         Builder(builder: (_) {
-                          // Cari modul yang sedang dikerjakan (progress > 0 & < 100),
-                          // urutkan berdasar progress tertinggi agar yang paling dekat
-                          // selesai muncul di atas.
-                          // Fallback: modul terakhir (sudah selesai atau pertama).
                           final inProgress = provider.modules
                               .where((m) =>
                                   m.progressPercent > 0 &&
@@ -320,12 +202,28 @@ class _DashboardScreenState extends State<DashboardScreen> {
                             ..sort((a, b) => b.progressPercent
                                 .compareTo(a.progressPercent));
 
-                          final activeModule = inProgress.isNotEmpty
-                              ? inProgress.first
-                              : provider.modules.last;
+                          final notStarted = provider.modules
+                              .where((m) => m.progressPercent == 0)
+                              .toList()
+                            ..sort((a, b) => a.orderNo.compareTo(b.orderNo));
 
-                          return KbModuleCard(
-                              module: activeModule, isDark: isDark);
+                          final finished = provider.modules
+                              .where((m) => m.progressPercent == 100)
+                              .toList();
+
+                          final combined = [
+                            ...inProgress,
+                            ...notStarted,
+                            ...finished
+                          ];
+                          final recommended = combined.take(3).toList();
+
+                          return Column(
+                            children: recommended
+                                .map((m) =>
+                                    KbModuleCard(module: m, isDark: isDark))
+                                .toList(),
+                          );
                         }),
                         const SizedBox(height: 8),
 
@@ -361,62 +259,36 @@ class _DashboardScreenState extends State<DashboardScreen> {
                         // ── List horizontal kartu motif kecil ─────────────
                         SizedBox(
                           height: 160,
-                          child: ListView(
+                          child: ListView.separated(
                             scrollDirection: Axis.horizontal,
-                            padding:
-                                const EdgeInsets.symmetric(horizontal: 16),
-                            children: [
-                              _buildMotifCard(
+                            padding: const EdgeInsets.symmetric(horizontal: 16),
+                            itemCount: provider.modules.length,
+                            separatorBuilder: (context, index) => const SizedBox(width: 14),
+                            itemBuilder: (ctx, idx) {
+                              final m = provider.modules[idx];
+                              // Assign icon dynamically based on index for variety
+                              final icons = [
+                                Icons.grain,
+                                Icons.waves,
+                                Icons.auto_awesome,
+                                Icons.eco,
+                                Icons.water_drop,
+                              ];
+                              return _buildMotifCard(
                                 context: context,
-                                title: 'Cecek Hasan',
-                                subtitle: 'Ornamen Isen Halus',
-                                icon: Icons.grain,
-                                onTap: () => _showMotifDetailSheet(
-                                  context,
-                                  'Cecek Hasan',
-                                  'Ornamen Isen Halus',
-                                  'Pekalongan & Surakarta',
-                                  'Cecek Hasan merupakan ornamen isen halus berupa titik-titik melingkar teratur yang mengisi bidang kosong motif utama, melambangkan kebersahajaan dan ketelitian budi manusia.',
-                                  Icons.grain,
-                                  isDark,
-                                  provider,
-                                ),
-                              ),
-                              const SizedBox(width: 14),
-                              _buildMotifCard(
-                                context: context,
-                                title: 'Parang Rusak',
-                                subtitle: 'Pakem Keraton Agung',
-                                icon: Icons.waves,
-                                onTap: () => _showMotifDetailSheet(
-                                  context,
-                                  'Parang Rusak',
-                                  'Pakem Keraton Agung',
-                                  'Surakarta & Yogyakarta',
-                                  'Pakem larangan keraton bermotif lereng ombak tajam menghantam karang, melambangkan pertempuran manusia melawan hawa nafsu dan ketegaran jiwa tanpa kenal kata menyerah.',
-                                  Icons.waves,
-                                  isDark,
-                                  provider,
-                                ),
-                              ),
-                              const SizedBox(width: 14),
-                              _buildMotifCard(
-                                context: context,
-                                title: 'Truntum',
-                                subtitle: 'Bintang Kasih Sayang',
-                                icon: Icons.auto_awesome,
-                                onTap: () => _showMotifDetailSheet(
-                                  context,
-                                  'Truntum',
-                                  'Bintang Kasih Sayang',
-                                  'Surakarta',
-                                  'Bermotif kuntum bintang bertabur di langit malam, diciptakan oleh Kanjeng Ratu Kencana sebagai simbol cinta yang tulus dan kembali bersemi abadi.',
-                                  Icons.auto_awesome,
-                                  isDark,
-                                  provider,
-                                ),
-                              ),
-                            ],
+                                title: m.title.split('\n').first,
+                                subtitle: 'Modul ${m.orderNo}',
+                                icon: icons[idx % icons.length],
+                                onTap: () {
+                                  Navigator.push(
+                                    context,
+                                    MaterialPageRoute(
+                                        builder: (_) =>
+                                            ModuleDetailScreen(module: m)),
+                                  );
+                                },
+                              );
+                            },
                           ),
                         ),
                       ],
@@ -424,6 +296,26 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   ),
                 ),
               ],
+            ),
+          // ── App Bar Solid (menutupi area status bar) ───────────────────
+          Positioned(
+            top: 0,
+            left: 0,
+            right: 0,
+            child: Container(
+              padding: EdgeInsets.only(top: safeTop),
+              decoration: BoxDecoration(
+                color: bgColor,
+                boxShadow: [
+                  BoxShadow(
+                    color: bgColor,
+                    blurRadius: 16,
+                    spreadRadius: 8,
+                    offset: const Offset(0, 0),
+                  ),
+                ],
+              ),
+              child: _buildTopBar(context, isDark, bgColor),
             ),
           ),
         ],
@@ -443,20 +335,13 @@ class _DashboardScreenState extends State<DashboardScreen> {
   Widget _buildTopBar(BuildContext context, bool isDark, Color bgColor) {
     final surface = isDark ? AppTheme.darkSurface : Colors.white;
     const iconColor = Color(0xFF8A6D56);
+    final provider = context.read<AppProvider>();
+    final user = provider.currentUser;
 
-    return AnimatedBuilder(
-      animation: _scrollController,
-      builder: (context, child) {
-        return Container(
-          height: _topBarHeight,
-          padding: const EdgeInsets.symmetric(horizontal: 20),
-          alignment: Alignment.center,
-          color: _scrollOffset > 4
-              ? bgColor.withValues(alpha: 0.95)
-              : Colors.transparent,
-          child: child,
-        );
-      },
+    return Container(
+      height: _topBarHeight,
+      padding: const EdgeInsets.symmetric(horizontal: 20),
+      alignment: Alignment.center,
       child: Row(
         children: [
           // Logo KB
@@ -507,43 +392,33 @@ class _DashboardScreenState extends State<DashboardScreen> {
           ),
           const SizedBox(width: 12),
 
-          // Lonceng notifikasi
+          // Profile Avatar (Clickable: opens Profile tab)
           GestureDetector(
-            onTap: () {
-              // TODO: buka halaman notifikasi
-            },
+            onTap: widget.onOpenProfile,
             child: Container(
-              width: 46,
-              height: 46,
+              width: 44,
+              height: 44,
               decoration: BoxDecoration(
-                color: surface,
+                color: AppTheme.primary,
                 shape: BoxShape.circle,
-                boxShadow: _softShadow,
-              ),
-              child: Stack(
-                alignment: Alignment.center,
-                children: [
-                  Icon(
-                    Icons.notifications_none_rounded,
-                    color: isDark
-                        ? Colors.white
-                        : const Color(0xFF4A2F1D),
-                    size: 24,
-                  ),
-                  Positioned(
-                    top: 11,
-                    right: 12,
-                    child: Container(
-                      width: 10,
-                      height: 10,
-                      decoration: BoxDecoration(
-                        color: const Color(0xFFD9534F),
-                        shape: BoxShape.circle,
-                        border: Border.all(color: surface, width: 1.5),
-                      ),
-                    ),
+                border: Border.all(color: AppTheme.accentGold, width: 2),
+                boxShadow: [
+                  BoxShadow(
+                    color: AppTheme.primary.withValues(alpha: 0.2),
+                    blurRadius: 8,
+                    offset: const Offset(0, 4),
                   ),
                 ],
+              ),
+              child: Center(
+                child: Text(
+                  (user?.name.isNotEmpty ?? false) ? user!.name[0].toUpperCase() : 'S',
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
               ),
             ),
           ),
