@@ -40,7 +40,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
     return o < 0 ? 0 : o;
   }
 
-  // ── Modal pencarian (dipertahankan dari versi lama) ──────────────────────
+  // ── Modal pencarian ──────────────────────────────────────────────────────
   void _showSearchSheet(BuildContext context, bool isDark) {
     showModalBottomSheet(
       context: context,
@@ -53,6 +53,133 @@ class _DashboardScreenState extends State<DashboardScreen> {
         return _SearchModalContent(
           isDark: isDark,
           onOpenModules: widget.onOpenModules,
+        );
+      },
+    );
+  }
+
+  // ── Detail motif (dari versi lama) ───────────────────────────────────────
+  void _showMotifDetailSheet(
+    BuildContext context,
+    String title,
+    String subtitle,
+    String region,
+    String philosophy,
+    IconData icon,
+    bool isDark,
+    AppProvider provider,
+  ) {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: isDark ? AppTheme.darkSurface : Colors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (ctx) {
+        return Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Center(
+                child: Container(
+                  width: 40,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: isDark ? Colors.white24 : Colors.black12,
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 18),
+              Row(
+                children: [
+                  Container(
+                    width: 56,
+                    height: 56,
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF382516),
+                      borderRadius: BorderRadius.circular(16),
+                      border: Border.all(
+                          color: AppTheme.accentGold.withValues(alpha: 0.5)),
+                    ),
+                    child: Center(
+                      child:
+                          Icon(icon, color: AppTheme.accentGold, size: 28),
+                    ),
+                  ),
+                  const SizedBox(width: 14),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          title,
+                          style: AppTheme.satoshi(
+                              fontSize: 18, fontWeight: FontWeight.bold),
+                        ),
+                        const SizedBox(height: 4),
+                        Row(
+                          children: [
+                            const Icon(Icons.location_on,
+                                size: 13, color: AppTheme.primary),
+                            const SizedBox(width: 4),
+                            Text(
+                              region,
+                              style: AppTheme.inter(
+                                  fontSize: 12,
+                                  color: AppTheme.primary,
+                                  fontWeight: FontWeight.w600),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 16),
+              Text('Makna & Filosofi:',
+                  style: AppTheme.satoshi(
+                      fontSize: 13, fontWeight: FontWeight.bold)),
+              const SizedBox(height: 6),
+              Text(
+                philosophy,
+                style: AppTheme.inter(
+                    fontSize: 13,
+                    height: 1.5,
+                    color: isDark ? Colors.white70 : AppTheme.textSecondary),
+              ),
+              const SizedBox(height: 20),
+              ElevatedButton.icon(
+                onPressed: () {
+                  Navigator.pop(ctx);
+                  final target = provider.modules.firstWhere(
+                    (m) => m.title
+                        .toLowerCase()
+                        .contains(title.toLowerCase().split(' ').first),
+                    orElse: () => provider.modules[2],
+                  );
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                        builder: (_) => ModuleDetailScreen(module: target)),
+                  );
+                },
+                icon: const Icon(Icons.menu_book, size: 16),
+                label: const Text('Pelajari Modul Motif Ini'),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFF5A3416),
+                  foregroundColor: Colors.white,
+                  minimumSize: const Size.fromHeight(48),
+                  shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(14)),
+                ),
+              ),
+              const SizedBox(height: 10),
+            ],
+          ),
         );
       },
     );
@@ -179,7 +306,30 @@ class _DashboardScreenState extends State<DashboardScreen> {
                         // Ruang agar kartu muncul di bawah ilustrasi
                         SizedBox(height: listStart),
 
-                        // Header seksi
+                        // ── Kartu modul aktif (1 KbModuleCard) ───────────
+                        Builder(builder: (_) {
+                          // Cari modul yang sedang dikerjakan (progress > 0 & < 100),
+                          // urutkan berdasar progress tertinggi agar yang paling dekat
+                          // selesai muncul di atas.
+                          // Fallback: modul terakhir (sudah selesai atau pertama).
+                          final inProgress = provider.modules
+                              .where((m) =>
+                                  m.progressPercent > 0 &&
+                                  m.progressPercent < 100)
+                              .toList()
+                            ..sort((a, b) => b.progressPercent
+                                .compareTo(a.progressPercent));
+
+                          final activeModule = inProgress.isNotEmpty
+                              ? inProgress.first
+                              : provider.modules.last;
+
+                          return KbModuleCard(
+                              module: activeModule, isDark: isDark);
+                        }),
+                        const SizedBox(height: 8),
+
+                        // ── Header seksi motif ────────────────────────────
                         Padding(
                           padding: const EdgeInsets.symmetric(
                               horizontal: 16, vertical: 0),
@@ -208,9 +358,66 @@ class _DashboardScreenState extends State<DashboardScreen> {
                         ),
                         const SizedBox(height: 14),
 
-                        // Kartu modul — pakai KbModuleCard persis seperti halaman Modul
-                        ...provider.modules.map(
-                          (m) => KbModuleCard(module: m, isDark: isDark),
+                        // ── List horizontal kartu motif kecil ─────────────
+                        SizedBox(
+                          height: 160,
+                          child: ListView(
+                            scrollDirection: Axis.horizontal,
+                            padding:
+                                const EdgeInsets.symmetric(horizontal: 16),
+                            children: [
+                              _buildMotifCard(
+                                context: context,
+                                title: 'Cecek Hasan',
+                                subtitle: 'Ornamen Isen Halus',
+                                icon: Icons.grain,
+                                onTap: () => _showMotifDetailSheet(
+                                  context,
+                                  'Cecek Hasan',
+                                  'Ornamen Isen Halus',
+                                  'Pekalongan & Surakarta',
+                                  'Cecek Hasan merupakan ornamen isen halus berupa titik-titik melingkar teratur yang mengisi bidang kosong motif utama, melambangkan kebersahajaan dan ketelitian budi manusia.',
+                                  Icons.grain,
+                                  isDark,
+                                  provider,
+                                ),
+                              ),
+                              const SizedBox(width: 14),
+                              _buildMotifCard(
+                                context: context,
+                                title: 'Parang Rusak',
+                                subtitle: 'Pakem Keraton Agung',
+                                icon: Icons.waves,
+                                onTap: () => _showMotifDetailSheet(
+                                  context,
+                                  'Parang Rusak',
+                                  'Pakem Keraton Agung',
+                                  'Surakarta & Yogyakarta',
+                                  'Pakem larangan keraton bermotif lereng ombak tajam menghantam karang, melambangkan pertempuran manusia melawan hawa nafsu dan ketegaran jiwa tanpa kenal kata menyerah.',
+                                  Icons.waves,
+                                  isDark,
+                                  provider,
+                                ),
+                              ),
+                              const SizedBox(width: 14),
+                              _buildMotifCard(
+                                context: context,
+                                title: 'Truntum',
+                                subtitle: 'Bintang Kasih Sayang',
+                                icon: Icons.auto_awesome,
+                                onTap: () => _showMotifDetailSheet(
+                                  context,
+                                  'Truntum',
+                                  'Bintang Kasih Sayang',
+                                  'Surakarta',
+                                  'Bermotif kuntum bintang bertabur di langit malam, diciptakan oleh Kanjeng Ratu Kencana sebagai simbol cinta yang tulus dan kembali bersemi abadi.',
+                                  Icons.auto_awesome,
+                                  isDark,
+                                  provider,
+                                ),
+                              ),
+                            ],
+                          ),
                         ),
                       ],
                     ),
@@ -344,9 +551,100 @@ class _DashboardScreenState extends State<DashboardScreen> {
       ),
     );
   }
+
+  // ── Kartu motif kecil horizontal (dari versi lama) ───────────────────────
+  Widget _buildMotifCard({
+    required BuildContext context,
+    required String title,
+    required String subtitle,
+    required IconData icon,
+    required VoidCallback onTap,
+  }) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        width: 140,
+        decoration: BoxDecoration(
+          color: const Color(0xFF382516),
+          borderRadius: BorderRadius.circular(18),
+          border:
+              Border.all(color: isDark ? AppTheme.darkBorder : AppTheme.border),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.1),
+              blurRadius: 8,
+              offset: const Offset(0, 4),
+            ),
+          ],
+        ),
+        child: Stack(
+          children: [
+            Positioned.fill(
+              child: Center(
+                child: Icon(
+                  icon,
+                  size: 54,
+                  color: Colors.white.withValues(alpha: 0.15),
+                ),
+              ),
+            ),
+            // Tag Label
+            Positioned(
+              top: 10,
+              left: 10,
+              child: Container(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                decoration: BoxDecoration(
+                  color: Colors.black.withValues(alpha: 0.4),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Text(
+                  'Batik Klasik',
+                  style: AppTheme.satoshi(
+                      fontSize: 9,
+                      fontWeight: FontWeight.bold,
+                      color: AppTheme.accentGold),
+                ),
+              ),
+            ),
+            // Judul & Subtitle
+            Positioned(
+              bottom: 12,
+              left: 12,
+              right: 12,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    title,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: AppTheme.satoshi(
+                        fontSize: 14,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.white),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    subtitle,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: AppTheme.inter(fontSize: 10, color: Colors.white70),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
 }
 
-// ── Modal pencarian (dipertahankan dari versi lama) ──────────────────────────
+// ── Modal pencarian ───────────────────────────────────────────────────────────
 class _SearchModalContent extends StatefulWidget {
   final bool isDark;
   final VoidCallback onOpenModules;
