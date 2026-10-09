@@ -33,7 +33,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
     _scrollController.dispose();
     super.dispose();
   }
-
+  double get _scrollOffset {
+    if (!_scrollController.hasClients) return 0;
+    final o = _scrollController.offset;
+    return o < 0 ? 0 : o;
+  }
 
   // ── Modal pencarian ──────────────────────────────────────────────────────
   void _showSearchSheet(BuildContext context, bool isDark) {
@@ -71,6 +75,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
     final textTop = screenWidth * 0.10;
     final textWidth = screenWidth * 0.46;
     final textHeight = screenWidth * 0.30;
+    final listStart = screenWidth * 0.58;
 
     const brown = Color(0xFF4A2F1D);
     final firstName = (user?.name.isNotEmpty ?? false)
@@ -81,6 +86,82 @@ class _DashboardScreenState extends State<DashboardScreen> {
       backgroundColor: bgColor,
       body: Stack(
         children: [
+          // ── Background ilustrasi (ikut scroll, dimulai tepat di bawah top bar) ──
+          AnimatedBuilder(
+            animation: _scrollController,
+            builder: (context, child) {
+              return Positioned(
+                top: headerHeight - _scrollOffset,
+                left: 0,
+                right: 0,
+                height: bgHeight,
+                child: child!,
+              );
+            },
+            child: Stack(
+              children: [
+                ShaderMask(
+                  blendMode: BlendMode.dstIn,
+                  shaderCallback: (rect) => const LinearGradient(
+                    begin: Alignment.topCenter,
+                    end: Alignment.bottomCenter,
+                    colors: [
+                      Colors.transparent,
+                      Colors.black,
+                      Colors.black,
+                      Colors.transparent,
+                    ],
+                    stops: [0.0, 0.05, 0.9, 1.0],
+                  ).createShader(rect),
+                  child: Image.asset(
+                    'assets/images/module_bg.jpeg',
+                    width: screenWidth,
+                    height: bgHeight,
+                    fit: BoxFit.fill,
+                  ),
+                ),
+                // Teks sapaan di atas ilustrasi
+                Positioned(
+                  left: textLeft,
+                  top: textTop,
+                  width: textWidth,
+                  height: textHeight,
+                  child: FittedBox(
+                    fit: BoxFit.scaleDown,
+                    alignment: Alignment.centerLeft,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          'Selamat\nDatang, $firstName!',
+                          style: AppTheme.satoshi(
+                            fontSize: 20,
+                            fontWeight: FontWeight.w800,
+                            color: brown,
+                            height: 1.15,
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        ConstrainedBox(
+                          constraints: BoxConstraints(maxWidth: textWidth),
+                          child: Text(
+                            'Selesaikan materi hari ini untuk membuka lencana baru.',
+                            style: AppTheme.inter(
+                              fontSize: 12,
+                              color: brown,
+                              height: 1.4,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+
           // ── Konten scrollable (di bawah App Bar) ─────────────────────────
           Column(
             children: [
@@ -92,73 +173,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      // ── Background ilustrasi + Teks Sapaan ───────────────────
-                      SizedBox(
-                        height: bgHeight,
-                        child: Stack(
-                          children: [
-                            ShaderMask(
-                              blendMode: BlendMode.dstIn,
-                              shaderCallback: (rect) => const LinearGradient(
-                                begin: Alignment.topCenter,
-                                end: Alignment.bottomCenter,
-                                colors: [
-                                  Colors.black,
-                                  Colors.black,
-                                  Colors.transparent,
-                                ],
-                                stops: [0.0, 0.8, 1.0],
-                              ).createShader(rect),
-                              child: Image.asset(
-                                'assets/images/module_bg.jpeg',
-                                width: screenWidth,
-                                height: bgHeight,
-                                fit: BoxFit.fill,
-                              ),
-                            ),
-                            // Teks sapaan di atas ilustrasi
-                            Positioned(
-                              left: textLeft,
-                              top: textTop,
-                              width: textWidth,
-                              height: textHeight,
-                              child: FittedBox(
-                                fit: BoxFit.scaleDown,
-                                alignment: Alignment.centerLeft,
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    Text(
-                                      'Selamat\nDatang, $firstName!',
-                                      style: AppTheme.satoshi(
-                                        fontSize: 20,
-                                        fontWeight: FontWeight.w800,
-                                        color: brown,
-                                        height: 1.15,
-                                      ),
-                                    ),
-                                    const SizedBox(height: 8),
-                                    ConstrainedBox(
-                                      constraints: BoxConstraints(maxWidth: textWidth),
-                                      child: Text(
-                                        'Selesaikan materi hari ini untuk membuka lencana baru.',
-                                        style: AppTheme.inter(
-                                          fontSize: 12,
-                                          color: brown,
-                                          height: 1.4,
-                                        ),
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                      
-                      const SizedBox(height: 24), // Jarak ke Rekomendasi Belajar
+                      SizedBox(height: listStart),
 
                         // ── Header Rekomendasi Belajar ─────────────────
                         Padding(
@@ -166,12 +181,13 @@ class _DashboardScreenState extends State<DashboardScreen> {
                           child: Text(
                             'Rekomendasi Belajar',
                             style: AppTheme.satoshi(
-                                fontSize: 14,
-                                fontWeight: FontWeight.bold,
-                                color: Colors.grey.shade500),
+                              fontSize: 18,
+                              fontWeight: FontWeight.bold,
+                              color: const Color(0xFF4A2F1D),
+                            ),
                           ),
                         ),
-                        const SizedBox(height: 12),
+                        const SizedBox(height: 14),
 
                         // ── Kartu modul aktif (3 KbModuleCard) ───────────
                         Builder(builder: (_) {
