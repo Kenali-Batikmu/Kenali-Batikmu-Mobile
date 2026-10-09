@@ -142,18 +142,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
                             height: 1.15,
                           ),
                         ),
-                        const SizedBox(height: 8),
-                        ConstrainedBox(
-                          constraints: BoxConstraints(maxWidth: textWidth),
-                          child: Text(
-                            'Selesaikan materi hari ini untuk membuka lencana baru.',
-                            style: AppTheme.inter(
-                              fontSize: 12,
-                              color: brown,
-                              height: 1.4,
-                            ),
-                          ),
-                        ),
                       ],
                     ),
                   ),
@@ -175,11 +163,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     children: [
                       SizedBox(height: listStart),
 
-                        // ── Header Rekomendasi Belajar ─────────────────
+                        // ── Header Lanjutkan Belajar ─────────────────
                         Padding(
                           padding: const EdgeInsets.symmetric(horizontal: 16),
                           child: Text(
-                            'Rekomendasi Belajar',
+                            'Lanjutkan Belajar',
                             style: AppTheme.satoshi(
                               fontSize: 18,
                               fontWeight: FontWeight.bold,
@@ -189,7 +177,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                         ),
                         const SizedBox(height: 14),
 
-                        // ── Kartu modul aktif (3 KbModuleCard) ───────────
+                        // ── SATU Kartu Modul Aktif ───────────
                         Builder(builder: (_) {
                           final inProgress = provider.modules
                               .where((m) =>
@@ -208,21 +196,97 @@ class _DashboardScreenState extends State<DashboardScreen> {
                               .where((m) => m.progressPercent == 100)
                               .toList();
 
-                          final combined = [
-                            ...inProgress,
-                            ...notStarted,
-                            ...finished
-                          ];
-                          final recommended = combined.take(3).toList();
+                          final activeModule = inProgress.isNotEmpty
+                              ? inProgress.first
+                              : (notStarted.isNotEmpty
+                                  ? notStarted.first
+                                  : (finished.isNotEmpty ? finished.last : provider.modules.first));
 
-                          return Column(
-                            children: recommended
-                                .map((m) =>
-                                    KbModuleCard(module: m, isDark: isDark))
-                                .toList(),
-                          );
+                          return KbModuleCard(module: activeModule, isDark: isDark);
                         }),
-                        const SizedBox(height: 8),
+                        const SizedBox(height: 24),
+
+                        // ── Kartu Ajakan Kamera ───────────
+                        Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 16),
+                          child: GestureDetector(
+                            onTap: widget.onOpenScan,
+                            child: Container(
+                              width: double.infinity,
+                              padding: const EdgeInsets.all(20),
+                              decoration: BoxDecoration(
+                                color: const Color(0xFF4A2F1D), // Cokelat tua
+                                borderRadius: BorderRadius.circular(20),
+                                border: Border.all(color: AppTheme.accentGold, width: 1.5),
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: Colors.black.withValues(alpha: isDark ? 0.3 : 0.1),
+                                    blurRadius: 12,
+                                    offset: const Offset(0, 6),
+                                  )
+                                ],
+                              ),
+                              child: Row(
+                                children: [
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                        Text(
+                                          'Kenali Motif dengan Kamera',
+                                          style: AppTheme.satoshi(
+                                            fontSize: 16,
+                                            fontWeight: FontWeight.bold,
+                                            color: Colors.white,
+                                          ),
+                                        ),
+                                        const SizedBox(height: 6),
+                                        Text(
+                                          'Arahkan kamera ke kain batik untuk mengenali motifnya.',
+                                          style: AppTheme.inter(
+                                            fontSize: 12,
+                                            color: Colors.white70,
+                                          ),
+                                        ),
+                                        const SizedBox(height: 16),
+                                        Container(
+                                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                                          decoration: BoxDecoration(
+                                            color: AppTheme.accentGold,
+                                            borderRadius: BorderRadius.circular(12),
+                                          ),
+                                          child: Text(
+                                            'Buka Kamera',
+                                            style: AppTheme.satoshi(
+                                              fontSize: 13,
+                                              fontWeight: FontWeight.bold,
+                                              color: const Color(0xFF4A2F1D),
+                                            ),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                  const SizedBox(width: 16),
+                                  Container(
+                                    width: 60,
+                                    height: 60,
+                                    decoration: BoxDecoration(
+                                      color: Colors.white.withValues(alpha: 0.1),
+                                      shape: BoxShape.circle,
+                                    ),
+                                    child: const Icon(
+                                      Icons.camera_alt,
+                                      color: AppTheme.accentGold,
+                                      size: 30,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 24),
 
                         // ── Header seksi motif ────────────────────────────
                         Padding(
@@ -232,10 +296,12 @@ class _DashboardScreenState extends State<DashboardScreen> {
                             mainAxisAlignment: MainAxisAlignment.spaceBetween,
                             children: [
                               Text(
-                                'Modul Kenali Batikmu',
+                                'Jelajahi Motif',
                                 style: AppTheme.satoshi(
-                                    fontSize: 18,
-                                    fontWeight: FontWeight.bold),
+                                  fontSize: 18,
+                                  fontWeight: FontWeight.bold,
+                                  color: const Color(0xFF4A2F1D),
+                                ),
                               ),
                               GestureDetector(
                                 onTap: widget.onOpenModules,
