@@ -163,11 +163,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     children: [
                       SizedBox(height: listStart),
 
-                        // ── Header Lanjutkan Belajar ─────────────────
+                        // ── Header Riwayat Belajar ─────────────────
                         Padding(
                           padding: const EdgeInsets.symmetric(horizontal: 16),
                           child: Text(
-                            'Lanjutkan Belajar',
+                            'Riwayat Belajar',
                             style: AppTheme.satoshi(
                               fontSize: 18,
                               fontWeight: FontWeight.bold,
@@ -177,7 +177,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                         ),
                         const SizedBox(height: 14),
 
-                        // ── SATU Kartu Modul Aktif ───────────
+                        // ── Carousel KbModuleCard horizontal ───────────
                         Builder(builder: (_) {
                           final inProgress = provider.modules
                               .where((m) =>
@@ -196,96 +196,43 @@ class _DashboardScreenState extends State<DashboardScreen> {
                               .where((m) => m.progressPercent == 100)
                               .toList();
 
-                          final activeModule = inProgress.isNotEmpty
-                              ? inProgress.first
-                              : (notStarted.isNotEmpty
-                                  ? notStarted.first
-                                  : (finished.isNotEmpty ? finished.last : provider.modules.first));
+                          final unfinished = [...inProgress, ...notStarted];
 
-                          return KbModuleCard(module: activeModule, isDark: isDark);
-                        }),
-                        const SizedBox(height: 24),
+                          // Jika semua selesai, tampilkan modul terakhir saja
+                          if (unfinished.isEmpty) {
+                            final lastModule = finished.isNotEmpty
+                                ? finished.last
+                                : provider.modules.first;
+                            return KbModuleCard(module: lastModule, isDark: isDark);
+                          }
 
-                        // ── Kartu Ajakan Kamera ───────────
-                        Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 16),
-                          child: GestureDetector(
-                            onTap: widget.onOpenScan,
-                            child: Container(
-                              width: double.infinity,
-                              padding: const EdgeInsets.all(20),
-                              decoration: BoxDecoration(
-                                color: const Color(0xFF4A2F1D), // Cokelat tua
-                                borderRadius: BorderRadius.circular(20),
-                                border: Border.all(color: AppTheme.accentGold, width: 1.5),
-                                boxShadow: [
-                                  BoxShadow(
-                                    color: Colors.black.withValues(alpha: isDark ? 0.3 : 0.1),
-                                    blurRadius: 12,
-                                    offset: const Offset(0, 6),
-                                  )
-                                ],
-                              ),
-                              child: Row(
-                                children: [
-                                  Expanded(
-                                    child: Column(
-                                      crossAxisAlignment: CrossAxisAlignment.start,
-                                      children: [
-                                        Text(
-                                          'Kenali Motif dengan Kamera',
-                                          style: AppTheme.satoshi(
-                                            fontSize: 16,
-                                            fontWeight: FontWeight.bold,
-                                            color: Colors.white,
-                                          ),
-                                        ),
-                                        const SizedBox(height: 6),
-                                        Text(
-                                          'Arahkan kamera ke kain batik untuk mengenali motifnya.',
-                                          style: AppTheme.inter(
-                                            fontSize: 12,
-                                            color: Colors.white70,
-                                          ),
-                                        ),
-                                        const SizedBox(height: 16),
-                                        Container(
-                                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                                          decoration: BoxDecoration(
-                                            color: AppTheme.accentGold,
-                                            borderRadius: BorderRadius.circular(12),
-                                          ),
-                                          child: Text(
-                                            'Buka Kamera',
-                                            style: AppTheme.satoshi(
-                                              fontSize: 13,
-                                              fontWeight: FontWeight.bold,
-                                              color: const Color(0xFF4A2F1D),
-                                            ),
-                                          ),
-                                        ),
-                                      ],
-                                    ),
+                          // Jika hanya 1 modul belum selesai, tampilkan penuh
+                          if (unfinished.length == 1) {
+                            return KbModuleCard(module: unfinished.first, isDark: isDark);
+                          }
+
+                          // Carousel horizontal untuk > 1 modul belum selesai
+                          final cardWidth = screenWidth * 0.88;
+                          return SizedBox(
+                            height: 280, // Akan diisi IntrinsicHeight per kartu
+                            child: ListView.separated(
+                              scrollDirection: Axis.horizontal,
+                              padding: const EdgeInsets.symmetric(horizontal: 16),
+                              itemCount: unfinished.length,
+                              separatorBuilder: (context, index) =>
+                                  const SizedBox(width: 12),
+                              itemBuilder: (ctx, idx) {
+                                return SizedBox(
+                                  width: cardWidth,
+                                  child: KbModuleCard(
+                                    module: unfinished[idx],
+                                    isDark: isDark,
                                   ),
-                                  const SizedBox(width: 16),
-                                  Container(
-                                    width: 60,
-                                    height: 60,
-                                    decoration: BoxDecoration(
-                                      color: Colors.white.withValues(alpha: 0.1),
-                                      shape: BoxShape.circle,
-                                    ),
-                                    child: const Icon(
-                                      Icons.camera_alt,
-                                      color: AppTheme.accentGold,
-                                      size: 30,
-                                    ),
-                                  ),
-                                ],
-                              ),
+                                );
+                              },
                             ),
-                          ),
-                        ),
+                          );
+                        }),
                         const SizedBox(height: 24),
 
                         // ── Header seksi motif ────────────────────────────
@@ -296,7 +243,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                             mainAxisAlignment: MainAxisAlignment.spaceBetween,
                             children: [
                               Text(
-                                'Jelajahi Motif',
+                                'Modul Kenali Batikmu',
                                 style: AppTheme.satoshi(
                                   fontSize: 18,
                                   fontWeight: FontWeight.bold,
