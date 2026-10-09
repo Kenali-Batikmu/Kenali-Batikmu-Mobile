@@ -592,7 +592,8 @@ class _SearchModalContentState extends State<_SearchModalContent> {
                 color: widget.isDark ? Colors.white : AppTheme.textPrimary),
             decoration: InputDecoration(
               hintText: 'Cari motif atau modul batik...',
-              prefixIcon: const Icon(Icons.search, color: AppTheme.primary),
+              hintStyle: AppTheme.inter(fontSize: 13, color: const Color(0xFFA59284)),
+              prefixIcon: const Icon(Icons.search, color: Color(0xFF8A6D56)),
               suffixIcon: _query.isNotEmpty
                   ? IconButton(
                       icon: const Icon(Icons.clear, size: 18),
@@ -603,18 +604,22 @@ class _SearchModalContentState extends State<_SearchModalContent> {
                     )
                   : null,
               filled: true,
-              fillColor: widget.isDark
-                  ? AppTheme.darkBackground
-                  : AppTheme.background,
+              fillColor: widget.isDark ? AppTheme.darkSurface : Colors.white,
               border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(16),
+                borderRadius: BorderRadius.circular(23),
                 borderSide: BorderSide(
-                    color: widget.isDark
-                        ? AppTheme.darkBorder
-                        : AppTheme.border),
+                    color: widget.isDark ? AppTheme.darkBorder : AppTheme.border),
               ),
-              contentPadding:
-                  const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+              enabledBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(23),
+                borderSide: BorderSide(
+                    color: widget.isDark ? AppTheme.darkBorder : AppTheme.border),
+              ),
+              focusedBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(23),
+                borderSide: const BorderSide(color: AppTheme.primary, width: 2),
+              ),
+              contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
             ),
           ),
           const SizedBox(height: 14),

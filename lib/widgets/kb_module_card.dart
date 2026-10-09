@@ -362,41 +362,28 @@ class _WavePainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
-    final path = Path();
-    path.moveTo(0, size.height);
-    path.lineTo(0, size.height * 0.6);
+    final sx = size.width / 340;
+    final h = size.height;
 
-    const int waves = 6;
-    final waveWidth = size.width / waves;
+    final edge = Path()
+      ..moveTo(0, 10)
+      ..cubicTo(40 * sx, 2, 80 * sx, 18, 130 * sx, 10)
+      ..cubicTo(180 * sx, 2, 230 * sx, 18, 280 * sx, 10)
+      ..cubicTo(310 * sx, 5, 330 * sx, 8, 340 * sx, 6);
 
-    for (int i = 0; i < waves; i++) {
-      final startX = i * waveWidth;
-      path.quadraticBezierTo(
-        startX + waveWidth * 0.25,
-        size.height * 0.1, // puncak lengkungan naik
-        startX + waveWidth * 0.5,
-        size.height * 0.6, // tengah turun
-      );
-      path.quadraticBezierTo(
-        startX + waveWidth * 0.75,
-        size.height * 1.1, // lembah lengkungan turun
-        startX + waveWidth,
-        size.height * 0.6,
-      );
-    }
-    path.lineTo(size.width, size.height);
-    path.close();
+    final area = Path.from(edge)
+      ..lineTo(size.width, h)
+      ..lineTo(0, h)
+      ..close();
 
-    // Isi dengan warna latar
-    canvas.drawPath(path, Paint()..color = fill);
-
-    // Garis emas tipis di tepinya
+    canvas.drawPath(area, Paint()..color = fill);
     canvas.drawPath(
-      path,
+      edge,
       Paint()
-        ..color = _kGold
+        ..color = const Color(0xFFE8C98A) // _kGold
         ..style = PaintingStyle.stroke
-        ..strokeWidth = 1,
+        ..strokeWidth = 1.5
+        ..strokeCap = StrokeCap.round,
     );
   }
 
