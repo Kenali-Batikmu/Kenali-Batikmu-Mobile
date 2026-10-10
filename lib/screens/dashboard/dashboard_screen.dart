@@ -27,23 +27,35 @@ class _DashboardScreenState extends State<DashboardScreen> {
   final ScrollController _scrollController = ScrollController();
   late final PageController _pageController;
   Timer? _heroTimer;
-  int _currentHeroPage = 0;
+  static const int _slideCount = 4;
+  static const int _initialPage = 1000 * _slideCount;
+  int _currentHeroPage = _initialPage;
+  bool _isScrolledPast = false;
 
   @override
   void initState() {
     super.initState();
-    _pageController = PageController();
+    _pageController = PageController(initialPage: _initialPage);
+    _scrollController.addListener(_onScroll);
     _startHeroTimer();
+  }
+
+  void _onScroll() {
+    final offset = _scrollController.hasClients ? _scrollController.offset : 0.0;
+    final isPast = offset > 120.0;
+    if (isPast != _isScrolledPast) {
+      setState(() {
+        _isScrolledPast = isPast;
+      });
+    }
   }
 
   void _startHeroTimer() {
     _heroTimer?.cancel();
     _heroTimer = Timer.periodic(const Duration(seconds: 5), (timer) {
       if (!_pageController.hasClients) return;
-      final nextPage = (_currentHeroPage + 1) % 4;
-      _pageController.animateToPage(
-        nextPage,
-        duration: const Duration(milliseconds: 550),
+      _pageController.nextPage(
+        duration: const Duration(milliseconds: 500),
         curve: Curves.easeInOut,
       );
     });
@@ -52,6 +64,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
   @override
   void dispose() {
     _heroTimer?.cancel();
+    _scrollController.removeListener(_onScroll);
     _pageController.dispose();
     _scrollController.dispose();
     super.dispose();
@@ -90,14 +103,15 @@ class _DashboardScreenState extends State<DashboardScreen> {
     bool isDark,
     double safeTop,
     double heroHeight,
+    double screenWidth,
   ) {
     return SizedBox(
       height: heroHeight,
       width: double.infinity,
       child: Stack(
         children: [
-          // ── Lapisan bawah: PageView ──
-          PageView(
+          // ── Lapisan bawah: PageView looping maju ──
+          PageView.builder(
             controller: _pageController,
             onPageChanged: (index) {
               setState(() {
@@ -105,33 +119,41 @@ class _DashboardScreenState extends State<DashboardScreen> {
               });
               _startHeroTimer();
             },
-            children: [
-              _buildSlide1(firstName),
-              _buildBatikSlide(
-                title: 'Warisan Dunia',
-                description:
-                    'Batik Indonesia diakui UNESCO sebagai Warisan Budaya Takbenda sejak 2009.',
-                tag: 'WARISAN BUDAYA',
-                icon: Icons.public_rounded,
-              ),
-              _buildBatikSlide(
-                title: 'Parang',
-                description:
-                    'Motif tertua yang melambangkan kekuatan dan keteguhan hati.',
-                tag: 'MOTIF BATIK',
-                icon: Icons.waves_rounded,
-              ),
-              _buildBatikSlide(
-                title: 'Kawung',
-                description:
-                    'Pola lingkaran yang melambangkan kesucian dan keadilan.',
-                tag: 'MOTIF BATIK',
-                icon: Icons.grain_rounded,
-              ),
-            ],
+            itemBuilder: (context, index) {
+              final slideIndex = index % _slideCount;
+              switch (slideIndex) {
+                case 0:
+                  return _buildSlide1(firstName, screenWidth);
+                case 1:
+                  return _buildBatikSlide(
+                    title: 'Warisan Dunia',
+                    description:
+                        'Batik Indonesia diakui UNESCO sebagai Warisan Budaya Takbenda sejak 2009.',
+                    tag: 'WARISAN BUDAYA',
+                    icon: Icons.public_rounded,
+                  );
+                case 2:
+                  return _buildBatikSlide(
+                    title: 'Parang',
+                    description:
+                        'Motif tertua yang melambangkan kekuatan dan keteguhan hati.',
+                    tag: 'MOTIF BATIK',
+                    icon: Icons.waves_rounded,
+                  );
+                case 3:
+                default:
+                  return _buildBatikSlide(
+                    title: 'Kawung',
+                    description:
+                        'Pola lingkaran yang melambangkan kesucian dan keadilan.',
+                    tag: 'MOTIF BATIK',
+                    icon: Icons.grain_rounded,
+                  );
+              }
+            },
           ),
 
-          // ── Lapisan atas: Gradasi gelap tipis (agar status bar/ikon terbaca) ──
+          // ── Lapisan atas: Gradasi gelap tipis (agar status bar/ikon terbaca saat di atas) ──
           Positioned(
             top: 0,
             left: 0,
@@ -153,14 +175,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
             ),
           ),
 
-          // ── Lapisan atas: App Bar (logo KB, search, profil) ──
-          Positioned(
-            top: safeTop + 12,
-            left: 0,
-            right: 0,
-            child: _buildTopBar(context, isDark),
-          ),
-
           // ── Indikator titik di dasar hero ──
           Positioned(
             left: 0,
@@ -168,7 +182,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
             bottom: 16,
             child: Row(
               mainAxisAlignment: MainAxisAlignment.center,
-              children: List.generate(4, (index) => _buildDot(index)),
+              children: List.generate(_slideCount, (index) => _buildDot(index)),
             ),
           ),
         ],
@@ -177,8 +191,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
   }
 
   Widget _buildDot(int index) {
-    final isActive = _currentHeroPage == index;
-    final isLightSlide = _currentHeroPage == 0;
+    final activeIndex = _currentHeroPage % _slideCount;
+    final isActive = activeIndex == index;
+    final isLightSlide = activeIndex == 0;
 
     final activeColor = isLightSlide
         ? const Color(0xFFC4882F)
@@ -189,11 +204,17 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
     return GestureDetector(
       onTap: () {
-        _pageController.animateToPage(
-          index,
-          duration: const Duration(milliseconds: 400),
-          curve: Curves.easeInOut,
-        );
+        if (!_pageController.hasClients) return;
+        final currentPage = _pageController.page?.round() ?? _currentHeroPage;
+        final currentMod = currentPage % _slideCount;
+        final forwardDiff = (index - currentMod + _slideCount) % _slideCount;
+        if (forwardDiff != 0) {
+          _pageController.animateToPage(
+            currentPage + forwardDiff,
+            duration: const Duration(milliseconds: 400),
+            curve: Curves.easeInOut,
+          );
+        }
       },
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 260),
@@ -209,22 +230,21 @@ class _DashboardScreenState extends State<DashboardScreen> {
     );
   }
 
-  Widget _buildSlide1(String firstName) {
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final maxTextWidth = constraints.maxWidth * 0.48;
-        return Stack(
-          fit: StackFit.expand,
-          children: [
-            Image.asset(
-              'assets/images/hero_sekar.png',
-              fit: BoxFit.cover,
-              alignment: const Alignment(0.6, 0.3),
-            ),
-            Positioned(
-              left: 24,
-              bottom: 48,
-              width: maxTextWidth,
+  Widget _buildSlide1(String firstName, double screenWidth) {
+    return Stack(
+      fit: StackFit.expand,
+      children: [
+        Image.asset(
+          'assets/images/hero_sekar.png',
+          fit: BoxFit.cover,
+          alignment: const Alignment(0.6, 0.3),
+        ),
+        Align(
+          alignment: Alignment.centerLeft,
+          child: Padding(
+            padding: const EdgeInsets.only(left: 24),
+            child: ConstrainedBox(
+              constraints: BoxConstraints(maxWidth: screenWidth * 0.40),
               child: Text(
                 'Selamat Datang,\n$firstName!',
                 style: AppTheme.notoSerif(
@@ -236,9 +256,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 softWrap: true,
               ),
             ),
-          ],
-        );
-      },
+          ),
+        ),
+      ],
     );
   }
 
@@ -365,17 +385,27 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
     return Scaffold(
       backgroundColor: bgColor,
-      body: MediaQuery.removePadding(
-        context: context,
-        removeTop: true,
-        child: SingleChildScrollView(
-          controller: _scrollController,
-          padding: const EdgeInsets.only(bottom: 120),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              _buildHeroHeader(context, firstName, isDark, safeTop, heroHeight),
-              const SizedBox(height: 24),
+      body: Stack(
+        children: [
+          // ── Lapisan bawah: Konten scrollable ──
+          MediaQuery.removePadding(
+            context: context,
+            removeTop: true,
+            child: SingleChildScrollView(
+              controller: _scrollController,
+              padding: const EdgeInsets.only(bottom: 120),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  _buildHeroHeader(
+                    context,
+                    firstName,
+                    isDark,
+                    safeTop,
+                    heroHeight,
+                    screenWidth,
+                  ),
+                  const SizedBox(height: 24),
 
               // ── Header Riwayat Belajar ─────────────────
               Padding(
@@ -521,7 +551,33 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     ),
                   ),
                 ),
-              );
+              // ── Lapisan atas: Sticky App Bar ──
+              Positioned(
+                top: 0,
+                left: 0,
+                right: 0,
+                child: AnimatedContainer(
+                  duration: const Duration(milliseconds: 250),
+                  curve: Curves.easeInOut,
+                  padding: EdgeInsets.only(top: safeTop + 12, bottom: 12),
+                  decoration: BoxDecoration(
+                    color: _isScrolledPast ? bgColor : Colors.transparent,
+                    boxShadow: _isScrolledPast
+                        ? [
+                            BoxShadow(
+                              color: Colors.black.withValues(alpha: 0.08),
+                              blurRadius: 10,
+                              offset: const Offset(0, 4),
+                            ),
+                          ]
+                        : null,
+                  ),
+                  child: _buildTopBar(context, isDark),
+                ),
+              ),
+            ],
+          ),
+        );
   }
 
   // ── Top bar floating di atas hero slide ──────────────────────────────────
