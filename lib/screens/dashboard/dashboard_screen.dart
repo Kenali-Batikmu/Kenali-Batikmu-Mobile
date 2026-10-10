@@ -29,9 +29,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
   Timer? _heroTimer;
   int _currentHeroPage = 0;
 
-  // Sama dengan ModulesListScreen supaya header identik
-  static const double _topBarHeight = 68;
-
   @override
   void initState() {
     super.initState();
@@ -86,25 +83,22 @@ class _DashboardScreenState extends State<DashboardScreen> {
     );
   }
 
-  // ── Kartu Hero PageView ──────────────────────────────────────────────────
-  Widget _buildHeroCard(BuildContext context, String firstName, bool isDark) {
-    return Container(
-      height: 230,
-      margin: const EdgeInsets.symmetric(horizontal: 16),
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(24),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: isDark ? 0.35 : 0.08),
-            blurRadius: 14,
-            offset: const Offset(0, 4),
-          ),
-        ],
-      ),
+  // ── Kartu Hero PageView Full-Bleed ───────────────────────────────────────
+  Widget _buildHeroHeader(
+    BuildContext context,
+    String firstName,
+    bool isDark,
+    double safeTop,
+    double heroHeight,
+  ) {
+    return SizedBox(
+      height: heroHeight,
+      width: double.infinity,
       child: ClipRRect(
-        borderRadius: BorderRadius.circular(24),
+        borderRadius: const BorderRadius.vertical(bottom: Radius.circular(28)),
         child: Stack(
           children: [
+            // ── Lapisan bawah: PageView ──
             PageView(
               controller: _pageController,
               onPageChanged: (index) {
@@ -138,11 +132,42 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 ),
               ],
             ),
-            // Indikator titik di bagian bawah tengah
+
+            // ── Lapisan atas: Gradasi gelap tipis (agar status bar/ikon terbaca) ──
+            Positioned(
+              top: 0,
+              left: 0,
+              right: 0,
+              height: safeTop + 76,
+              child: IgnorePointer(
+                child: Container(
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      begin: Alignment.topCenter,
+                      end: Alignment.bottomCenter,
+                      colors: [
+                        Colors.black.withValues(alpha: 0.25),
+                        Colors.transparent,
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ),
+
+            // ── Lapisan atas: App Bar (logo KB, search, profil) ──
+            Positioned(
+              top: safeTop + 12,
+              left: 0,
+              right: 0,
+              child: _buildTopBar(context, isDark),
+            ),
+
+            // ── Indikator titik di dasar hero ──
             Positioned(
               left: 0,
               right: 0,
-              bottom: 12,
+              bottom: 16,
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: List.generate(4, (index) => _buildDot(index)),
@@ -190,23 +215,23 @@ class _DashboardScreenState extends State<DashboardScreen> {
   Widget _buildSlide1(String firstName) {
     return LayoutBuilder(
       builder: (context, constraints) {
-        final maxTextWidth = constraints.maxWidth * 0.45;
+        final maxTextWidth = constraints.maxWidth * 0.48;
         return Stack(
           fit: StackFit.expand,
           children: [
             Image.asset(
               'assets/images/hero_sekar.png',
               fit: BoxFit.cover,
-              alignment: Alignment.centerRight,
+              alignment: const Alignment(0.6, 0.3),
             ),
             Positioned(
               left: 20,
-              bottom: 36,
+              bottom: 40,
               width: maxTextWidth,
               child: Text(
                 'Selamat Datang,\n$firstName!',
                 style: AppTheme.notoSerif(
-                  fontSize: 21,
+                  fontSize: 22,
                   fontWeight: FontWeight.bold,
                   color: const Color(0xFF4A2F1D),
                   height: 1.22,
@@ -244,18 +269,18 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 begin: Alignment.topCenter,
                 end: Alignment.bottomCenter,
                 colors: [
-                  Colors.black.withValues(alpha: 0.1),
+                  Colors.black.withValues(alpha: 0.08),
                   Colors.black.withValues(alpha: 0.45),
                   Colors.black.withValues(alpha: 0.88),
                 ],
-                stops: const [0.0, 0.45, 1.0],
+                stops: const [0.15, 0.55, 1.0],
               ),
             ),
           ),
         ),
         if (icon != null)
           Positioned(
-            top: 16,
+            top: 75,
             right: 20,
             child: Icon(
               icon,
@@ -264,7 +289,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
             ),
           ),
         Padding(
-          padding: const EdgeInsets.fromLTRB(22, 20, 22, 34),
+          padding: const EdgeInsets.fromLTRB(22, 0, 22, 40),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             mainAxisAlignment: MainAxisAlignment.end,
@@ -328,10 +353,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
     final provider = context.watch<AppProvider>();
     final user = provider.currentUser;
     final screenWidth = MediaQuery.of(context).size.width;
+    final screenHeight = MediaQuery.of(context).size.height;
     final safeTop = MediaQuery.of(context).padding.top;
     final bgColor = isDark ? AppTheme.darkBackground : const Color(0xFFFBF3E3);
 
-    final headerHeight = safeTop + _topBarHeight;
+    final heroHeight = (screenHeight * 0.40).clamp(310.0, 360.0);
 
     final firstName = (user?.name.isNotEmpty ?? false)
         ? user!.name.split(' ').first
@@ -339,36 +365,31 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
     return Scaffold(
       backgroundColor: bgColor,
-      body: Stack(
-        children: [
-          // ── Konten scrollable (di bawah App Bar) ─────────────────────────
-          Column(
+      body: MediaQuery.removePadding(
+        context: context,
+        removeTop: true,
+        child: SingleChildScrollView(
+          controller: _scrollController,
+          padding: const EdgeInsets.only(bottom: 120),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              SizedBox(height: headerHeight), // Beri ruang untuk App Bar
-              Expanded(
-                child: SingleChildScrollView(
-                  controller: _scrollController,
-                  padding: const EdgeInsets.only(bottom: 120),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const SizedBox(height: 12),
-                      _buildHeroCard(context, firstName, isDark),
-                      const SizedBox(height: 22),
+              _buildHeroHeader(context, firstName, isDark, safeTop, heroHeight),
+              const SizedBox(height: 20),
 
-                      // ── Header Riwayat Belajar ─────────────────
-                      Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 16),
-                        child: Text(
-                          'Riwayat Belajar',
-                          style: AppTheme.satoshi(
-                            fontSize: 18,
-                            fontWeight: FontWeight.bold,
-                            color: const Color(0xFF4A2F1D),
-                          ),
-                        ),
-                      ),
-                      const SizedBox(height: 14),
+              // ── Header Riwayat Belajar ─────────────────
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                child: Text(
+                  'Riwayat Belajar',
+                  style: AppTheme.satoshi(
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                    color: const Color(0xFF4A2F1D),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 14),
 
                         // ── Carousel KbModuleCard horizontal ───────────
                         Builder(builder: (_) {
@@ -500,59 +521,32 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     ),
                   ),
                 ),
-              ],
-            ),
-          // ── App Bar Solid (menutupi area status bar) ───────────────────
-          Positioned(
-            top: 0,
-            left: 0,
-            right: 0,
-            child: Container(
-              padding: EdgeInsets.only(top: safeTop),
-              decoration: BoxDecoration(
-                color: bgColor,
-                boxShadow: [
-                  BoxShadow(
-                    color: bgColor,
-                    blurRadius: 16,
-                    spreadRadius: 8,
-                    offset: const Offset(0, 0),
-                  ),
-                ],
-              ),
-              child: _buildTopBar(context, isDark, bgColor),
-            ),
-          ),
-        ],
-      ),
-    );
+              );
   }
 
-  // ── Top bar: sama persis dengan _buildTopBar di ModulesListScreen ─────────
+  // ── Top bar floating di atas hero slide ──────────────────────────────────
   List<BoxShadow> get _softShadow => [
         BoxShadow(
-          color: Colors.black.withValues(alpha: 0.06),
-          blurRadius: 12,
-          offset: const Offset(0, 4),
+          color: Colors.black.withValues(alpha: 0.10),
+          blurRadius: 10,
+          offset: const Offset(0, 3),
         ),
       ];
 
-  Widget _buildTopBar(BuildContext context, bool isDark, Color bgColor) {
+  Widget _buildTopBar(BuildContext context, bool isDark) {
     final surface = isDark ? AppTheme.darkSurface : Colors.white;
     const iconColor = Color(0xFF8A6D56);
     final provider = context.read<AppProvider>();
     final user = provider.currentUser;
 
-    return Container(
-      height: _topBarHeight,
-      padding: const EdgeInsets.symmetric(horizontal: 20),
-      alignment: Alignment.center,
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16),
       child: Row(
         children: [
           // Logo KB
           Container(
-            width: 46,
-            height: 46,
+            width: 44,
+            height: 44,
             decoration: BoxDecoration(
               color: Colors.white,
               shape: BoxShape.circle,
@@ -563,18 +557,18 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   fit: BoxFit.cover),
             ),
           ),
-          const SizedBox(width: 12),
+          const SizedBox(width: 10),
 
           // Search bar (fungsional → buka modal pencarian)
           Expanded(
             child: GestureDetector(
               onTap: () => _showSearchSheet(context, isDark),
               child: Container(
-                height: 46,
+                height: 44,
                 padding: const EdgeInsets.symmetric(horizontal: 14),
                 decoration: BoxDecoration(
                   color: surface,
-                  borderRadius: BorderRadius.circular(23),
+                  borderRadius: BorderRadius.circular(22),
                   boxShadow: _softShadow,
                 ),
                 child: Row(
@@ -595,14 +589,14 @@ class _DashboardScreenState extends State<DashboardScreen> {
               ),
             ),
           ),
-          const SizedBox(width: 12),
+          const SizedBox(width: 10),
 
           // Profile Avatar (Clickable: opens Profile tab)
           GestureDetector(
             onTap: widget.onOpenProfile,
             child: Container(
-              width: 44,
-              height: 44,
+              width: 42,
+              height: 42,
               decoration: BoxDecoration(
                 color: AppTheme.primary,
                 shape: BoxShape.circle,
@@ -620,7 +614,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   (user?.name.isNotEmpty ?? false) ? user!.name[0].toUpperCase() : 'S',
                   style: const TextStyle(
                     color: Colors.white,
-                    fontSize: 18,
+                    fontSize: 17,
                     fontWeight: FontWeight.bold,
                   ),
                 ),
