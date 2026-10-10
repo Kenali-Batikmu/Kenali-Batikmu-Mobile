@@ -179,7 +179,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
           Positioned(
             left: 0,
             right: 0,
-            bottom: 16,
+            bottom: 40,
             child: Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: List.generate(_slideCount, (index) => _buildDot(index)),
@@ -302,12 +302,12 @@ class _DashboardScreenState extends State<DashboardScreen> {
             right: 24,
             child: Icon(
               icon,
-              size: 52,
+              size: 60,
               color: const Color(0xFFE8C98A).withValues(alpha: 0.14),
             ),
           ),
         Padding(
-          padding: const EdgeInsets.fromLTRB(24, 0, 24, 48),
+          padding: const EdgeInsets.fromLTRB(24, 0, 24, 60),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             mainAxisAlignment: MainAxisAlignment.end,
@@ -405,152 +405,177 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     heroHeight,
                     screenWidth,
                   ),
-                  const SizedBox(height: 24),
-
-              // ── Header Riwayat Belajar ─────────────────
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16),
-                child: Text(
-                  'Riwayat Belajar',
-                  style: AppTheme.satoshi(
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
-                    color: const Color(0xFF4A2F1D),
-                  ),
-                ),
-              ),
-              const SizedBox(height: 14),
-
-                        // ── Carousel KbModuleCard horizontal ───────────
-                        Builder(builder: (_) {
-                          final inProgress = provider.modules
-                              .where((m) =>
-                                  m.progressPercent > 0 &&
-                                  m.progressPercent < 100)
-                              .toList()
-                            ..sort((a, b) => b.progressPercent
-                                .compareTo(a.progressPercent));
-
-                          final notStarted = provider.modules
-                              .where((m) => m.progressPercent == 0)
-                              .toList()
-                            ..sort((a, b) => a.orderNo.compareTo(b.orderNo));
-
-                          final finished = provider.modules
-                              .where((m) => m.progressPercent == 100)
-                              .toList();
-
-                          final unfinished = [...inProgress, ...notStarted];
-
-                          // Jika semua selesai, tampilkan modul terakhir saja
-                          if (unfinished.isEmpty) {
-                            final lastModule = finished.isNotEmpty
-                                ? finished.last
-                                : provider.modules.first;
-                            return KbModuleCard(module: lastModule, isDark: isDark);
-                          }
-
-                          // Jika hanya 1 modul belum selesai, tampilkan penuh
-                          if (unfinished.length == 1) {
-                            return KbModuleCard(module: unfinished.first, isDark: isDark);
-                          }
-
-                          // Carousel horizontal untuk > 1 modul belum selesai
-                          final cardWidth = screenWidth * 0.92;
-                          return SingleChildScrollView(
-                            scrollDirection: Axis.horizontal,
-                            padding: const EdgeInsets.only(left: 16, right: 16),
-                            child: IntrinsicHeight(
-                              child: Row(
-                                crossAxisAlignment: CrossAxisAlignment.stretch,
-                                children: [
-                                  for (int i = 0; i < unfinished.length; i++) ...[
-                                    if (i > 0) const SizedBox(width: 12),
-                                    SizedBox(
-                                      width: cardWidth,
-                                      child: KbModuleCard(
-                                        module: unfinished[i],
-                                        isDark: isDark,
-                                      ),
-                                    ),
-                                  ],
-                                ],
+                  // ── Lembar konten naik 28 px menimpa bawah hero ──
+                  Transform.translate(
+                    offset: const Offset(0, -28),
+                    child: Container(
+                      width: double.infinity,
+                      decoration: BoxDecoration(
+                        color: bgColor,
+                        borderRadius: const BorderRadius.vertical(
+                          top: Radius.circular(22), 
+                        ),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withValues(
+                                alpha: isDark ? 0.35 : 0.08),
+                            blurRadius: 16,
+                            offset: const Offset(0, -6),
+                          ),
+                        ],
+                      ),
+                      padding: const EdgeInsets.only(top: 24),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          // ── Header Riwayat Belajar ──────────────────
+                          Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 16),
+                            child: Text(
+                              'Riwayat Belajar',
+                              style: AppTheme.satoshi(
+                                fontSize: 18,
+                                fontWeight: FontWeight.bold,
+                                color: const Color(0xFF4A2F1D),
                               ),
                             ),
-                          );
-                        }),
-                        const SizedBox(height: 24),
+                          ),
+                          const SizedBox(height: 14),
 
-                        // ── Header seksi motif ────────────────────────────
-                        Padding(
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 16, vertical: 0),
-                          child: Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: [
-                              Text(
-                                'Modul Kenali Batikmu',
-                                style: AppTheme.satoshi(
-                                  fontSize: 18,
-                                  fontWeight: FontWeight.bold,
-                                  color: const Color(0xFF4A2F1D),
+                          // ── Carousel KbModuleCard horizontal ───────────
+                          Builder(builder: (_) {
+                            final inProgress = provider.modules
+                                .where((m) =>
+                                    m.progressPercent > 0 &&
+                                    m.progressPercent < 100)
+                                .toList()
+                              ..sort((a, b) => b.progressPercent
+                                  .compareTo(a.progressPercent));
+
+                            final notStarted = provider.modules
+                                .where((m) => m.progressPercent == 0)
+                                .toList()
+                              ..sort((a, b) => a.orderNo.compareTo(b.orderNo));
+
+                            final finished = provider.modules
+                                .where((m) => m.progressPercent == 100)
+                                .toList();
+
+                            final unfinished = [...inProgress, ...notStarted];
+
+                            // Jika semua selesai, tampilkan modul terakhir saja
+                            if (unfinished.isEmpty) {
+                              final lastModule = finished.isNotEmpty
+                                  ? finished.last
+                                  : provider.modules.first;
+                              return KbModuleCard(module: lastModule, isDark: isDark);
+                            }
+
+                            // Jika hanya 1 modul belum selesai, tampilkan penuh
+                            if (unfinished.length == 1) {
+                              return KbModuleCard(module: unfinished.first, isDark: isDark);
+                            }
+
+                            // Carousel horizontal untuk > 1 modul belum selesai
+                            final cardWidth = screenWidth * 0.92;
+                            return SingleChildScrollView(
+                              scrollDirection: Axis.horizontal,
+                              padding: const EdgeInsets.only(left: 16, right: 16),
+                              child: IntrinsicHeight(
+                                child: Row(
+                                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                                  children: [
+                                    for (int i = 0; i < unfinished.length; i++) ...[
+                                      if (i > 0) const SizedBox(width: 12),
+                                      SizedBox(
+                                        width: cardWidth,
+                                        child: KbModuleCard(
+                                          module: unfinished[i],
+                                          isDark: isDark,
+                                        ),
+                                      ),
+                                    ],
+                                  ],
                                 ),
                               ),
-                              GestureDetector(
-                                onTap: widget.onOpenModules,
-                                child: Text(
-                                  'Lihat Semua',
-                                  style: AppTheme.inter(
-                                    fontSize: 13,
-                                    fontWeight: FontWeight.w600,
-                                    color: AppTheme.primary,
+                            );
+                          }),
+                          const SizedBox(height: 24),
+
+                          // ── Header seksi motif ────────────────────────────
+                          Padding(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 16, vertical: 0),
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                Text(
+                                  'Modul Kenali Batikmu',
+                                  style: AppTheme.satoshi(
+                                    fontSize: 18,
+                                    fontWeight: FontWeight.bold,
+                                    color: const Color(0xFF4A2F1D),
                                   ),
                                 ),
-                              ),
-                            ],
+                                GestureDetector(
+                                  onTap: widget.onOpenModules,
+                                  child: Text(
+                                    'Lihat Semua',
+                                    style: AppTheme.inter(
+                                      fontSize: 13,
+                                      fontWeight: FontWeight.w600,
+                                      color: AppTheme.primary,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
                           ),
-                        ),
-                        const SizedBox(height: 14),
+                          const SizedBox(height: 14),
 
-                        // ── List horizontal kartu motif kecil ─────────────
-                        SizedBox(
-                          height: 160,
-                          child: ListView.separated(
-                            scrollDirection: Axis.horizontal,
-                            padding: const EdgeInsets.symmetric(horizontal: 16),
-                            itemCount: provider.modules.length,
-                            separatorBuilder: (context, index) => const SizedBox(width: 14),
-                            itemBuilder: (ctx, idx) {
-                              final m = provider.modules[idx];
-                              // Assign icon dynamically based on index for variety
-                              final icons = [
-                                Icons.grain,
-                                Icons.waves,
-                                Icons.auto_awesome,
-                                Icons.eco,
-                                Icons.water_drop,
-                              ];
-                              return _buildMotifCard(
-                                context: context,
-                                title: m.title.split('\n').first,
-                                subtitle: 'Modul ${m.orderNo}',
-                                icon: icons[idx % icons.length],
-                                onTap: () {
-                                  Navigator.push(
-                                    context,
-                                    MaterialPageRoute(
-                                        builder: (_) =>
-                                            ModuleDetailScreen(module: m)),
-                                  );
-                                },
-                              );
-                            },
+                          // ── List horizontal kartu motif kecil ─────────────
+                          SizedBox(
+                            height: 160,
+                            child: ListView.separated(
+                              scrollDirection: Axis.horizontal,
+                              padding: const EdgeInsets.symmetric(horizontal: 16),
+                              itemCount: provider.modules.length,
+                              separatorBuilder: (context, index) =>
+                                  const SizedBox(width: 14),
+                              itemBuilder: (ctx, idx) {
+                                final m = provider.modules[idx];
+                                final icons = [
+                                  Icons.grain,
+                                  Icons.waves,
+                                  Icons.auto_awesome,
+                                  Icons.eco,
+                                  Icons.water_drop,
+                                ];
+                                return _buildMotifCard(
+                                  context: context,
+                                  title: m.title.split('\n').first,
+                                  subtitle: 'Modul ${m.orderNo}',
+                                  icon: icons[idx % icons.length],
+                                  onTap: () {
+                                    Navigator.push(
+                                      context,
+                                      MaterialPageRoute(
+                                          builder: (_) =>
+                                              ModuleDetailScreen(module: m)),
+                                    );
+                                  },
+                                );
+                              },
+                            ),
                           ),
-                        ),
-                      ],
+                        ],
+                      ),
                     ),
                   ),
-                ),
+                ],
+              ),
+            ),
+          ),
               // ── Lapisan atas: Sticky App Bar ──
               Positioned(
                 top: 0,
