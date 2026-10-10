@@ -312,6 +312,7 @@ class AppProvider with ChangeNotifier {
           practiceScore: pS,
           progressPercent: percent,
         );
+      }
       // Muat foto profil tersimpan (hanya jika filenya masih ada)
       final savedPhoto = prefs.getString(_photoPrefKey);
       if (!kIsWeb && savedPhoto != null && File(savedPhoto).existsSync()) {
@@ -574,6 +575,54 @@ class AppProvider with ChangeNotifier {
         createdAt: 'Baru saja',
       ),
     );
+    notifyListeners();
+  }
+
+  Future<void> updateProfile({
+    required String name,
+    required String email,
+    required String phone,
+    required String password,
+  }) async {
+    if (_currentUser != null) {
+      _currentUser = _currentUser!.copyWith(
+        name: name,
+        email: email,
+        phone: phone,
+      );
+      notifyListeners();
+    }
+  }
+
+  Future<bool> setProfilePhoto(String path) async {
+    try {
+      _savedPhotoPath = path;
+      if (_currentUser != null) {
+        _currentUser = _currentUser!.copyWith(profileImagePath: path);
+      }
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString(_photoPrefKey, path);
+      notifyListeners();
+      return true;
+    } catch (e) {
+      return false;
+    }
+  }
+
+  Future<void> removeProfilePhoto() async {
+    _savedPhotoPath = null;
+    if (_currentUser != null) {
+      _currentUser = UserModel(
+        id: _currentUser!.id,
+        name: _currentUser!.name,
+        email: _currentUser!.email,
+        phone: _currentUser!.phone,
+        profileImagePath: null,
+        createdAt: _currentUser!.createdAt,
+      );
+    }
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove(_photoPrefKey);
     notifyListeners();
   }
 }
