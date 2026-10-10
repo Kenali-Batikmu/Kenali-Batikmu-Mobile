@@ -1,0 +1,83 @@
+[
+  {
+    "id": 1,
+    "motifId": 1,
+    "title": "Motif Parang Kusumo",
+    "origin": "Batik Klasik Surakarta & Yogyakarta",
+    "estimatedTime": "8 Menit",
+    "coverImage": "assets/images/parang_cover.jpg",
+    "sejarahDanFilosofi": {
+      "audioDurationSeconds": 225,
+      "audioUrl": "assets/audio/parang.mp3",
+      "deskripsiUtama": "Motif Parang Kusumo memancarkan ritme visual diagonal yang merepresentasikan deburan ombak Samudra Hindia yang tiada henti menghantam tebing karang terjal. Garis meliuk tanpa putus mencerminkan laku prihatin, kesinambungan budi pekerti luhur, dan ketabahan batin manusia Jawa dalam mengarungi pasang surut gelombang kehidupan tanpa pernah kehilangan kehormatan martabatnya.",
+      "asalDaerah": "Diciptakan pada era Panembahan Senopati (pendiri Kesultanan Mataram Islam) saat melakukan semedi meditasi di pesisir tebing Parangtritis. Gerak dinamis air laut yang tak kenal menyerah mengilhami terciptanya garis diagonal sakral ini.",
+      "maknaFilosofis": "Berasal dari kata Parang (batu karang/lereng terjal) dan Kusumo (bunga bangsawan). Motif ini memuat amanah luhur bahwa keturunan ningrat sejati wajib mengharumkan nama bangsa laksana bunga mekar dengan ketegaran jiwa sekeras batu karang.",
+      "penggunaan": "Tergolong sebagai batik larangan sakral (awisan dalem). Dahulu kala hanya boleh dikenakan keluarga sentana dalem keraton pada upacara tukar cincin pernikahan adat dan pisowanan agung menghadap Sri Sultan atau Sunan."
+    },
+    "karakteristik": {
+      "deskripsi": "Kenali struktur anatomi visual dan ornamen pakem yang membedakan Parang Kusumo dari ragam parang lainnya dalam tradisi keraton Mataram.",
+      "strukturUtama": {
+        "title": "Jejak Lilin Malam Alami",
+        "desc": "Tetesan canting membentuk kontur lereng ombak tanpa henti",
+        "badge": "Struktur Utama • 45° Lereng",
+        "image": "assets/images/parang_char_1.jpg"
+      },
+      "ornamen": {
+        "title": "Ornamen Mlinjon & Lidah Api",
+        "desc": "Tekstur belah ketupat mini pengisi ruang kosong motif.",
+        "badge": "Isen-Isen Halus",
+        "image": "assets/images/parang_char_2.jpg"
+      },
+      "warna": {
+        "title": "Warna Khas Sogan",
+        "desc": "Paduan soga tua, oker kuning, dan krem mori murni.",
+        "badge": "Pewarna Alami",
+        "image": "assets/images/parang_char_3.jpg"
+      },
+      "pakemList": [
+        {
+          "title": "1. Sudut Kemiringan 45°",
+          "desc": "Garis lereng sejajar membentang miring 45 derajat tanpa terputus, melambangkan kontinuitas tekad ksatria Jawa."
+        },
+        {
+          "title": "2. Ornamen Mlinjon & Lidah Api",
+          "desc": "Lekukan menyerupai lidah api berulang yang diselingi belah ketupat mikro, memberi keseimbangan ritme dinamis."
+        },
+        {
+          "title": "3. Tiga Warna Sakral Sogan",
+          "desc": "Didominasi warna cokelat soga tua (soga jambal), kuning oker keemasan (kayu tegeran), dan dasar putih gading mori prima."
+        },
+        {
+          "title": "4. Dimensi Khusus Ningrat",
+          "desc": "Ukuran lidah parang berkisar 3-4 cm, dikhususkan bagi bangsawan dan keturunan keraton Mataram."
+        }
+      ]
+    },
+    "galeri": [
+      {
+        "imageUrl": "assets/images/parang_gal_1.jpg",
+        "caption": "Proses Mencanting"
+      },
+      {
+        "imageUrl": "assets/images/parang_gal_2.jpg",
+        "caption": "Kain Sogan Klasik"
+      },
+      {
+        "imageUrl": "assets/images/parang_gal_3.jpg",
+        "caption": "Jejak Lilin Lereng"
+      },
+      {
+        "imageUrl": "assets/images/parang_gal_4.jpg",
+        "caption": "Detail Isen Canting"
+      },
+      {
+        "imageUrl": "assets/images/parang_gal_5.jpg",
+        "caption": "Pembuatan Pola"
+      },
+      {
+        "imageUrl": "assets/images/parang_gal_6.jpg",
+        "caption": "Pewarnaan Alam"
+      }
+    ]
+  }
+]

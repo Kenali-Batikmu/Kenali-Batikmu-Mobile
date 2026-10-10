@@ -77,6 +77,137 @@ class BatikMotifModel {
   }
 }
 
+class SejarahFilosofiModel {
+  final String youtubeUrl;
+  final String deskripsiUtama;
+  final String asalDaerah;
+  final String maknaFilosofis;
+  final String penggunaan;
+
+  SejarahFilosofiModel({
+    required this.youtubeUrl,
+    required this.deskripsiUtama,
+    required this.asalDaerah,
+    required this.maknaFilosofis,
+    required this.penggunaan,
+  });
+
+  factory SejarahFilosofiModel.fromMap(Map<String, dynamic> map) {
+    return SejarahFilosofiModel(
+      youtubeUrl: map['youtubeUrl'] ?? '',
+      deskripsiUtama: map['deskripsiUtama'] ?? '',
+      asalDaerah: map['asalDaerah'] ?? '',
+      maknaFilosofis: map['maknaFilosofis'] ?? '',
+      penggunaan: map['penggunaan'] ?? '',
+    );
+  }
+}
+
+class KarakteristikDetailModel {
+  final String title;
+  final String desc;
+  final String badge;
+  final String image;
+
+  KarakteristikDetailModel({
+    required this.title,
+    required this.desc,
+    required this.badge,
+    required this.image,
+  });
+
+  factory KarakteristikDetailModel.fromMap(Map<String, dynamic> map) {
+    return KarakteristikDetailModel(
+      title: map['title'] ?? '',
+      desc: map['desc'] ?? '',
+      badge: map['badge'] ?? '',
+      image: map['image'] ?? '',
+    );
+  }
+}
+
+class PakemModel {
+  final String title;
+  final String desc;
+
+  PakemModel({required this.title, required this.desc});
+
+  factory PakemModel.fromMap(Map<String, dynamic> map) {
+    return PakemModel(
+      title: map['title'] ?? '',
+      desc: map['desc'] ?? '',
+    );
+  }
+}
+
+class KarakteristikModel {
+  final String deskripsi;
+  final KarakteristikDetailModel strukturUtama;
+  final KarakteristikDetailModel ornamen;
+  final KarakteristikDetailModel warna;
+  final List<PakemModel> pakemList;
+
+  KarakteristikModel({
+    required this.deskripsi,
+    required this.strukturUtama,
+    required this.ornamen,
+    required this.warna,
+    required this.pakemList,
+  });
+
+  factory KarakteristikModel.fromMap(Map<String, dynamic> map) {
+    var pakemData = map['pakemList'] as List? ?? [];
+    return KarakteristikModel(
+      deskripsi: map['deskripsi'] ?? '',
+      strukturUtama: KarakteristikDetailModel.fromMap(map['strukturUtama'] ?? {}),
+      ornamen: KarakteristikDetailModel.fromMap(map['ornamen'] ?? {}),
+      warna: KarakteristikDetailModel.fromMap(map['warna'] ?? {}),
+      pakemList: pakemData.map((e) => PakemModel.fromMap(e)).toList(),
+    );
+  }
+}
+
+class GaleriModel {
+  final String imageUrl;
+  final String caption;
+
+  GaleriModel({required this.imageUrl, required this.caption});
+
+  factory GaleriModel.fromMap(Map<String, dynamic> map) {
+    return GaleriModel(
+      imageUrl: map['imageUrl'] ?? '',
+      caption: map['caption'] ?? '',
+    );
+  }
+}
+
+class ModuleContentModel {
+  final String origin;
+  final String estimatedTime;
+  final SejarahFilosofiModel sejarahDanFilosofi;
+  final KarakteristikModel karakteristik;
+  final List<GaleriModel> galeri;
+
+  ModuleContentModel({
+    required this.origin,
+    required this.estimatedTime,
+    required this.sejarahDanFilosofi,
+    required this.karakteristik,
+    required this.galeri,
+  });
+
+  factory ModuleContentModel.fromMap(Map<String, dynamic> map) {
+    var galeriData = map['galeri'] as List? ?? [];
+    return ModuleContentModel(
+      origin: map['origin'] ?? '',
+      estimatedTime: map['estimatedTime'] ?? '',
+      sejarahDanFilosofi: SejarahFilosofiModel.fromMap(map['sejarahDanFilosofi'] ?? {}),
+      karakteristik: KarakteristikModel.fromMap(map['karakteristik'] ?? {}),
+      galeri: galeriData.map((e) => GaleriModel.fromMap(e)).toList(),
+    );
+  }
+}
+
 class ModuleModel {
   final int id;
   final int motifId;
@@ -91,6 +222,11 @@ class ModuleModel {
   final bool galleryDone;
   final bool quizDone;
   final bool practiceDone;
+  final int? quizScore;
+  final int? practiceScore;
+  
+  // Menambahkan content model dinamis
+  final ModuleContentModel? content;
 
   ModuleModel({
     required this.id,
@@ -106,7 +242,41 @@ class ModuleModel {
     this.galleryDone = false,
     this.quizDone = false,
     this.practiceDone = false,
+    this.quizScore,
+    this.practiceScore,
+    this.content,
   });
+
+  // Helper method untuk copyWith
+  ModuleModel copyWith({
+    int? progressPercent,
+    bool? historyDone,
+    bool? characterDone,
+    bool? galleryDone,
+    bool? quizDone,
+    bool? practiceDone,
+    int? quizScore,
+    int? practiceScore,
+  }) {
+    return ModuleModel(
+      id: id,
+      motifId: motifId,
+      title: title,
+      description: description,
+      coverImage: coverImage,
+      passingScore: passingScore,
+      orderNo: orderNo,
+      progressPercent: progressPercent ?? this.progressPercent,
+      historyDone: historyDone ?? this.historyDone,
+      characterDone: characterDone ?? this.characterDone,
+      galleryDone: galleryDone ?? this.galleryDone,
+      quizDone: quizDone ?? this.quizDone,
+      practiceDone: practiceDone ?? this.practiceDone,
+      quizScore: quizScore ?? this.quizScore,
+      practiceScore: practiceScore ?? this.practiceScore,
+      content: content,
+    );
+  }
 }
 
 class QuizQuestionModel {

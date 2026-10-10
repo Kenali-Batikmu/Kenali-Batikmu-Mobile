@@ -83,7 +83,7 @@ class _ModulesListScreenState extends State<ModulesListScreen> {
                 style: AppTheme.satoshi(fontSize: 16, fontWeight: FontWeight.bold),
               ),
               const SizedBox(height: 12),
-              _buildSortOption('all', 'Semua Modul (11 Modul)', ctx),
+              _buildSortOption('all', 'Semua Modul (${context.read<AppProvider>().modules.length} Modul)', ctx),
               _buildSortOption('completed', 'Modul Selesai (100%)', ctx),
               _buildSortOption('in_progress', 'Sedang Dikerjakan (> 0%)', ctx),
               _buildSortOption('not_started', 'Belum Dimulai (0%)', ctx),
@@ -531,7 +531,7 @@ class KbModuleCard extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            _buildHeader(bodyColor, isDone, isWorking, progress),
+            _buildHeader(context, bodyColor, isDone, isWorking, progress),
             Padding(
               padding: const EdgeInsets.fromLTRB(18, 6, 18, 18),
               child: _buildBody(context, isDone, isWorking, progress),
@@ -543,7 +543,7 @@ class KbModuleCard extends StatelessWidget {
   }
 
   // ── Header: motif kawung, label modul, lencana, judul, tepi bergelombang ──
-  Widget _buildHeader(Color bodyColor, bool isDone, bool isWorking, num progress) {
+  Widget _buildHeader(BuildContext context, Color bodyColor, bool isDone, bool isWorking, num progress) {
     return SizedBox(
       height: _kHeaderHeight,
       child: Stack(
@@ -566,7 +566,7 @@ class KbModuleCard extends StatelessWidget {
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
                     Text(
-                      'MODUL ${module.orderNo}/8',
+                      'MODUL ${module.orderNo}/${context.read<AppProvider>().modules.length}',
                       style: AppTheme.satoshi(
                         fontSize: 11,
                         fontWeight: FontWeight.bold,
@@ -708,9 +708,11 @@ class KbModuleCard extends StatelessWidget {
     );
   }
 
-  // Tombol aksi: emas bermotif (Lanjut / Mulai belajar) atau coklat bermotif (Buka kembali materi)
+  // Tombol aksi: emas bermotif (Mulai / Lanjutkan belajar) atau coklat bermotif (Buka kembali materi)
   Widget _buildActionButton(BuildContext context, bool isDone, bool isWorking) {
-    final label = isWorking ? 'Lanjut belajar' : (isDone ? 'Buka kembali materi' : 'Mulai belajar');
+    final label = isDone
+        ? 'Buka Kembali Materi'
+        : (isWorking ? 'Lanjutkan Belajar' : 'Mulai Belajar');
     final bg = isDone ? _kBtnBrown : _kGold;
     final fg = isDone ? _kCream : _kBrown;
 
