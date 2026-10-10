@@ -225,7 +225,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
               alignment: const Alignment(0.6, 0.3),
             ),
             Positioned(
-              left: 20,
+              left: 24,
               bottom: 40,
               width: maxTextWidth,
               child: Text(
@@ -236,6 +236,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   color: const Color(0xFF4A2F1D),
                   height: 1.22,
                 ),
+                softWrap: true,
               ),
             ),
           ],
@@ -281,7 +282,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
         if (icon != null)
           Positioned(
             top: 75,
-            right: 20,
+            right: 24,
             child: Icon(
               icon,
               size: 52,
@@ -289,7 +290,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
             ),
           ),
         Padding(
-          padding: const EdgeInsets.fromLTRB(22, 0, 22, 40),
+          padding: const EdgeInsets.fromLTRB(24, 0, 24, 40),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             mainAxisAlignment: MainAxisAlignment.end,
@@ -297,7 +298,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
               if (tag != null) ...[
                 Container(
                   padding:
-                      const EdgeInsets.symmetric(horizontal: 9, vertical: 3.5),
+                      const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                   decoration: BoxDecoration(
                     color: const Color(0xFFE8C98A).withValues(alpha: 0.18),
                     borderRadius: BorderRadius.circular(10),
@@ -327,6 +328,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   letterSpacing: 0.2,
                   height: 1.2,
                 ),
+                softWrap: true,
               ),
               const SizedBox(height: 6),
               Text(
@@ -337,7 +339,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   color: Colors.white.withValues(alpha: 0.92),
                   height: 1.4,
                 ),
-                maxLines: 3,
+                softWrap: true,
+                maxLines: 4,
                 overflow: TextOverflow.ellipsis,
               ),
             ],
@@ -375,7 +378,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               _buildHeroHeader(context, firstName, isDark, safeTop, heroHeight),
-              const SizedBox(height: 20),
+              const SizedBox(height: 24),
 
               // ── Header Riwayat Belajar ─────────────────
               Padding(
