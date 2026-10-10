@@ -1,12 +1,21 @@
+import 'dart:io';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import '../../core/theme/app_theme.dart';
 import '../../models/app_models.dart';
 import '../../providers/app_provider.dart';
 import '../../widgets/kb_module_card.dart';
+import '../profile/profile_screen.dart';
+import 'module_detail_screen.dart';
 
 class ModulesListScreen extends StatefulWidget {
-  const ModulesListScreen({super.key});
+  /// Dipanggil saat avatar profil diketuk. Diisi oleh MainNavigationScreen
+  /// supaya pindah ke tab Profil dan footer tetap tampil.
+  final VoidCallback? onOpenProfile;
+
+  const ModulesListScreen({super.key, this.onOpenProfile});
 
   @override
   State<ModulesListScreen> createState() => _ModulesListScreenState();
@@ -14,27 +23,37 @@ class ModulesListScreen extends StatefulWidget {
 
 class _ModulesListScreenState extends State<ModulesListScreen> {
   final TextEditingController _searchCtrl = TextEditingController();
+  final FocusNode _searchFocus = FocusNode();
   final ScrollController _scrollController = ScrollController();
   String _searchQuery = '';
   String _sortFilter = 'all'; // 'all', 'completed', 'in_progress', 'not_started'
 
-  // Tinggi top bar tetap supaya posisi background bisa dihitung presisi
+  // Tinggi top bar tetap
   static const double _topBarHeight = 68;
 
   // Rasio gambar background: 1170 x 1560
   static const double _bgRatio = 1560 / 1170;
 
   @override
+  void initState() {
+    super.initState();
+    // Rebuild saat fokus berubah supaya border search bar ikut berganti
+    _searchFocus.addListener(() => setState(() {}));
+  }
+
+  @override
   void dispose() {
     _searchCtrl.dispose();
+    _searchFocus.dispose();
     _scrollController.dispose();
     super.dispose();
   }
 
-  double get _scrollOffset {
-    if (!_scrollController.hasClients) return 0;
-    final o = _scrollController.offset;
-    return o < 0 ? 0 : o; // jangan bergerak saat overscroll
+  /// Foto profil: file lokal (Android/iOS) atau URL/blob (web)
+  ImageProvider? _avatarImage(String? path) {
+    if (path == null || path.isEmpty) return null;
+    if (kIsWeb || path.startsWith('http')) return NetworkImage(path);
+    return FileImage(File(path));
   }
 
   void _showSortModal(BuildContext context, bool isDark) {
@@ -65,7 +84,7 @@ class _ModulesListScreenState extends State<ModulesListScreen> {
                 style: AppTheme.satoshi(fontSize: 16, fontWeight: FontWeight.bold),
               ),
               const SizedBox(height: 12),
-              _buildSortOption('all', 'Semua Modul (11 Modul)', ctx),
+              _buildSortOption('all', 'Semua Modul (${context.read<AppProvider>().modules.length} Modul)', ctx),
               _buildSortOption('completed', 'Modul Selesai (100%)', ctx),
               _buildSortOption('in_progress', 'Sedang Dikerjakan (> 0%)', ctx),
               _buildSortOption('not_started', 'Belum Dimulai (0%)', ctx),
@@ -104,17 +123,19 @@ class _ModulesListScreenState extends State<ModulesListScreen> {
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final provider = context.watch<AppProvider>();
+    final user = provider.currentUser;
     final screenWidth = MediaQuery.of(context).size.width;
     final safeTop = MediaQuery.of(context).padding.top;
+
+    // Warna cokelat muda: dipakai untuk top bar DAN latar daftar modul
     final bgColor = isDark ? AppTheme.darkBackground : const Color(0xFFFBF3E3);
 
     // Semua ukuran dihitung dari lebar layar agar selalu proporsional dengan gambar
-    final headerHeight = safeTop + _topBarHeight;
     final bgHeight = screenWidth * _bgRatio;
     final textLeft = screenWidth * 0.09;
     final textTop = screenWidth * 0.10; // makin kecil = makin naik
-    final textWidth = screenWidth * 0.46;
-    final textHeight = screenWidth * 0.30;
+    final textWidth = screenWidth * 0.48;
+    final textHeight = screenWidth * 0.36;
     final listStart = screenWidth * 0.58; // awal daftar, tepat di bawah lengkungan krem
 
     // Filter modul sesuai pencarian & sort
@@ -133,94 +154,102 @@ class _ModulesListScreenState extends State<ModulesListScreen> {
 
     const brown = Color(0xFF4A2F1D);
 
-    return Scaffold(
-      backgroundColor: bgColor,
-      body: Stack(
-        children: [
-          // ── Background ilustrasi (ikut scroll, dimulai tepat di bawah top bar) ──
-          AnimatedBuilder(
-            animation: _scrollController,
-            builder: (context, child) {
-              return Positioned(
-                top: headerHeight - _scrollOffset,
-                left: 0,
-                right: 0,
-                height: bgHeight,
-                child: child!,
-              );
-            },
-            child: Stack(
-              children: [
-                // Fade di tepi atas & bawah agar menyatu dengan warna latar
-                ShaderMask(
-                  blendMode: BlendMode.dstIn,
-                  shaderCallback: (rect) => const LinearGradient(
-                    begin: Alignment.topCenter,
-                    end: Alignment.bottomCenter,
-                    colors: [Colors.transparent, Colors.black, Colors.black, Colors.transparent],
-                    stops: [0.0, 0.05, 0.9, 1.0],
-                  ).createShader(rect),
-                  child: Image.asset(
-                    'assets/images/module_bg.jpeg',
-                    width: screenWidth,
-                    height: bgHeight,
-                    fit: BoxFit.fill,
-                  ),
-                ),
+    return AnnotatedRegion<SystemUiOverlayStyle>(
+      // Header terang, jadi ikon status bar dibuat gelap (terang bila mode gelap)
+      value: isDark ? SystemUiOverlayStyle.light : SystemUiOverlayStyle.dark,
+      child: Scaffold(
+        backgroundColor: bgColor,
+        body: Column(
+          children: [
+            // ── Top bar TETAP (status bar + logo + search + profil) ──
+            // Diberi warna latar penuh supaya konten yang di-scroll tidak tembus ke belakangnya
+            Container(
+              color: bgColor,
+              padding: EdgeInsets.only(top: safeTop),
+              child: _buildTopBar(isDark, user),
+            ),
 
-                // Teks sambutan: di kolom kiri, sejajar dengan tokoh kebaya
-                Positioned(
-                  left: textLeft,
-                  top: textTop,
-                  width: textWidth,
-                  height: textHeight,
-                  child: FittedBox(
-                    fit: BoxFit.scaleDown,
-                    alignment: Alignment.centerLeft,
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Text(
-                          'Selamat\nmengerjakan!',
-                          style: AppTheme.satoshi(
-                            fontSize: 20,
-                            fontWeight: FontWeight.w800,
-                            color: brown,
-                            height: 1.15,
-                          ),
-                        ),
-                        const SizedBox(height: 8),
-                        ConstrainedBox(
-                          constraints: BoxConstraints(maxWidth: textWidth),
-                          child: Text(
-                            'Selesaikan materi hari ini untuk membuka lencana baru.',
-                            style: AppTheme.inter(
-                              fontSize: 12,
-                              color: brown,
-                              height: 1.4,
+            // ── Area scroll: ilustrasi + teks sambutan + daftar modul ikut bergerak ──
+            Expanded(
+              child: SingleChildScrollView(
+                controller: _scrollController,
+                padding: const EdgeInsets.only(bottom: 120),
+                child: Stack(
+                  children: [
+                    // Ilustrasi latar (ikut scroll)
+                    Positioned(
+                      top: 0,
+                      left: 0,
+                      right: 0,
+                      height: bgHeight,
+                      child: Stack(
+                        children: [
+                          // Fade di tepi atas dan bawah supaya menyatu dengan cokelat muda
+                          ShaderMask(
+                            blendMode: BlendMode.dstIn,
+                            shaderCallback: (rect) => const LinearGradient(
+                              begin: Alignment.topCenter,
+                              end: Alignment.bottomCenter,
+                              colors: [
+                                Colors.transparent,
+                                Colors.black,
+                                Colors.black,
+                                Colors.transparent,
+                              ],
+                              stops: [0.0, 0.06, 0.9, 1.0],
+                            ).createShader(rect),
+                            child: Image.asset(
+                              'assets/images/module_bg.jpeg',
+                              width: screenWidth,
+                              height: bgHeight,
+                              fit: BoxFit.fill,
                             ),
                           ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
 
-          // ── Top bar (tetap) + konten yang bisa di-scroll ──
-          SafeArea(
-            bottom: false,
-            child: Column(
-              children: [
-                _buildTopBar(isDark, bgColor),
-                Expanded(
-                  child: SingleChildScrollView(
-                    controller: _scrollController,
-                    padding: const EdgeInsets.only(bottom: 120),
-                    child: Column(
+                          // Teks sambutan: di kolom kiri, sejajar dengan tokoh kebaya
+                          Positioned(
+                            left: textLeft,
+                            top: textTop,
+                            width: textWidth,
+                            height: textHeight,
+                            child: FittedBox(
+                              fit: BoxFit.scaleDown,
+                              alignment: Alignment.centerLeft,
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Text(
+                                    'Setiap Motif\nPunya Cerita',
+                                    style: AppTheme.satoshi(
+                                      fontSize: 26,
+                                      fontWeight: FontWeight.w800,
+                                      color: brown,
+                                      height: 1.15,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 8),
+                                  ConstrainedBox(
+                                    constraints: BoxConstraints(maxWidth: textWidth),
+                                    child: Text(
+                                      'Selesaikan materi hari ini untuk membuka lencana baru.',
+                                      style: AppTheme.inter(
+                                        fontSize: 13,
+                                        color: brown,
+                                        height: 1.4,
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+
+                    // Konten daftar modul (menentukan tinggi Stack)
+                    Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         SizedBox(height: listStart),
@@ -241,22 +270,21 @@ class _ModulesListScreenState extends State<ModulesListScreen> {
                           )
                         else
                           ...displayModules.map((m) => _buildModuleCard(context, m, isDark)),
-
                       ],
                     ),
-                  ),
+                  ],
                 ),
-              ],
+              ),
             ),
-          ),
 
-          // ── Footer berada di level MainNavigationScreen ──
-        ],
+            // ── Footer berada di level MainNavigationScreen ──
+          ],
+        ),
       ),
     );
   }
 
-  // ── Top bar: logo, search, lonceng (semua tinggi 46, bayangan seragam) ──
+  // ── Top bar: logo, search, profil (semua tinggi 46, bayangan seragam) ──
   List<BoxShadow> get _softShadow => [
         BoxShadow(
           color: Colors.black.withValues(alpha: 0.06),
@@ -265,21 +293,14 @@ class _ModulesListScreenState extends State<ModulesListScreen> {
         ),
       ];
 
-  Widget _buildTopBar(bool isDark, Color bgColor) {
-    final surface = isDark ? AppTheme.darkSurface : Colors.white;
-    const iconColor = Color(0xFF8A6D56);
+  Widget _buildTopBar(bool isDark, UserModel? user) {
+    final avatarImage = _avatarImage(user?.profileImagePath);
+    final initial = (user?.name.isNotEmpty ?? false) ? user!.name[0].toUpperCase() : 'S';
 
-    return AnimatedBuilder(
-      animation: _scrollController,
-      builder: (context, child) {
-        return Container(
-          height: _topBarHeight,
-          padding: const EdgeInsets.symmetric(horizontal: 20),
-          alignment: Alignment.center,
-          color: _scrollOffset > 4 ? bgColor.withValues(alpha: 0.95) : Colors.transparent,
-          child: child,
-        );
-      },
+    return Container(
+      height: _topBarHeight,
+      padding: const EdgeInsets.symmetric(horizontal: 16),
+      alignment: Alignment.center,
       child: Row(
         children: [
           // Logo KB
@@ -295,25 +316,41 @@ class _ModulesListScreenState extends State<ModulesListScreen> {
               child: Image.asset('assets/images/kb_logo.jpeg', fit: BoxFit.cover),
             ),
           ),
-          const SizedBox(width: 12),
+          const SizedBox(width: 10),
 
           // Search bar
           Expanded(
-            child: Container(
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 200),
               height: 46,
-              padding: const EdgeInsets.symmetric(horizontal: 14),
+              padding: const EdgeInsets.only(left: 6, right: 14),
               decoration: BoxDecoration(
-                color: surface,
+                color: isDark ? AppTheme.darkSurface : const Color(0xFFFFFDF8),
                 borderRadius: BorderRadius.circular(23),
+                border: Border.all(
+                  color: _searchFocus.hasFocus ? AppTheme.accentGold : const Color(0xFFE5D3B8),
+                  width: _searchFocus.hasFocus ? 1.5 : 1,
+                ),
                 boxShadow: _softShadow,
               ),
               child: Row(
                 children: [
-                  const Icon(Icons.search_rounded, color: iconColor, size: 20),
-                  const SizedBox(width: 8),
+                  // Ikon dalam lingkaran emas muda
+                  Container(
+                    width: 34,
+                    height: 34,
+                    decoration: const BoxDecoration(
+                      color: Color(0xFFF4E4C4),
+                      shape: BoxShape.circle,
+                    ),
+                    child: const Icon(Icons.search_rounded, color: Color(0xFF7B3A1A), size: 19),
+                  ),
+                  const SizedBox(width: 10),
                   Expanded(
                     child: TextField(
                       controller: _searchCtrl,
+                      focusNode: _searchFocus,
+                      cursorColor: const Color(0xFF7B3A1A),
                       onChanged: (val) => setState(() => _searchQuery = val),
                       textAlignVertical: TextAlignVertical.center,
                       style: AppTheme.inter(fontSize: 13),
@@ -334,51 +371,52 @@ class _ModulesListScreenState extends State<ModulesListScreen> {
                       },
                       child: const Padding(
                         padding: EdgeInsets.only(left: 6),
-                        child: Icon(Icons.close_rounded, size: 18, color: Color(0xFFA59284)),
+                        child: Icon(Icons.close_rounded, size: 18, color: Color(0xFF8A6D56)),
                       ),
                     ),
                 ],
               ),
             ),
           ),
-          const SizedBox(width: 12),
+          const SizedBox(width: 10),
 
-          // Lonceng notifikasi
+          // Profil (di kanan paling ujung) -> membuka ProfileScreen
           GestureDetector(
             onTap: () {
-              // TODO: buka halaman notifikasi
+              final open = widget.onOpenProfile;
+              if (open != null) {
+                open(); // pindah tab Profil, footer tetap ada
+              } else {
+                // Cadangan bila layar ini dipakai tanpa MainNavigationScreen
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => const ProfileScreen()),
+                );
+              }
             },
             child: Container(
               width: 46,
               height: 46,
+              alignment: Alignment.center,
               decoration: BoxDecoration(
-                color: surface,
                 shape: BoxShape.circle,
+                color: AppTheme.primary,
+                border: Border.all(color: AppTheme.accentGold, width: 2),
                 boxShadow: _softShadow,
+                image: avatarImage != null
+                    ? DecorationImage(image: avatarImage, fit: BoxFit.cover)
+                    : null,
               ),
-              child: Stack(
-                alignment: Alignment.center,
-                children: [
-                  Icon(
-                    Icons.notifications_none_rounded,
-                    color: isDark ? Colors.white : const Color(0xFF4A2F1D),
-                    size: 24,
-                  ),
-                  Positioned(
-                    top: 11,
-                    right: 12,
-                    child: Container(
-                      width: 10,
-                      height: 10,
-                      decoration: BoxDecoration(
-                        color: const Color(0xFFD9534F),
-                        shape: BoxShape.circle,
-                        border: Border.all(color: surface, width: 1.5),
+              child: avatarImage == null
+                  ? Text(
+                      initial,
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
                       ),
-                    ),
-                  ),
-                ],
-              ),
+                    )
+                  : null,
             ),
           ),
         ],
@@ -439,4 +477,398 @@ class _ModulesListScreenState extends State<ModulesListScreen> {
   Widget _buildModuleCard(BuildContext context, ModuleModel module, bool isDark) {
     return KbModuleCard(module: module, isDark: isDark);
   }
+}
+
+// ══════════════════════════════════════════════════════════════════════════
+//  KARTU MODUL — header coklat tua bermotif kawung + tepi bergelombang emas
+// ══════════════════════════════════════════════════════════════════════════
+
+const Color _kBrown = Color(0xFF3E2418); // coklat tua header
+const Color _kBtnBrown = Color(0xFF7B3A1A); // coklat tombol & progres
+const Color _kBatik = Color(0xFF8A5A3C); // garis motif kawung
+const Color _kGold = Color(0xFFE8C98A); // emas (lencana, garis gelombang, tombol)
+const Color _kGoldDeep = Color(0xFFC9A16E); // emas lebih tua (progres selesai)
+const Color _kGoldLine = Color(0xFFCFA967); // motif kawung di atas tombol emas
+const Color _kCream = Color(0xFFFBF0E0); // krem untuk teks di latar coklat
+const Color _kChipBg = Color(0xFFFBF3E3);
+const Color _kChipBorder = Color(0xFFE3D2B4);
+
+const double _kHeaderHeight = 108;
+const double _kWaveHeight = 18;
+
+class KbModuleCard extends StatelessWidget {
+  final ModuleModel module;
+  final bool isDark;
+
+  const KbModuleCard({super.key, required this.module, required this.isDark});
+
+  @override
+  Widget build(BuildContext context) {
+    final num progress = module.progressPercent;
+    final isDone = progress >= 100;
+    final isWorking = module.id == 3 || (progress > 0 && progress < 100);
+
+    final bodyColor = isDark ? AppTheme.darkSurface : const Color(0xFFFFFDF8);
+    final borderColor = isWorking
+        ? AppTheme.accentGold.withValues(alpha: 0.6)
+        : (isDark ? AppTheme.darkBorder : const Color(0xFFE5D3B8));
+
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 0, 16, 14),
+      child: Container(
+        clipBehavior: Clip.antiAlias,
+        decoration: BoxDecoration(
+          color: bodyColor,
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(color: borderColor, width: isWorking ? 1.5 : 1.0),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.04),
+              blurRadius: 10,
+              offset: const Offset(0, 4),
+            ),
+          ],
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            _buildHeader(context, bodyColor, isDone, isWorking, progress),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(18, 6, 18, 18),
+              child: _buildBody(context, isDone, isWorking, progress),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // ── Header: motif kawung, label modul, lencana, judul, tepi bergelombang ──
+  Widget _buildHeader(BuildContext context, Color bodyColor, bool isDone, bool isWorking, num progress) {
+    return SizedBox(
+      height: _kHeaderHeight,
+      child: Stack(
+        clipBehavior: Clip.none,
+        children: [
+          Positioned.fill(
+            child: Container(
+              color: _kBrown,
+              child: const CustomPaint(
+                painter: _KawungPainter(color: _kBatik, opacity: 0.75),
+              ),
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(18, 14, 18, 0),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text(
+                      'MODUL ${module.orderNo}/${context.read<AppProvider>().modules.length}',
+                      style: AppTheme.satoshi(
+                        fontSize: 11,
+                        fontWeight: FontWeight.bold,
+                        letterSpacing: 1,
+                        color: _kGold,
+                      ),
+                    ),
+                    if (isDone) _badge('Selesai', check: true),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  module.title,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: AppTheme.satoshi(
+                    fontSize: 17,
+                    fontWeight: FontWeight.bold,
+                    color: _kCream,
+                    height: 1.25,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          Positioned(
+            left: 0,
+            right: 0,
+            bottom: -1,
+            height: _kWaveHeight,
+            child: CustomPaint(painter: _WavePainter(fill: bodyColor)),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _badge(String text, {bool check = false}) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
+      decoration: BoxDecoration(
+        color: _kGold,
+        borderRadius: BorderRadius.circular(10),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          if (check) ...[
+            const Icon(Icons.check_rounded, size: 13, color: _kBrown),
+            const SizedBox(width: 3),
+          ],
+          Text(
+            text,
+            style: AppTheme.satoshi(
+              fontSize: 11,
+              fontWeight: FontWeight.bold,
+              color: _kBrown,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ── Badan kartu: deskripsi, progres, tombol aksi, chip nilai ──
+  Widget _buildBody(BuildContext context, bool isDone, bool isWorking, num progress) {
+    final fraction = (progress / 100).clamp(0.0, 1.0).toDouble();
+
+    final theory = isDone
+        ? (module.id == 1 ? 'Nilai Teori: 80%' : 'Nilai Teori: 100%')
+        : (module.quizDone ? 'Nilai Teori: 80%' : 'Nilai Teori: 0%');
+    final practice = isDone
+        ? 'Nilai Praktikum: 100%'
+        : (module.practiceDone ? 'Nilai Praktikum: 70%' : 'Nilai Praktikum: 0%');
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          module.description,
+          style: AppTheme.inter(
+            fontSize: 12,
+            height: 1.45,
+            color: isDark ? Colors.white70 : const Color(0xFF6F5744),
+          ),
+        ),
+        const SizedBox(height: 12),
+
+        // Progres belajar
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Text(
+              'Progres belajar',
+              style: AppTheme.inter(fontSize: 11, color: const Color(0xFF8A6D56)),
+            ),
+            Text(
+              '$progress%',
+              style: AppTheme.inter(
+                fontSize: 11,
+                fontWeight: FontWeight.w600,
+                color: isDark ? _kGold : _kBtnBrown,
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 5),
+        ClipRRect(
+          borderRadius: BorderRadius.circular(3),
+          child: Stack(
+            children: [
+              Container(
+                height: 6,
+                color: isDark ? Colors.white12 : const Color(0xFFF1E4CC),
+              ),
+              FractionallySizedBox(
+                widthFactor: fraction,
+                child: Container(
+                  height: 6,
+                  color: isDone ? _kGoldDeep : _kBtnBrown,
+                ),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 14),
+
+        _buildActionButton(context, isDone, isWorking),
+        const SizedBox(height: 10),
+
+        Row(
+          children: [
+            Expanded(child: _scoreChip(theory)),
+            const SizedBox(width: 8),
+            Expanded(child: _scoreChip(practice)),
+          ],
+        ),
+      ],
+    );
+  }
+
+  // Tombol aksi: emas bermotif (Mulai / Lanjutkan belajar) atau coklat bermotif (Buka kembali materi)
+  Widget _buildActionButton(BuildContext context, bool isDone, bool isWorking) {
+    final label = isDone
+        ? 'Buka Kembali Materi'
+        : (isWorking ? 'Lanjutkan Belajar' : 'Mulai Belajar');
+    final bg = isDone ? _kBtnBrown : _kGold;
+    final fg = isDone ? _kCream : _kBrown;
+
+    return Material(
+      color: bg,
+      borderRadius: BorderRadius.circular(14),
+      clipBehavior: Clip.antiAlias,
+      child: InkWell(
+        onTap: () {
+          Navigator.push(
+            context,
+            MaterialPageRoute(builder: (_) => ModuleDetailScreen(module: module)),
+          );
+        },
+        child: SizedBox(
+          height: 46,
+          width: double.infinity,
+          child: Stack(
+            children: [
+              Positioned.fill(
+                child: CustomPaint(
+                  painter: _KawungPainter(
+                    color: isDone ? _kBatik : _kGoldLine,
+                    opacity: isDone ? 0.5 : 0.6,
+                  ),
+                ),
+              ),
+              Center(
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      label,
+                      style: AppTheme.satoshi(
+                        fontSize: 14,
+                        fontWeight: FontWeight.bold,
+                        color: fg,
+                      ),
+                    ),
+                    if (!isDone) ...[
+                      const SizedBox(width: 8),
+                      Icon(Icons.arrow_forward_rounded, size: 17, color: fg),
+                    ],
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _scoreChip(String text) {
+    return Container(
+      padding: const EdgeInsets.symmetric(vertical: 9, horizontal: 6),
+      decoration: BoxDecoration(
+        color: _kChipBg,
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: _kChipBorder, width: 0.8),
+      ),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Flexible(
+            child: Text(
+              text,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: AppTheme.inter(
+                fontSize: 11,
+                fontWeight: FontWeight.w600,
+                color: const Color(0xFF5C3D1E),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// Motif kawung: empat kelopak lonjong bertemu di satu titik, diulang memenuhi area
+class _KawungPainter extends CustomPainter {
+  final Color color;
+  final double opacity;
+  final double cell;
+
+  const _KawungPainter({required this.color, this.opacity = 1, this.cell = 26});
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    // Potong gambar tepat di batas area supaya motif tidak "tumpah" ke bawah
+    canvas.clipRect(Offset.zero & size);
+
+    final line = Paint()
+      ..color = color.withValues(alpha: opacity)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1;
+    final dot = Paint()..color = color.withValues(alpha: opacity);
+
+    final long = cell / 2;
+    final short = cell * 0.31;
+    final q = cell / 4;
+
+    for (double y = 0; y < size.height; y += cell) {
+      for (double x = 0; x < size.width; x += cell) {
+        final c = Offset(x + cell / 2, y + cell / 2);
+        canvas.drawOval(Rect.fromCenter(center: c.translate(0, -q), width: short, height: long), line);
+        canvas.drawOval(Rect.fromCenter(center: c.translate(0, q), width: short, height: long), line);
+        canvas.drawOval(Rect.fromCenter(center: c.translate(-q, 0), width: long, height: short), line);
+        canvas.drawOval(Rect.fromCenter(center: c.translate(q, 0), width: long, height: short), line);
+        canvas.drawCircle(c, 1.5, dot);
+      }
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant _KawungPainter old) =>
+      old.color != color || old.opacity != opacity || old.cell != cell;
+}
+
+// Tepi bawah header yang bergelombang, berwarna sama dengan badan kartu + garis emas tipis
+class _WavePainter extends CustomPainter {
+  final Color fill;
+
+  const _WavePainter({required this.fill});
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final sx = size.width / 340;
+    final h = size.height;
+
+    final edge = Path()
+      ..moveTo(0, 10)
+      ..cubicTo(40 * sx, 2, 80 * sx, 18, 130 * sx, 10)
+      ..cubicTo(180 * sx, 2, 230 * sx, 18, 280 * sx, 10)
+      ..cubicTo(310 * sx, 5, 330 * sx, 8, 340 * sx, 6);
+
+    final area = Path.from(edge)
+      ..lineTo(size.width, h)
+      ..lineTo(0, h)
+      ..close();
+
+    canvas.drawPath(area, Paint()..color = fill);
+    canvas.drawPath(
+      edge,
+      Paint()
+        ..color = _kGold
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 1.5
+        ..strokeCap = StrokeCap.round,
+    );
+  }
+
+  @override
+  bool shouldRepaint(covariant _WavePainter old) => old.fill != fill;
 }

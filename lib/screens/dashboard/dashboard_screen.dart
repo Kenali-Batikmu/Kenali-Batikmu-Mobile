@@ -671,8 +671,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
                                   shrinkWrap: true,
                                   physics: const NeverScrollableScrollPhysics(),
                                   padding: EdgeInsets.zero,
-                                  itemCount: provider.modules.length > 6
-                                      ? 6
+                                  itemCount: provider.modules.length > 4
+                                      ? 4
                                       : provider.modules.length,
                                   gridDelegate:
                                       const SliverGridDelegateWithFixedCrossAxisCount(
