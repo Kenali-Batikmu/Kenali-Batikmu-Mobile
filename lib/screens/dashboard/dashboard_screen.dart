@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../core/theme/app_theme.dart';
@@ -24,20 +25,39 @@ class DashboardScreen extends StatefulWidget {
 
 class _DashboardScreenState extends State<DashboardScreen> {
   final ScrollController _scrollController = ScrollController();
+  late final PageController _pageController;
+  Timer? _heroTimer;
+  int _currentHeroPage = 0;
 
   // Sama dengan ModulesListScreen supaya header identik
   static const double _topBarHeight = 68;
-  static const double _bgRatio = 1560 / 1170;
+
+  @override
+  void initState() {
+    super.initState();
+    _pageController = PageController();
+    _startHeroTimer();
+  }
+
+  void _startHeroTimer() {
+    _heroTimer?.cancel();
+    _heroTimer = Timer.periodic(const Duration(seconds: 5), (timer) {
+      if (!_pageController.hasClients) return;
+      final nextPage = (_currentHeroPage + 1) % 4;
+      _pageController.animateToPage(
+        nextPage,
+        duration: const Duration(milliseconds: 550),
+        curve: Curves.easeInOut,
+      );
+    });
+  }
 
   @override
   void dispose() {
+    _heroTimer?.cancel();
+    _pageController.dispose();
     _scrollController.dispose();
     super.dispose();
-  }
-  double get _scrollOffset {
-    if (!_scrollController.hasClients) return 0;
-    final o = _scrollController.offset;
-    return o < 0 ? 0 : o;
   }
 
   // ── Modal pencarian ──────────────────────────────────────────────────────
@@ -66,7 +86,254 @@ class _DashboardScreenState extends State<DashboardScreen> {
     );
   }
 
+  // ── Kartu Hero PageView ──────────────────────────────────────────────────
+  Widget _buildHeroCard(BuildContext context, String firstName, bool isDark) {
+    return Container(
+      height: 220,
+      margin: const EdgeInsets.symmetric(horizontal: 16),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(24),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: isDark ? 0.35 : 0.08),
+            blurRadius: 14,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(24),
+        child: Stack(
+          children: [
+            PageView(
+              controller: _pageController,
+              onPageChanged: (index) {
+                setState(() {
+                  _currentHeroPage = index;
+                });
+                _startHeroTimer();
+              },
+              children: [
+                _buildSlide1(firstName),
+                _buildBatikSlide(
+                  title: 'Warisan Dunia',
+                  description:
+                      'Batik Indonesia diakui UNESCO sebagai Warisan Budaya Takbenda sejak 2009.',
+                  tag: 'WARISAN BUDAYA',
+                  icon: Icons.public_rounded,
+                ),
+                _buildBatikSlide(
+                  title: 'Parang',
+                  description:
+                      'Motif tertua yang melambangkan kekuatan dan keteguhan hati.',
+                  tag: 'MOTIF BATIK',
+                  icon: Icons.waves_rounded,
+                ),
+                _buildBatikSlide(
+                  title: 'Kawung',
+                  description:
+                      'Pola lingkaran yang melambangkan kesucian dan keadilan.',
+                  tag: 'MOTIF BATIK',
+                  icon: Icons.grain_rounded,
+                ),
+              ],
+            ),
+            // Indikator titik di bagian bawah tengah
+            Positioned(
+              left: 0,
+              right: 0,
+              bottom: 12,
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: List.generate(4, (index) => _buildDot(index)),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
 
+  Widget _buildDot(int index) {
+    final isActive = _currentHeroPage == index;
+    final isLightSlide = _currentHeroPage == 0;
+
+    final activeColor = isLightSlide
+        ? const Color(0xFFC4882F)
+        : const Color(0xFFE8C98A);
+    final inactiveColor = isLightSlide
+        ? Colors.grey.shade500.withValues(alpha: 0.5)
+        : const Color(0xFFE8C98A).withValues(alpha: 0.35);
+
+    return GestureDetector(
+      onTap: () {
+        _pageController.animateToPage(
+          index,
+          duration: const Duration(milliseconds: 400),
+          curve: Curves.easeInOut,
+        );
+      },
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 260),
+        curve: Curves.easeOutCubic,
+        margin: const EdgeInsets.symmetric(horizontal: 3.5),
+        width: isActive ? 22 : 6,
+        height: 6,
+        decoration: BoxDecoration(
+          color: isActive ? activeColor : inactiveColor,
+          borderRadius: BorderRadius.circular(3),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildSlide1(String firstName) {
+    return Stack(
+      fit: StackFit.expand,
+      children: [
+        Container(color: const Color(0xFFF7EEDD)),
+        Image.asset(
+          'assets/images/module_bg.jpeg',
+          fit: BoxFit.cover,
+          alignment: Alignment.centerRight,
+        ),
+        Positioned.fill(
+          child: Container(
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.centerLeft,
+                end: Alignment.centerRight,
+                colors: [
+                  const Color(0xFFF8EFE0),
+                  const Color(0xFFF8EFE0).withValues(alpha: 0.85),
+                  const Color(0xFFF8EFE0).withValues(alpha: 0.0),
+                ],
+                stops: const [0.0, 0.48, 0.8],
+              ),
+            ),
+          ),
+        ),
+        Padding(
+          padding: const EdgeInsets.fromLTRB(22, 20, 110, 36),
+          child: Align(
+            alignment: Alignment.centerLeft,
+            child: Text(
+              'Selamat Datang,\n$firstName!',
+              style: AppTheme.notoSerif(
+                fontSize: 22,
+                fontWeight: FontWeight.bold,
+                color: const Color(0xFF4A2F1D),
+                height: 1.25,
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildBatikSlide({
+    required String title,
+    required String description,
+    String? tag,
+    IconData? icon,
+  }) {
+    return Stack(
+      fit: StackFit.expand,
+      children: [
+        Container(
+          color: const Color(0xFF2E1911),
+          child: const CustomPaint(
+            painter: _KawungHeroPainter(
+              color: Color(0xFFE8C98A),
+              opacity: 0.18,
+            ),
+          ),
+        ),
+        Positioned.fill(
+          child: Container(
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+                colors: [
+                  Colors.black.withValues(alpha: 0.1),
+                  Colors.black.withValues(alpha: 0.45),
+                  Colors.black.withValues(alpha: 0.88),
+                ],
+                stops: const [0.0, 0.45, 1.0],
+              ),
+            ),
+          ),
+        ),
+        if (icon != null)
+          Positioned(
+            top: 16,
+            right: 20,
+            child: Icon(
+              icon,
+              size: 52,
+              color: const Color(0xFFE8C98A).withValues(alpha: 0.14),
+            ),
+          ),
+        Padding(
+          padding: const EdgeInsets.fromLTRB(22, 20, 22, 34),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisAlignment: MainAxisAlignment.end,
+            children: [
+              if (tag != null) ...[
+                Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 9, vertical: 3.5),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFE8C98A).withValues(alpha: 0.18),
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(
+                      color: const Color(0xFFE8C98A).withValues(alpha: 0.35),
+                      width: 0.8,
+                    ),
+                  ),
+                  child: Text(
+                    tag,
+                    style: AppTheme.plusJakartaSans(
+                      fontSize: 10,
+                      fontWeight: FontWeight.w700,
+                      color: const Color(0xFFE8C98A),
+                      letterSpacing: 0.8,
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 8),
+              ],
+              Text(
+                title,
+                style: AppTheme.notoSerif(
+                  fontSize: 22,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.white,
+                  letterSpacing: 0.2,
+                  height: 1.2,
+                ),
+              ),
+              const SizedBox(height: 6),
+              Text(
+                description,
+                style: AppTheme.plusJakartaSans(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w400,
+                  color: Colors.white.withValues(alpha: 0.92),
+                  height: 1.4,
+                ),
+                maxLines: 3,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -78,15 +345,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
     final bgColor = isDark ? AppTheme.darkBackground : const Color(0xFFFBF3E3);
 
     final headerHeight = safeTop + _topBarHeight;
-    final bgHeight = screenWidth * _bgRatio;
-    // Teks sapaan di sisi kiri, sejajar tokoh kebaya (sama proporsi Modul)
-    final textLeft = screenWidth * 0.09;
-    final textTop = screenWidth * 0.10;
-    final textWidth = screenWidth * 0.46;
-    final textHeight = screenWidth * 0.30;
-    final listStart = screenWidth * 0.58;
 
-    const brown = Color(0xFF4A2F1D);
     final firstName = (user?.name.isNotEmpty ?? false)
         ? user!.name.split(' ').first
         : 'Sekar';
@@ -95,70 +354,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
       backgroundColor: bgColor,
       body: Stack(
         children: [
-          // ── Background ilustrasi (ikut scroll, dimulai tepat di bawah top bar) ──
-          AnimatedBuilder(
-            animation: _scrollController,
-            builder: (context, child) {
-              return Positioned(
-                top: headerHeight - _scrollOffset,
-                left: 0,
-                right: 0,
-                height: bgHeight,
-                child: child!,
-              );
-            },
-            child: Stack(
-              children: [
-                ShaderMask(
-                  blendMode: BlendMode.dstIn,
-                  shaderCallback: (rect) => const LinearGradient(
-                    begin: Alignment.topCenter,
-                    end: Alignment.bottomCenter,
-                    colors: [
-                      Colors.transparent,
-                      Colors.black,
-                      Colors.black,
-                      Colors.transparent,
-                    ],
-                    stops: [0.0, 0.05, 0.9, 1.0],
-                  ).createShader(rect),
-                  child: Image.asset(
-                    'assets/images/module_bg.jpeg',
-                    width: screenWidth,
-                    height: bgHeight,
-                    fit: BoxFit.fill,
-                  ),
-                ),
-                // Teks sapaan di atas ilustrasi
-                Positioned(
-                  left: textLeft,
-                  top: textTop,
-                  width: textWidth,
-                  height: textHeight,
-                  child: FittedBox(
-                    fit: BoxFit.scaleDown,
-                    alignment: Alignment.centerLeft,
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Text(
-                          'Selamat\nDatang, $firstName!',
-                          style: AppTheme.satoshi(
-                            fontSize: 20,
-                            fontWeight: FontWeight.w800,
-                            color: brown,
-                            height: 1.15,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-
           // ── Konten scrollable (di bawah App Bar) ─────────────────────────
           Column(
             children: [
@@ -170,21 +365,23 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      SizedBox(height: listStart),
+                      const SizedBox(height: 12),
+                      _buildHeroCard(context, firstName, isDark),
+                      const SizedBox(height: 22),
 
-                        // ── Header Riwayat Belajar ─────────────────
-                        Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 16),
-                          child: Text(
-                            'Riwayat Belajar',
-                            style: AppTheme.satoshi(
-                              fontSize: 18,
-                              fontWeight: FontWeight.bold,
-                              color: const Color(0xFF4A2F1D),
-                            ),
+                      // ── Header Riwayat Belajar ─────────────────
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 16),
+                        child: Text(
+                          'Riwayat Belajar',
+                          style: AppTheme.satoshi(
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold,
+                            color: const Color(0xFF4A2F1D),
                           ),
                         ),
-                        const SizedBox(height: 14),
+                      ),
+                      const SizedBox(height: 14),
 
                         // ── Carousel KbModuleCard horizontal ───────────
                         Builder(builder: (_) {
@@ -902,3 +1099,55 @@ class _SearchResultTileState extends State<_SearchResultTile> {
     );
   }
 }
+
+/// Motif kawung: empat kelopak lonjong bertemu di satu titik, diulang memenuhi area
+class _KawungHeroPainter extends CustomPainter {
+  final Color color;
+  final double opacity;
+  const _KawungHeroPainter({required this.color, this.opacity = 1});
+
+  static const double cell = 26;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    canvas.clipRect(Offset.zero & size);
+
+    final line = Paint()
+      ..color = color.withValues(alpha: opacity)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1;
+    final dot = Paint()..color = color.withValues(alpha: opacity);
+
+    final long = cell / 2;
+    final short = cell * 0.31;
+    final q = cell / 4;
+
+    for (double y = 0; y < size.height; y += cell) {
+      for (double x = 0; x < size.width; x += cell) {
+        final c = Offset(x + cell / 2, y + cell / 2);
+        canvas.drawOval(
+            Rect.fromCenter(
+                center: c.translate(0, -q), width: short, height: long),
+            line);
+        canvas.drawOval(
+            Rect.fromCenter(
+                center: c.translate(0, q), width: short, height: long),
+            line);
+        canvas.drawOval(
+            Rect.fromCenter(
+                center: c.translate(-q, 0), width: long, height: short),
+            line);
+        canvas.drawOval(
+            Rect.fromCenter(
+                center: c.translate(q, 0), width: long, height: short),
+            line);
+        canvas.drawCircle(c, 1.5, dot);
+      }
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant _KawungHeroPainter old) =>
+      old.color != color || old.opacity != opacity;
+}
+
