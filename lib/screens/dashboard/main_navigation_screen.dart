@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import '../../core/theme/app_theme.dart';
 import '../../widgets/kb_bottom_nav.dart';
 import 'dashboard_screen.dart';
 import '../modules/modules_list_screen.dart';
@@ -17,8 +16,6 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-
     final List<Widget> screens = [
       DashboardScreen(
         onOpenModules: () => setState(() => _currentIndex = 2),
