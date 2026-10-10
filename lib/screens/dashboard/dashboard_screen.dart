@@ -408,23 +408,23 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   // ── Lembar konten naik 28 px menimpa bawah hero ──
                   Transform.translate(
                     offset: const Offset(0, -28),
-                    child: Container(
-                      width: double.infinity,
-                      decoration: BoxDecoration(
-                        color: bgColor,
-                        borderRadius: const BorderRadius.vertical(
-                          top: Radius.circular(22), 
-                        ),
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.black.withValues(
-                                alpha: isDark ? 0.35 : 0.08),
-                            blurRadius: 16,
-                            offset: const Offset(0, -6),
+                    child: Column(
+                      children: [
+                        // Garis emas mengikuti gelombang
+                        CustomPaint(
+                          painter: _WaveTopPainter(
+                            fill: bgColor,
+                            lineColor: const Color(0xFFE8C98A),
                           ),
-                        ],
-                      ),
-                      padding: const EdgeInsets.only(top: 24),
+                          size: const Size(double.infinity, 20),
+                        ),
+                        // Konten di bawah gelombang
+                        ClipPath(
+                          clipper: _WaveTopClipper(),
+                          child: Container(
+                            width: double.infinity,
+                            color: bgColor,
+                            padding: const EdgeInsets.only(top: 8),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
@@ -575,7 +575,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 ],
               ),
             ),
-          ),
+          ],
+        ),
+      ),
+    ),
               // ── Lapisan atas: Sticky App Bar ──
               Positioned(
                 top: 0,
@@ -1213,3 +1216,65 @@ class _KawungHeroPainter extends CustomPainter {
       old.color != color || old.opacity != opacity;
 }
 
+// ── Clipper gelombang atas lembar konten ──────────────────────────────
+class _WaveTopClipper extends CustomClipper<Path> {
+  @override
+  Path getClip(Size size) {
+    const double amp = 16;
+    final w = size.width;
+    final h = size.height;
+
+    final path = Path()
+      ..moveTo(0, amp)
+      ..cubicTo(w * 0.12, 0, w * 0.24, amp * 2, w * 0.5, amp)
+      ..cubicTo(w * 0.76, 0, w * 0.88, amp * 2, w, amp)
+      ..lineTo(w, h)
+      ..lineTo(0, h)
+      ..close();
+    return path;
+  }
+
+  @override
+  bool shouldReclip(covariant _WaveTopClipper oldClipper) => false;
+}
+
+// ── Painter gelombang + garis emas ───────────────────────────────────
+class _WaveTopPainter extends CustomPainter {
+  final Color fill;
+  final Color lineColor;
+
+  const _WaveTopPainter({required this.fill, required this.lineColor});
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    const double amp = 16;
+    final w = size.width;
+    final h = size.height;
+
+    // Path gelombang — 2 lengkung kubik sepanjang lebar
+    final wavePath = Path()
+      ..moveTo(0, amp)
+      ..cubicTo(w * 0.12, 0, w * 0.24, amp * 2, w * 0.5, amp)
+      ..cubicTo(w * 0.76, 0, w * 0.88, amp * 2, w, amp);
+
+    // Area isi di bawah gelombang
+    final fillPath = Path.from(wavePath)
+      ..lineTo(w, h)
+      ..lineTo(0, h)
+      ..close();
+
+    canvas.drawPath(fillPath, Paint()..color = fill);
+    canvas.drawPath(
+      wavePath,
+      Paint()
+        ..color = lineColor
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 1.5
+        ..strokeCap = StrokeCap.round,
+    );
+  }
+
+  @override
+  bool shouldRepaint(covariant _WaveTopPainter old) =>
+      old.fill != fill || old.lineColor != lineColor;
+}
