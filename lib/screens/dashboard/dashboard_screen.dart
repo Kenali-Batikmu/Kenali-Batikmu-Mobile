@@ -89,7 +89,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
   // ── Kartu Hero PageView ──────────────────────────────────────────────────
   Widget _buildHeroCard(BuildContext context, String firstName, bool isDark) {
     return Container(
-      height: 220,
+      height: 230,
       margin: const EdgeInsets.symmetric(horizontal: 16),
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(24),
@@ -188,47 +188,34 @@ class _DashboardScreenState extends State<DashboardScreen> {
   }
 
   Widget _buildSlide1(String firstName) {
-    return Stack(
-      fit: StackFit.expand,
-      children: [
-        Container(color: const Color(0xFFF7EEDD)),
-        Image.asset(
-          'assets/images/module_bg.jpeg',
-          fit: BoxFit.cover,
-          alignment: Alignment.centerRight,
-        ),
-        Positioned.fill(
-          child: Container(
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                begin: Alignment.centerLeft,
-                end: Alignment.centerRight,
-                colors: [
-                  const Color(0xFFF8EFE0),
-                  const Color(0xFFF8EFE0).withValues(alpha: 0.85),
-                  const Color(0xFFF8EFE0).withValues(alpha: 0.0),
-                ],
-                stops: const [0.0, 0.48, 0.8],
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final maxTextWidth = constraints.maxWidth * 0.45;
+        return Stack(
+          fit: StackFit.expand,
+          children: [
+            Image.asset(
+              'assets/images/hero_sekar.png',
+              fit: BoxFit.cover,
+              alignment: Alignment.centerRight,
+            ),
+            Positioned(
+              left: 20,
+              bottom: 36,
+              width: maxTextWidth,
+              child: Text(
+                'Selamat Datang,\n$firstName!',
+                style: AppTheme.notoSerif(
+                  fontSize: 21,
+                  fontWeight: FontWeight.bold,
+                  color: const Color(0xFF4A2F1D),
+                  height: 1.22,
+                ),
               ),
             ),
-          ),
-        ),
-        Padding(
-          padding: const EdgeInsets.fromLTRB(22, 20, 110, 36),
-          child: Align(
-            alignment: Alignment.centerLeft,
-            child: Text(
-              'Selamat Datang,\n$firstName!',
-              style: AppTheme.notoSerif(
-                fontSize: 22,
-                fontWeight: FontWeight.bold,
-                color: const Color(0xFF4A2F1D),
-                height: 1.25,
-              ),
-            ),
-          ),
-        ),
-      ],
+          ],
+        );
+      },
     );
   }
 
