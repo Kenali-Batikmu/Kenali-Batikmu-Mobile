@@ -179,7 +179,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
           Positioned(
             left: 0,
             right: 0,
-            bottom: 40,
+            bottom: 48,
             child: Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: List.generate(_slideCount, (index) => _buildDot(index)),
@@ -367,7 +367,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
     );
   }
 
-  @override
+    @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final provider = context.watch<AppProvider>();
@@ -387,7 +387,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
       backgroundColor: bgColor,
       body: Stack(
         children: [
-          // ── Lapisan bawah: Konten scrollable ──
+          // ── Lapisan bawah: konten scrollable ──
           MediaQuery.removePadding(
             context: context,
             removeTop: true,
@@ -405,207 +405,215 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     heroHeight,
                     screenWidth,
                   ),
-                  // ── Lembar konten naik 28 px menimpa bawah hero ──
+
+                  // ── Lembar konten naik 32 px menimpa bawah hero ──
                   Transform.translate(
-                    offset: const Offset(0, -28),
+                    offset: const Offset(0, -32),
                     child: Column(
                       children: [
-                        // Garis emas mengikuti gelombang
+                        // Gelombang: isian krem + garis emas
                         CustomPaint(
                           painter: _WaveTopPainter(
                             fill: bgColor,
                             lineColor: const Color(0xFFE8C98A),
                           ),
-                          size: const Size(double.infinity, 20),
+                          size: const Size(double.infinity, 32),
                         ),
-                        // Konten di bawah gelombang
-                        ClipPath(
-                          clipper: _WaveTopClipper(),
-                          child: Container(
-                            width: double.infinity,
-                            color: bgColor,
-                            padding: const EdgeInsets.only(top: 8),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          // ── Header Riwayat Belajar ──────────────────
-                          Padding(
-                            padding: const EdgeInsets.symmetric(horizontal: 16),
-                            child: Text(
-                              'Riwayat Belajar',
-                              style: AppTheme.satoshi(
-                                fontSize: 18,
-                                fontWeight: FontWeight.bold,
-                                color: const Color(0xFF4A2F1D),
-                              ),
-                            ),
-                          ),
-                          const SizedBox(height: 14),
 
-                          // ── Carousel KbModuleCard horizontal ───────────
-                          Builder(builder: (_) {
-                            final inProgress = provider.modules
-                                .where((m) =>
-                                    m.progressPercent > 0 &&
-                                    m.progressPercent < 100)
-                                .toList()
-                              ..sort((a, b) => b.progressPercent
-                                  .compareTo(a.progressPercent));
-
-                            final notStarted = provider.modules
-                                .where((m) => m.progressPercent == 0)
-                                .toList()
-                              ..sort((a, b) => a.orderNo.compareTo(b.orderNo));
-
-                            final finished = provider.modules
-                                .where((m) => m.progressPercent == 100)
-                                .toList();
-
-                            final unfinished = [...inProgress, ...notStarted];
-
-                            // Jika semua selesai, tampilkan modul terakhir saja
-                            if (unfinished.isEmpty) {
-                              final lastModule = finished.isNotEmpty
-                                  ? finished.last
-                                  : provider.modules.first;
-                              return KbModuleCard(module: lastModule, isDark: isDark);
-                            }
-
-                            // Jika hanya 1 modul belum selesai, tampilkan penuh
-                            if (unfinished.length == 1) {
-                              return KbModuleCard(module: unfinished.first, isDark: isDark);
-                            }
-
-                            // Carousel horizontal untuk > 1 modul belum selesai
-                            final cardWidth = screenWidth * 0.92;
-                            return SingleChildScrollView(
-                              scrollDirection: Axis.horizontal,
-                              padding: const EdgeInsets.only(left: 16, right: 16),
-                              child: IntrinsicHeight(
-                                child: Row(
-                                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                                  children: [
-                                    for (int i = 0; i < unfinished.length; i++) ...[
-                                      if (i > 0) const SizedBox(width: 12),
-                                      SizedBox(
-                                        width: cardWidth,
-                                        child: KbModuleCard(
-                                          module: unfinished[i],
-                                          isDark: isDark,
-                                        ),
-                                      ),
-                                    ],
-                                  ],
-                                ),
-                              ),
-                            );
-                          }),
-                          const SizedBox(height: 24),
-
-                          // ── Header seksi motif ────────────────────────────
-                          Padding(
-                            padding: const EdgeInsets.symmetric(
-                                horizontal: 16, vertical: 0),
-                            child: Row(
-                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                              children: [
-                                Text(
-                                  'Modul Kenali Batikmu',
+                        // Konten di bawah gelombang (tanpa ClipPath)
+                        Container(
+                          width: double.infinity,
+                          color: bgColor,
+                          padding: const EdgeInsets.only(top: 12),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              // ── Header Riwayat Belajar ──
+                              Padding(
+                                padding:
+                                    const EdgeInsets.symmetric(horizontal: 16),
+                                child: Text(
+                                  'Riwayat Belajar',
                                   style: AppTheme.satoshi(
                                     fontSize: 18,
                                     fontWeight: FontWeight.bold,
                                     color: const Color(0xFF4A2F1D),
                                   ),
                                 ),
-                                GestureDetector(
-                                  onTap: widget.onOpenModules,
-                                  child: Text(
-                                    'Lihat Semua',
-                                    style: AppTheme.inter(
-                                      fontSize: 13,
-                                      fontWeight: FontWeight.w600,
-                                      color: AppTheme.primary,
+                              ),
+                              const SizedBox(height: 14),
+
+                              // ── Carousel KbModuleCard ──
+                              Builder(builder: (_) {
+                                final inProgress = provider.modules
+                                    .where((m) =>
+                                        m.progressPercent > 0 &&
+                                        m.progressPercent < 100)
+                                    .toList()
+                                  ..sort((a, b) => b.progressPercent
+                                      .compareTo(a.progressPercent));
+
+                                final notStarted = provider.modules
+                                    .where((m) => m.progressPercent == 0)
+                                    .toList()
+                                  ..sort(
+                                      (a, b) => a.orderNo.compareTo(b.orderNo));
+
+                                final finished = provider.modules
+                                    .where((m) => m.progressPercent == 100)
+                                    .toList();
+
+                                final unfinished = [...inProgress, ...notStarted];
+
+                                if (unfinished.isEmpty) {
+                                  final lastModule = finished.isNotEmpty
+                                      ? finished.last
+                                      : provider.modules.first;
+                                  return KbModuleCard(
+                                      module: lastModule, isDark: isDark);
+                                }
+
+                                if (unfinished.length == 1) {
+                                  return KbModuleCard(
+                                      module: unfinished.first, isDark: isDark);
+                                }
+
+                                final cardWidth = screenWidth * 0.92;
+                                return SingleChildScrollView(
+                                  scrollDirection: Axis.horizontal,
+                                  padding: const EdgeInsets.only(
+                                      left: 16, right: 16),
+                                  child: IntrinsicHeight(
+                                    child: Row(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.stretch,
+                                      children: [
+                                        for (int i = 0;
+                                            i < unfinished.length;
+                                            i++) ...[
+                                          if (i > 0) const SizedBox(width: 12),
+                                          SizedBox(
+                                            width: cardWidth,
+                                            child: KbModuleCard(
+                                              module: unfinished[i],
+                                              isDark: isDark,
+                                            ),
+                                          ),
+                                        ],
+                                      ],
                                     ),
                                   ),
-                                ),
-                              ],
-                            ),
-                          ),
-                          const SizedBox(height: 14),
+                                );
+                              }),
+                              const SizedBox(height: 24),
 
-                          // ── List horizontal kartu motif kecil ─────────────
-                          SizedBox(
-                            height: 160,
-                            child: ListView.separated(
-                              scrollDirection: Axis.horizontal,
-                              padding: const EdgeInsets.symmetric(horizontal: 16),
-                              itemCount: provider.modules.length,
-                              separatorBuilder: (context, index) =>
-                                  const SizedBox(width: 14),
-                              itemBuilder: (ctx, idx) {
-                                final m = provider.modules[idx];
-                                final icons = [
-                                  Icons.grain,
-                                  Icons.waves,
-                                  Icons.auto_awesome,
-                                  Icons.eco,
-                                  Icons.water_drop,
-                                ];
-                                return _buildMotifCard(
-                                  context: context,
-                                  title: m.title.split('\n').first,
-                                  subtitle: 'Modul ${m.orderNo}',
-                                  icon: icons[idx % icons.length],
-                                  onTap: () {
-                                    Navigator.push(
-                                      context,
-                                      MaterialPageRoute(
-                                          builder: (_) =>
-                                              ModuleDetailScreen(module: m)),
+                              // ── Header Modul Kenali Batikmu ──
+                              Padding(
+                                padding:
+                                    const EdgeInsets.symmetric(horizontal: 16),
+                                child: Row(
+                                  mainAxisAlignment:
+                                      MainAxisAlignment.spaceBetween,
+                                  children: [
+                                    Text(
+                                      'Modul Kenali Batikmu',
+                                      style: AppTheme.satoshi(
+                                        fontSize: 18,
+                                        fontWeight: FontWeight.bold,
+                                        color: const Color(0xFF4A2F1D),
+                                      ),
+                                    ),
+                                    GestureDetector(
+                                      onTap: widget.onOpenModules,
+                                      child: Text(
+                                        'Lihat Semua',
+                                        style: AppTheme.inter(
+                                          fontSize: 13,
+                                          fontWeight: FontWeight.w600,
+                                          color: AppTheme.primary,
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              const SizedBox(height: 14),
+
+                              // ── List horizontal kartu motif kecil ──
+                              SizedBox(
+                                height: 160,
+                                child: ListView.separated(
+                                  scrollDirection: Axis.horizontal,
+                                  padding: const EdgeInsets.symmetric(
+                                      horizontal: 16),
+                                  itemCount: provider.modules.length,
+                                  separatorBuilder: (context, index) =>
+                                      const SizedBox(width: 14),
+                                  itemBuilder: (ctx, idx) {
+                                    final m = provider.modules[idx];
+                                    final icons = [
+                                      Icons.grain,
+                                      Icons.waves,
+                                      Icons.auto_awesome,
+                                      Icons.eco,
+                                      Icons.water_drop,
+                                    ];
+                                    return _buildMotifCard(
+                                      context: context,
+                                      title: m.title.split('\n').first,
+                                      subtitle: 'Modul ${m.orderNo}',
+                                      icon: icons[idx % icons.length],
+                                      onTap: () {
+                                        Navigator.push(
+                                          context,
+                                          MaterialPageRoute(
+                                            builder: (_) =>
+                                                ModuleDetailScreen(module: m),
+                                          ),
+                                        );
+                                      },
                                     );
                                   },
-                                );
-                              },
-                            ),
+                                ),
+                              ),
+                            ],
                           ),
-                        ],
-                      ),
+                        ),
+                      ],
                     ),
                   ),
                 ],
               ),
             ),
-          ],
-        ),
-      ),
-    ),
-              // ── Lapisan atas: Sticky App Bar ──
-              Positioned(
-                top: 0,
-                left: 0,
-                right: 0,
-                child: AnimatedContainer(
-                  duration: const Duration(milliseconds: 250),
-                  curve: Curves.easeInOut,
-                  padding: EdgeInsets.only(top: safeTop + 12, bottom: 12),
-                  decoration: BoxDecoration(
-                    color: _isScrolledPast ? bgColor : Colors.transparent,
-                    boxShadow: _isScrolledPast
-                        ? [
-                            BoxShadow(
-                              color: Colors.black.withValues(alpha: 0.08),
-                              blurRadius: 10,
-                              offset: const Offset(0, 4),
-                            ),
-                          ]
-                        : null,
-                  ),
-                  child: _buildTopBar(context, isDark),
-                ),
-              ),
-            ],
           ),
-        );
+
+          // ── Lapisan atas: sticky app bar ──
+          Positioned(
+            top: 0,
+            left: 0,
+            right: 0,
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 250),
+              curve: Curves.easeInOut,
+              padding: EdgeInsets.only(top: safeTop + 12, bottom: 12),
+              decoration: BoxDecoration(
+                color: _isScrolledPast ? bgColor : Colors.transparent,
+                boxShadow: _isScrolledPast
+                    ? [
+                        BoxShadow(
+                          color: Colors.black.withValues(alpha: 0.08),
+                          blurRadius: 10,
+                          offset: const Offset(0, 4),
+                        ),
+                      ]
+                    : null,
+              ),
+              child: _buildTopBar(context, isDark),
+            ),
+          ),
+        ],
+      ),
+    );
   }
 
   // ── Top bar floating di atas hero slide ──────────────────────────────────
@@ -1216,28 +1224,6 @@ class _KawungHeroPainter extends CustomPainter {
       old.color != color || old.opacity != opacity;
 }
 
-// ── Clipper gelombang atas lembar konten ──────────────────────────────
-class _WaveTopClipper extends CustomClipper<Path> {
-  @override
-  Path getClip(Size size) {
-    const double amp = 16;
-    final w = size.width;
-    final h = size.height;
-
-    final path = Path()
-      ..moveTo(0, amp)
-      ..cubicTo(w * 0.12, 0, w * 0.24, amp * 2, w * 0.5, amp)
-      ..cubicTo(w * 0.76, 0, w * 0.88, amp * 2, w, amp)
-      ..lineTo(w, h)
-      ..lineTo(0, h)
-      ..close();
-    return path;
-  }
-
-  @override
-  bool shouldReclip(covariant _WaveTopClipper oldClipper) => false;
-}
-
 // ── Painter gelombang + garis emas ───────────────────────────────────
 class _WaveTopPainter extends CustomPainter {
   final Color fill;
@@ -1251,7 +1237,7 @@ class _WaveTopPainter extends CustomPainter {
     final w = size.width;
     final h = size.height;
 
-    // Path gelombang — 2 lengkung kubik sepanjang lebar
+    // Path gelombang: 2 lengkung kubik sepanjang lebar
     final wavePath = Path()
       ..moveTo(0, amp)
       ..cubicTo(w * 0.12, 0, w * 0.24, amp * 2, w * 0.5, amp)
