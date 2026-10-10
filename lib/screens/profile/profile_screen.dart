@@ -10,9 +10,15 @@ import '../../providers/app_provider.dart';
 import '../auth/login_screen.dart';
 
 class ProfileScreen extends StatelessWidget {
-  const ProfileScreen({super.key});
+  /// Dipanggil saat tombol kembali diketuk. Diisi oleh MainNavigationScreen
+  /// supaya kembali ke tab sebelumnya (Home / Modul) dan footer tetap tampil.
+  /// Bila null, layar ini dianggap dibuka lewat Navigator.push dan memakai pop.
+  final VoidCallback? onBack;
 
-  static const Color _cardColor = Color(0xFF2B231D);
+  const ProfileScreen({super.key, this.onBack});
+
+  // Warna kartu data profil: sama dengan warna footer (_kBrown di KbBottomNav)
+  static const Color _cardColor = Color(0xFF3E2418);
   static const Color _headerColor = Color(0xFF5A3416);
 
   // ---------------------------------------------------------------------------
@@ -303,6 +309,7 @@ class ProfileScreen extends StatelessWidget {
     final provider = context.watch<AppProvider>();
     final user = provider.currentUser;
     final canPop = Navigator.of(context).canPop();
+    final showBack = onBack != null || canPop;
     final topPad = MediaQuery.of(context).padding.top;
     final avatarImage = _avatarImage(user?.profileImagePath);
 
@@ -312,114 +319,240 @@ class ProfileScreen extends StatelessWidget {
       value: SystemUiOverlayStyle.light, // ikon status bar putih di atas header cokelat
       child: Scaffold(
         backgroundColor: AppTheme.background,
-        body: SingleChildScrollView(
-          child: Column(
-            children: [
-              // --- Header cokelat melengkung + motif kawung (avatar & nama di dalamnya) ---
-              Stack(
+        body: Stack(
+          children: [
+            // --- Background cokelat muda bermotif batik (diam di belakang, tidak ikut scroll) ---
+            Positioned.fill(
+              child: CustomPaint(
+                painter: _BgBatikPainter(color: _headerColor.withValues(alpha: 0.08)),
+              ),
+            ),
+
+            SingleChildScrollView(
+              child: Column(
                 children: [
-                  Positioned.fill(
-                    child: ClipPath(
-                      clipper: _CurvedHeaderClipper(),
-                      child: Container(
-                        color: _headerColor,
-                        child: CustomPaint(
-                          painter: _KawungPainter(),
-                          size: Size.infinite,
-                        ),
-                      ),
-                    ),
-                  ),
-                  Padding(
-                    padding: EdgeInsets.only(top: topPad + 8, bottom: 52),
-                    child: SizedBox(
-                      width: double.infinity,
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          // Baris judul: tombol kembali + "Profil Saya"
-                          SizedBox(
-                            height: 44,
-                            child: Padding(
-                              padding: const EdgeInsets.symmetric(horizontal: 20),
-                              child: Stack(
-                                alignment: Alignment.center,
-                                children: [
-                                  if (canPop)
-                                    Align(
-                                      alignment: Alignment.centerLeft,
-                                      child: GestureDetector(
-                                        onTap: () => Navigator.of(context).pop(),
-                                        child: Container(
-                                          width: 42,
-                                          height: 42,
-                                          decoration: BoxDecoration(
-                                            color: Colors.white.withValues(alpha: 0.18),
-                                            shape: BoxShape.circle,
-                                          ),
-                                          child: const Icon(Icons.chevron_left, color: Colors.white, size: 26),
-                                        ),
-                                      ),
-                                    ),
-                                  Text(
-                                    'Profil Saya',
-                                    style: AppTheme.satoshi(fontSize: 20, fontWeight: FontWeight.bold, color: Colors.white),
-                                  ),
-                                ],
-                              ),
+                  // --- Header cokelat melengkung + motif kawung (avatar & nama di dalamnya) ---
+                  Stack(
+                    children: [
+                      Positioned.fill(
+                        child: ClipPath(
+                          clipper: _CurvedHeaderClipper(),
+                          child: Container(
+                            color: _headerColor,
+                            child: CustomPaint(
+                              painter: _KawungPainter(),
+                              size: Size.infinite,
                             ),
                           ),
-                          const SizedBox(height: 16),
-
-                          // Avatar + tombol edit foto
-                          GestureDetector(
-                            onTap: () => _showPhotoOptions(context, user),
-                            child: Stack(
-                              children: [
-                                Container(
-                                  width: avatarSize,
-                                  height: avatarSize,
-                                  decoration: BoxDecoration(
-                                    color: AppTheme.primary,
-                                    shape: BoxShape.circle,
-                                    border: Border.all(color: AppTheme.accentGold, width: 3),
-                                    image: avatarImage != null ? DecorationImage(image: avatarImage, fit: BoxFit.cover) : null,
-                                  ),
-                                  child: avatarImage == null
-                                      ? Center(
-                                          child: Text(
-                                            (user?.name.isNotEmpty ?? false) ? user!.name[0].toUpperCase() : 'S',
-                                            style: const TextStyle(color: Colors.white, fontSize: 40, fontWeight: FontWeight.bold),
+                        ),
+                      ),
+                      Padding(
+                        padding: EdgeInsets.only(top: topPad + 8, bottom: 52),
+                        child: SizedBox(
+                          width: double.infinity,
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              // Baris judul: tombol kembali + "Profil Saya"
+                              SizedBox(
+                                height: 44,
+                                child: Padding(
+                                  padding: const EdgeInsets.symmetric(horizontal: 20),
+                                  child: Stack(
+                                    alignment: Alignment.center,
+                                    children: [
+                                      if (showBack)
+                                        Align(
+                                          alignment: Alignment.centerLeft,
+                                          child: GestureDetector(
+                                            onTap: () {
+                                              if (onBack != null) {
+                                                onBack!(); // kembali ke tab sebelumnya
+                                              } else {
+                                                Navigator.of(context).pop();
+                                              }
+                                            },
+                                            child: Container(
+                                              width: 42,
+                                              height: 42,
+                                              decoration: BoxDecoration(
+                                                color: Colors.white.withValues(alpha: 0.18),
+                                                shape: BoxShape.circle,
+                                              ),
+                                              child: const Icon(Icons.chevron_left, color: Colors.white, size: 26),
+                                            ),
                                           ),
-                                        )
-                                      : null,
+                                        ),
+                                      Text(
+                                        'Profil Saya',
+                                        style: AppTheme.satoshi(fontSize: 20, fontWeight: FontWeight.bold, color: Colors.white),
+                                      ),
+                                    ],
+                                  ),
                                 ),
-                                Positioned(
-                                  bottom: 2,
-                                  right: 2,
-                                  child: Container(
-                                    padding: const EdgeInsets.all(7),
-                                    decoration: BoxDecoration(
-                                      color: AppTheme.accentGold,
-                                      shape: BoxShape.circle,
-                                      border: Border.all(color: _headerColor, width: 2),
+                              ),
+                              const SizedBox(height: 16),
+
+                              // Avatar + tombol edit foto
+                              GestureDetector(
+                                onTap: () => _showPhotoOptions(context, user),
+                                child: Stack(
+                                  children: [
+                                    Container(
+                                      width: avatarSize,
+                                      height: avatarSize,
+                                      decoration: BoxDecoration(
+                                        color: AppTheme.primary,
+                                        shape: BoxShape.circle,
+                                        border: Border.all(color: AppTheme.accentGold, width: 3),
+                                        image: avatarImage != null ? DecorationImage(image: avatarImage, fit: BoxFit.cover) : null,
+                                      ),
+                                      child: avatarImage == null
+                                          ? Center(
+                                              child: Text(
+                                                (user?.name.isNotEmpty ?? false) ? user!.name[0].toUpperCase() : 'S',
+                                                style: const TextStyle(color: Colors.white, fontSize: 40, fontWeight: FontWeight.bold),
+                                              ),
+                                            )
+                                          : null,
                                     ),
-                                    child: const Icon(Icons.edit, size: 14, color: Colors.white),
+                                    Positioned(
+                                      bottom: 2,
+                                      right: 2,
+                                      child: Container(
+                                        padding: const EdgeInsets.all(7),
+                                        decoration: BoxDecoration(
+                                          color: AppTheme.accentGold,
+                                          shape: BoxShape.circle,
+                                          border: Border.all(color: _headerColor, width: 2),
+                                        ),
+                                        child: const Icon(Icons.edit, size: 14, color: Colors.white),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              const SizedBox(height: 12),
+
+                              Text(
+                                user?.name ?? 'Sekar Ayu Kinanti',
+                                style: AppTheme.satoshi(fontSize: 20, fontWeight: FontWeight.bold, color: Colors.white),
+                              ),
+                              const SizedBox(height: 2),
+                              Text(
+                                'Akun Kenali Batikmu',
+                                style: AppTheme.inter(fontSize: 12, color: AppTheme.accentGold),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+
+                  // ------------------------------ Konten ------------------------------
+                  Padding(
+                    // bawah 110: supaya tombol Keluar tidak tertutup footer
+                    padding: const EdgeInsets.fromLTRB(20, 32, 20, 110),
+                    child: SafeArea(
+                      top: false,
+                      child: Column(
+                        children: [
+                          // ------------------------ Kartu data profil -------------------------
+                          Container(
+                            width: double.infinity,
+                            padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 6),
+                            decoration: BoxDecoration(
+                              color: _cardColor,
+                              borderRadius: BorderRadius.circular(24),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: Colors.black.withValues(alpha: 0.15),
+                                  blurRadius: 14,
+                                  offset: const Offset(0, 6),
+                                ),
+                              ],
+                            ),
+                            child: Column(
+                              children: [
+                                _buildInfoRow(
+                                  icon: Icons.person_outline,
+                                  label: 'Nama',
+                                  value: user?.name ?? '-',
+                                  onEdit: () => _showEditFieldModal(
+                                    context,
+                                    title: 'Ubah Nama',
+                                    label: 'Nama Lengkap',
+                                    initialValue: user?.name ?? '',
+                                    keyboardType: TextInputType.name,
+                                    validator: (v) => v.isEmpty ? 'Nama tidak boleh kosong' : null,
+                                    onSave: (v) => _saveProfile(context, user, name: v),
+                                  ),
+                                ),
+                                _buildDivider(),
+                                _buildInfoRow(
+                                  icon: Icons.lock_outline,
+                                  label: 'Kata Sandi',
+                                  value: '••••••••••',
+                                  onEdit: () => _showEditFieldModal(
+                                    context,
+                                    title: 'Ubah Kata Sandi',
+                                    label: 'Kata Sandi Baru',
+                                    initialValue: '',
+                                    keyboardType: TextInputType.visiblePassword,
+                                    obscure: true,
+                                    validator: (v) => v.isEmpty ? 'Kata sandi baru tidak boleh kosong' : null,
+                                    onSave: (v) => _saveProfile(context, user, password: v),
+                                  ),
+                                ),
+                                _buildDivider(),
+                                _buildInfoRow(
+                                  icon: Icons.phone_outlined,
+                                  label: 'Nomor Telepon',
+                                  value: (user?.phone != null && user!.phone!.isNotEmpty) ? user.phone! : 'Belum diisi',
+                                  onEdit: () => _showEditFieldModal(
+                                    context,
+                                    title: 'Ubah Nomor Telepon',
+                                    label: 'Nomor HP',
+                                    initialValue: user?.phone ?? '',
+                                    keyboardType: TextInputType.phone,
+                                    onSave: (v) => _saveProfile(context, user, phone: v),
+                                  ),
+                                ),
+                                _buildDivider(),
+                                _buildInfoRow(
+                                  icon: Icons.mail_outline,
+                                  label: 'Alamat Email',
+                                  value: user?.email ?? '-',
+                                  onEdit: () => _showEditFieldModal(
+                                    context,
+                                    title: 'Ubah Alamat Email',
+                                    label: 'Email',
+                                    initialValue: user?.email ?? '',
+                                    keyboardType: TextInputType.emailAddress,
+                                    validator: (v) => (v.isEmpty || !v.contains('@')) ? 'Masukkan email yang valid' : null,
+                                    onSave: (v) => _saveProfile(context, user, email: v),
                                   ),
                                 ),
                               ],
                             ),
                           ),
-                          const SizedBox(height: 12),
+                          const SizedBox(height: 18),
 
-                          Text(
-                            user?.name ?? 'Sekar Ayu Kinanti',
-                            style: AppTheme.satoshi(fontSize: 20, fontWeight: FontWeight.bold, color: Colors.white),
-                          ),
-                          const SizedBox(height: 2),
-                          Text(
-                            'Akun Kenali Batikmu',
-                            style: AppTheme.inter(fontSize: 12, color: AppTheme.accentGold),
+                          // ---------------------------- Keluar dari akun ----------------------
+                          OutlinedButton.icon(
+                            onPressed: () => _showLogoutDialog(context),
+                            icon: const Icon(Icons.logout, size: 16, color: Color(0xFF7A4B29)),
+                            label: const Text(
+                              'Keluar dari Akun',
+                              style: TextStyle(color: Color(0xFF7A4B29), fontWeight: FontWeight.bold),
+                            ),
+                            style: OutlinedButton.styleFrom(
+                              minimumSize: const Size.fromHeight(50),
+                              side: const BorderSide(color: Color(0xFFD4A373)),
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                              backgroundColor: Colors.white,
+                            ),
                           ),
                         ],
                       ),
@@ -427,116 +560,8 @@ class ProfileScreen extends StatelessWidget {
                   ),
                 ],
               ),
-
-              // ------------------------------ Konten ------------------------------
-              Padding(
-                padding: const EdgeInsets.fromLTRB(20, 32, 20, 28),
-                child: SafeArea(
-                  top: false,
-                  child: Column(
-                    children: [
-                      // ------------------------ Kartu data profil -------------------------
-                      Container(
-                        width: double.infinity,
-                        padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 6),
-                        decoration: BoxDecoration(
-                          color: _cardColor,
-                          borderRadius: BorderRadius.circular(24),
-                          boxShadow: [
-                            BoxShadow(
-                              color: Colors.black.withValues(alpha: 0.15),
-                              blurRadius: 14,
-                              offset: const Offset(0, 6),
-                            ),
-                          ],
-                        ),
-                        child: Column(
-                          children: [
-                            _buildInfoRow(
-                              icon: Icons.person_outline,
-                              label: 'Nama',
-                              value: user?.name ?? '-',
-                              onEdit: () => _showEditFieldModal(
-                                context,
-                                title: 'Ubah Nama',
-                                label: 'Nama Lengkap',
-                                initialValue: user?.name ?? '',
-                                keyboardType: TextInputType.name,
-                                validator: (v) => v.isEmpty ? 'Nama tidak boleh kosong' : null,
-                                onSave: (v) => _saveProfile(context, user, name: v),
-                              ),
-                            ),
-                            _buildDivider(),
-                            _buildInfoRow(
-                              icon: Icons.lock_outline,
-                              label: 'Kata Sandi',
-                              value: '••••••••••',
-                              onEdit: () => _showEditFieldModal(
-                                context,
-                                title: 'Ubah Kata Sandi',
-                                label: 'Kata Sandi Baru',
-                                initialValue: '',
-                                keyboardType: TextInputType.visiblePassword,
-                                obscure: true,
-                                validator: (v) => v.isEmpty ? 'Kata sandi baru tidak boleh kosong' : null,
-                                onSave: (v) => _saveProfile(context, user, password: v),
-                              ),
-                            ),
-                            _buildDivider(),
-                            _buildInfoRow(
-                              icon: Icons.phone_outlined,
-                              label: 'Nomor Telepon',
-                              value: (user?.phone != null && user!.phone!.isNotEmpty) ? user.phone! : 'Belum diisi',
-                              onEdit: () => _showEditFieldModal(
-                                context,
-                                title: 'Ubah Nomor Telepon',
-                                label: 'Nomor HP',
-                                initialValue: user?.phone ?? '',
-                                keyboardType: TextInputType.phone,
-                                onSave: (v) => _saveProfile(context, user, phone: v),
-                              ),
-                            ),
-                            _buildDivider(),
-                            _buildInfoRow(
-                              icon: Icons.mail_outline,
-                              label: 'Alamat Email',
-                              value: user?.email ?? '-',
-                              onEdit: () => _showEditFieldModal(
-                                context,
-                                title: 'Ubah Alamat Email',
-                                label: 'Email',
-                                initialValue: user?.email ?? '',
-                                keyboardType: TextInputType.emailAddress,
-                                validator: (v) => (v.isEmpty || !v.contains('@')) ? 'Masukkan email yang valid' : null,
-                                onSave: (v) => _saveProfile(context, user, email: v),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                      const SizedBox(height: 18),
-
-                      // ---------------------------- Keluar dari akun ----------------------
-                      OutlinedButton.icon(
-                        onPressed: () => _showLogoutDialog(context),
-                        icon: const Icon(Icons.logout, size: 16, color: Color(0xFF7A4B29)),
-                        label: const Text(
-                          'Keluar dari Akun',
-                          style: TextStyle(color: Color(0xFF7A4B29), fontWeight: FontWeight.bold),
-                        ),
-                        style: OutlinedButton.styleFrom(
-                          minimumSize: const Size.fromHeight(50),
-                          side: const BorderSide(color: Color(0xFFD4A373)),
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-                          backgroundColor: Colors.white,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            ],
-          ),
+            ),
+          ],
         ),
       ),
     );
@@ -630,4 +655,42 @@ class _KawungPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
+}
+
+// -----------------------------------------------------------------------------
+// Motif kawung tipis untuk background cokelat muda di belakang konten
+// -----------------------------------------------------------------------------
+class _BgBatikPainter extends CustomPainter {
+  final Color color;
+  final double cell;
+
+  const _BgBatikPainter({required this.color, this.cell = 52});
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final line = Paint()
+      ..color = color
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1;
+    final dot = Paint()..color = color;
+
+    final long = cell / 2;
+    final short = cell * 0.31;
+    final q = cell / 4;
+
+    for (double y = 0; y < size.height; y += cell) {
+      for (double x = 0; x < size.width; x += cell) {
+        final c = Offset(x + cell / 2, y + cell / 2);
+        canvas.drawOval(Rect.fromCenter(center: c.translate(0, -q), width: short, height: long), line);
+        canvas.drawOval(Rect.fromCenter(center: c.translate(0, q), width: short, height: long), line);
+        canvas.drawOval(Rect.fromCenter(center: c.translate(-q, 0), width: long, height: short), line);
+        canvas.drawOval(Rect.fromCenter(center: c.translate(q, 0), width: long, height: short), line);
+        canvas.drawCircle(c, 1.6, dot);
+      }
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant _BgBatikPainter old) =>
+      old.color != color || old.cell != cell;
 }

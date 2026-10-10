@@ -13,19 +13,46 @@ class MainNavigationScreen extends StatefulWidget {
 }
 
 class _MainNavigationScreenState extends State<MainNavigationScreen> {
-  int _currentIndex = 0;
+  static const int _homeIndex = 0;
+  static const int _scanIndex = 1;
+  static const int _modulesIndex = 2;
+  static const int _profileIndex = 3;
+
+  int _currentIndex = _homeIndex;
+
+  // Tab asal sebelum masuk Profil (Home atau Modul). Default: Home.
+  int _previousIndex = _homeIndex;
+
+  void _goToTab(int index) {
+    setState(() {
+      // Simpan asal hanya saat berpindah KE Profil dari tab lain.
+      // Hanya Home dan Modul yang dijadikan tujuan kembali.
+      if (index == _profileIndex && _currentIndex != _profileIndex) {
+        if (_currentIndex == _homeIndex || _currentIndex == _modulesIndex) {
+          _previousIndex = _currentIndex;
+        }
+      }
+      _currentIndex = index;
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
     final List<Widget> screens = [
       DashboardScreen(
-        onOpenModules: () => setState(() => _currentIndex = 2),
-        onOpenScan: () => setState(() => _currentIndex = 1),
-        onOpenProfile: () => setState(() => _currentIndex = 3),
+        onOpenModules: () => _goToTab(_modulesIndex),
+        onOpenScan: () => _goToTab(_scanIndex),
+        onOpenProfile: () => _goToTab(_profileIndex),
       ),
       const UniversalScanScreen(),
-      const ModulesListScreen(),
-      const ProfileScreen(),
+      // Avatar di top bar halaman modul pindah ke tab Profil (footer tetap tampil)
+      ModulesListScreen(
+        onOpenProfile: () => _goToTab(_profileIndex),
+      ),
+      ProfileScreen(
+        // Kembali ke Home atau Modul, sesuai tab asal
+        onBack: () => setState(() => _currentIndex = _previousIndex),
+      ),
     ];
 
     return Scaffold(
@@ -36,9 +63,8 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
       ),
       bottomNavigationBar: KbBottomNav(
         currentIndex: _currentIndex,
-        onTap: (index) => setState(() => _currentIndex = index),
+        onTap: _goToTab,
       ),
     );
   }
 }
-

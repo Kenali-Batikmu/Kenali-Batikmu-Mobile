@@ -230,7 +230,7 @@ class _PracticeQuizScreenState extends State<PracticeQuizScreen>
       return Stack(
         fit: StackFit.expand,
         children: [
-          Image.file(_photo!, fit: BoxFit.cover),
+          kIsWeb ? Image.network(_photo!.path, fit: BoxFit.cover) : Image.file(_photo!, fit: BoxFit.cover),
           Positioned(
             top: 12,
             right: 12,
@@ -673,7 +673,7 @@ class _PracticeQuizScreenState extends State<PracticeQuizScreen>
                     child: _photo != null
                         ? ClipRRect(
                             borderRadius: BorderRadius.circular(15),
-                            child: Image.file(_photo!, fit: BoxFit.cover),
+                            child: kIsWeb ? Image.network(_photo!.path, fit: BoxFit.cover) : Image.file(_photo!, fit: BoxFit.cover),
                           )
                         : const Center(
                             child: Column(
