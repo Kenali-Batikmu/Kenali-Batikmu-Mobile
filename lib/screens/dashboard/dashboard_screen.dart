@@ -94,87 +94,84 @@ class _DashboardScreenState extends State<DashboardScreen> {
     return SizedBox(
       height: heroHeight,
       width: double.infinity,
-      child: ClipRRect(
-        borderRadius: const BorderRadius.vertical(bottom: Radius.circular(28)),
-        child: Stack(
-          children: [
-            // ── Lapisan bawah: PageView ──
-            PageView(
-              controller: _pageController,
-              onPageChanged: (index) {
-                setState(() {
-                  _currentHeroPage = index;
-                });
-                _startHeroTimer();
-              },
-              children: [
-                _buildSlide1(firstName),
-                _buildBatikSlide(
-                  title: 'Warisan Dunia',
-                  description:
-                      'Batik Indonesia diakui UNESCO sebagai Warisan Budaya Takbenda sejak 2009.',
-                  tag: 'WARISAN BUDAYA',
-                  icon: Icons.public_rounded,
-                ),
-                _buildBatikSlide(
-                  title: 'Parang',
-                  description:
-                      'Motif tertua yang melambangkan kekuatan dan keteguhan hati.',
-                  tag: 'MOTIF BATIK',
-                  icon: Icons.waves_rounded,
-                ),
-                _buildBatikSlide(
-                  title: 'Kawung',
-                  description:
-                      'Pola lingkaran yang melambangkan kesucian dan keadilan.',
-                  tag: 'MOTIF BATIK',
-                  icon: Icons.grain_rounded,
-                ),
-              ],
-            ),
+      child: Stack(
+        children: [
+          // ── Lapisan bawah: PageView ──
+          PageView(
+            controller: _pageController,
+            onPageChanged: (index) {
+              setState(() {
+                _currentHeroPage = index;
+              });
+              _startHeroTimer();
+            },
+            children: [
+              _buildSlide1(firstName),
+              _buildBatikSlide(
+                title: 'Warisan Dunia',
+                description:
+                    'Batik Indonesia diakui UNESCO sebagai Warisan Budaya Takbenda sejak 2009.',
+                tag: 'WARISAN BUDAYA',
+                icon: Icons.public_rounded,
+              ),
+              _buildBatikSlide(
+                title: 'Parang',
+                description:
+                    'Motif tertua yang melambangkan kekuatan dan keteguhan hati.',
+                tag: 'MOTIF BATIK',
+                icon: Icons.waves_rounded,
+              ),
+              _buildBatikSlide(
+                title: 'Kawung',
+                description:
+                    'Pola lingkaran yang melambangkan kesucian dan keadilan.',
+                tag: 'MOTIF BATIK',
+                icon: Icons.grain_rounded,
+              ),
+            ],
+          ),
 
-            // ── Lapisan atas: Gradasi gelap tipis (agar status bar/ikon terbaca) ──
-            Positioned(
-              top: 0,
-              left: 0,
-              right: 0,
-              height: safeTop + 76,
-              child: IgnorePointer(
-                child: Container(
-                  decoration: BoxDecoration(
-                    gradient: LinearGradient(
-                      begin: Alignment.topCenter,
-                      end: Alignment.bottomCenter,
-                      colors: [
-                        Colors.black.withValues(alpha: 0.25),
-                        Colors.transparent,
-                      ],
-                    ),
+          // ── Lapisan atas: Gradasi gelap tipis (agar status bar/ikon terbaca) ──
+          Positioned(
+            top: 0,
+            left: 0,
+            right: 0,
+            height: safeTop + 76,
+            child: IgnorePointer(
+              child: Container(
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.topCenter,
+                    end: Alignment.bottomCenter,
+                    colors: [
+                      Colors.black.withValues(alpha: 0.25),
+                      Colors.transparent,
+                    ],
                   ),
                 ),
               ),
             ),
+          ),
 
-            // ── Lapisan atas: App Bar (logo KB, search, profil) ──
-            Positioned(
-              top: safeTop + 12,
-              left: 0,
-              right: 0,
-              child: _buildTopBar(context, isDark),
-            ),
+          // ── Lapisan atas: App Bar (logo KB, search, profil) ──
+          Positioned(
+            top: safeTop + 12,
+            left: 0,
+            right: 0,
+            child: _buildTopBar(context, isDark),
+          ),
 
-            // ── Indikator titik di dasar hero ──
-            Positioned(
-              left: 0,
-              right: 0,
-              bottom: 16,
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: List.generate(4, (index) => _buildDot(index)),
-              ),
+          // ── Indikator titik di dasar hero ──
+          Positioned(
+            left: 0,
+            right: 0,
+            bottom: 16,
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: List.generate(4, (index) => _buildDot(index)),
             ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }
@@ -226,7 +223,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
             ),
             Positioned(
               left: 24,
-              bottom: 40,
+              bottom: 48,
               width: maxTextWidth,
               child: Text(
                 'Selamat Datang,\n$firstName!',
@@ -290,7 +287,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
             ),
           ),
         Padding(
-          padding: const EdgeInsets.fromLTRB(24, 0, 24, 40),
+          padding: const EdgeInsets.fromLTRB(24, 0, 24, 48),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             mainAxisAlignment: MainAxisAlignment.end,
@@ -340,7 +337,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   height: 1.4,
                 ),
                 softWrap: true,
-                maxLines: 4,
+                maxLines: 2,
                 overflow: TextOverflow.ellipsis,
               ),
             ],
