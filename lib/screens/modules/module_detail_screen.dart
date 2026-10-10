@@ -1,7 +1,9 @@
-import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+import 'package:youtube_player_iframe/youtube_player_iframe.dart';
 import '../../core/theme/app_theme.dart';
 import '../../models/app_models.dart';
+import '../../providers/app_provider.dart';
 import 'theory_quiz_screen.dart';
 import 'practice_quiz_screen.dart';
 
@@ -15,48 +17,57 @@ class ModuleDetailScreen extends StatefulWidget {
 }
 
 class _ModuleDetailScreenState extends State<ModuleDetailScreen> {
-  int _activeStep = 0; // 0: Teori & Filosofi, 1: Karakteristik, 2: Galeri, 3: Kuis Modul
+  late int _activeStep; 
+  late PageController _pageController;
+  YoutubePlayerController? _youtubeController;
 
-  // Audio Player State Simulation
-  bool _isPlayingAudio = false;
-  int _audioCurrentSeconds = 42; // Mulai di 00:42 dari 03:45
-  final int _audioTotalSeconds = 225; // 3 menit 45 detik
-  Timer? _audioTimer;
+  @override
+  void initState() {
+    super.initState();
+    
+    // Tentukan halaman awal (Lanjutkan Belajar) berdasarkan komponen yang belum diselesaikan
+    if (!widget.module.historyDone) {
+      _activeStep = 0;
+    } else if (!widget.module.characterDone) {
+      _activeStep = 1;
+    } else if (!widget.module.galleryDone) {
+      _activeStep = 2;
+    } else {
+      _activeStep = 3; // Kuis
+    }
+    
+    _pageController = PageController(initialPage: _activeStep);
+    _initYoutubePlayer();
+  }
+
+  void _initYoutubePlayer() {
+    final youtubeUrl = widget.module.content?.sejarahDanFilosofi.youtubeUrl;
+    // Menggunakan video Dokumenter Batik Indonesia (UNESCO) yang diizinkan untuk di-embed
+    String videoId = 'd5X1d-rX2D8'; 
+
+    if (youtubeUrl != null && youtubeUrl.isNotEmpty) {
+      final parsedId = YoutubePlayerController.convertUrlToId(youtubeUrl);
+      if (parsedId != null && parsedId.isNotEmpty) {
+        videoId = parsedId;
+      }
+    }
+
+    _youtubeController = YoutubePlayerController.fromVideoId(
+      videoId: videoId,
+      params: const YoutubePlayerParams(
+        showControls: true,
+        showFullscreenButton: true,
+        mute: false,
+        loop: false,
+      ),
+    );
+  }
 
   @override
   void dispose() {
-    _audioTimer?.cancel();
+    _pageController.dispose();
+    _youtubeController?.close();
     super.dispose();
-  }
-
-  void _toggleAudio() {
-    setState(() {
-      _isPlayingAudio = !_isPlayingAudio;
-    });
-
-    if (_isPlayingAudio) {
-      _audioTimer?.cancel();
-      _audioTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
-        if (!mounted) return;
-        setState(() {
-          if (_audioCurrentSeconds < _audioTotalSeconds) {
-            _audioCurrentSeconds++;
-          } else {
-            _audioCurrentSeconds = 0;
-            _isPlayingAudio = false;
-            timer.cancel();
-          }
-        });
-      });
-    } else {
-      _audioTimer?.cancel();
-    }
-  }
-
-  String _formatAudioTime(int seconds) {
-    final m = seconds ~/ 60;
-    final s = seconds % 60;
-    return '${m.toString().padLeft(1, '0')}:${s.toString().padLeft(2, '0')}';
   }
 
   void _showZoomImageDialog(BuildContext context, bool isDark) {
@@ -66,72 +77,48 @@ class _ModuleDetailScreenState extends State<ModuleDetailScreen> {
         return Dialog(
           backgroundColor: isDark ? AppTheme.darkSurface : const Color(0xFF221A14),
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
-          child: Padding(
-            padding: const EdgeInsets.all(20),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Text(
-                      'Detail Pakem Motif Parang Kusumo',
-                      style: AppTheme.satoshi(fontSize: 14, fontWeight: FontWeight.bold, color: Colors.white),
-                    ),
-                    IconButton(
-                      icon: const Icon(Icons.close, color: Colors.white70, size: 20),
-                      onPressed: () => Navigator.pop(ctx),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 12),
-                Container(
-                  height: 280,
-                  width: double.infinity,
-                  decoration: BoxDecoration(
-                    color: const Color(0xFF382516),
-                    borderRadius: BorderRadius.circular(18),
-                    border: Border.all(color: AppTheme.accentGold.withValues(alpha: 0.6)),
-                  ),
-                  child: Stack(
-                    alignment: Alignment.center,
+          child: SingleChildScrollView(
+            child: Padding(
+              padding: const EdgeInsets.all(20),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      Icon(Icons.waves, size: 160, color: Colors.white.withValues(alpha: 0.2)),
-                      Positioned(
-                        bottom: 12,
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
-                          decoration: BoxDecoration(
-                            color: Colors.black.withValues(alpha: 0.6),
-                            borderRadius: BorderRadius.circular(20),
-                          ),
-                          child: Text(
-                            'Kemiringan 45° • Ornamen Mlinjon & Lidah Api',
-                            style: AppTheme.satoshi(color: AppTheme.accentGold, fontSize: 11, fontWeight: FontWeight.bold),
-                          ),
+                      Expanded(
+                        child: Text(
+                          'Detail Motif Batik',
+                          style: AppTheme.satoshi(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.white),
                         ),
+                      ),
+                      IconButton(
+                        icon: const Icon(Icons.close, color: Colors.white, size: 24),
+                        onPressed: () => Navigator.pop(ctx),
+                        padding: EdgeInsets.zero,
+                        constraints: const BoxConstraints(),
                       ),
                     ],
                   ),
-                ),
-                const SizedBox(height: 16),
-                Text(
-                  'Tampak resolusi tinggi canting mori primissima keraton dengan pewarnaan alami kayu soga jambal murni.',
-                  textAlign: TextAlign.center,
-                  style: AppTheme.inter(fontSize: 12, color: Colors.white70, height: 1.4),
-                ),
-                const SizedBox(height: 14),
-                ElevatedButton(
-                  onPressed: () => Navigator.pop(ctx),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: AppTheme.accentGold,
-                    foregroundColor: const Color(0xFF261A12),
-                    minimumSize: const Size.fromHeight(42),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  const SizedBox(height: 16),
+                  Container(
+                    height: 320,
+                    width: double.infinity,
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF382516),
+                      borderRadius: BorderRadius.circular(18),
+                      border: Border.all(color: AppTheme.accentGold.withValues(alpha: 0.6)),
+                    ),
+                    child: Stack(
+                      alignment: Alignment.center,
+                      children: [
+                        Icon(Icons.waves, size: 160, color: Colors.white.withValues(alpha: 0.2)),
+                        // Gambar aktual bisa ditaruh di sini nantinya dengan Image.asset(...)
+                      ],
+                    ),
                   ),
-                  child: Text('Tutup Tampilan', style: AppTheme.satoshi(fontWeight: FontWeight.bold)),
-                ),
-              ],
+                ],
+              ),
             ),
           ),
         );
@@ -167,98 +154,121 @@ class _ModuleDetailScreenState extends State<ModuleDetailScreen> {
         ),
         centerTitle: true,
       ),
-      body: SingleChildScrollView(
-        child: Column(
-          children: [
-            if (_activeStep == 0) _buildPage4TeoriFilosofi(context, isDark),
-            if (_activeStep == 1) _buildPage5Karakteristik(context, isDark),
-            if (_activeStep == 2) _buildPage6Galeri(context, isDark),
-            if (_activeStep == 3) _buildPage7KuisModul(context, isDark),
-
-            // Bottom Navigation Stepper Sesuai PDF (Tombol Panah Kiri, Dots Indikator, Tombol Panah Kanan)
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  // Tombol Kiri
-                  Container(
-                    width: 50,
-                    height: 50,
-                    decoration: BoxDecoration(
-                      color: isDark ? AppTheme.darkSurface : Colors.white,
-                      shape: BoxShape.circle,
-                      border: Border.all(color: isDark ? AppTheme.darkBorder : AppTheme.border),
-                    ),
-                    child: IconButton(
-                      icon: const Icon(Icons.arrow_back),
-                      color: isDark ? Colors.white : AppTheme.textPrimary,
-                      onPressed: () {
-                        if (_activeStep > 0) {
-                          setState(() => _activeStep--);
-                        } else {
-                          Navigator.pop(context);
-                        }
-                      },
-                    ),
-                  ),
-
-                  // Dots Indikator 4 Halaman (Teori, Karakteristik, Galeri, Kuis) Sesuai PDF
-                  Row(
-                    children: List.generate(4, (index) {
-                      final isActive = index == _activeStep;
-                      return GestureDetector(
-                        onTap: () => setState(() => _activeStep = index),
-                        child: AnimatedContainer(
-                          duration: const Duration(milliseconds: 250),
-                          margin: const EdgeInsets.symmetric(horizontal: 4),
-                          width: isActive ? 24 : 8,
-                          height: 8,
-                          decoration: BoxDecoration(
-                            color: isActive ? AppTheme.accentGold : (isDark ? AppTheme.darkBorder : AppTheme.border),
-                            borderRadius: BorderRadius.circular(4),
-                          ),
-                        ),
-                      );
-                    }),
-                  ),
-
-                  // Tombol Kanan (Cokelat Tua)
-                  Container(
-                    width: 50,
-                    height: 50,
-                    decoration: const BoxDecoration(
-                      color: Color(0xFF5A3416),
-                      shape: BoxShape.circle,
-                    ),
-                    child: IconButton(
-                      icon: const Icon(Icons.arrow_forward, color: Colors.white),
-                      onPressed: () {
-                        if (_activeStep < 3) {
-                          setState(() => _activeStep++);
-                        } else {
-                          // Jika sudah di step terakhir, buka kuis teori
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (_) => TheoryQuizScreen(module: widget.module),
-                            ),
-                          );
-                        }
-                      },
-                    ),
-                  ),
-                ],
-              ),
+      body: Column(
+        children: [
+          Expanded(
+            child: PageView(
+              controller: _pageController,
+              onPageChanged: (index) {
+                final provider = context.read<AppProvider>();
+                if (_activeStep == 0 && index > 0) provider.updatePillarProgress(widget.module.id, 'history');
+                if (_activeStep == 1 && index > 1) provider.updatePillarProgress(widget.module.id, 'character');
+                if (_activeStep == 2 && index > 2) provider.updatePillarProgress(widget.module.id, 'gallery');
+                
+                setState(() => _activeStep = index);
+              },
+              children: [
+                SingleChildScrollView(child: _buildPage4TeoriFilosofi(context, isDark)),
+                SingleChildScrollView(child: _buildPage5Karakteristik(context, isDark)),
+                SingleChildScrollView(child: _buildPage6Galeri(context, isDark)),
+                SingleChildScrollView(child: _buildPage7KuisModul(context, isDark)),
+              ],
             ),
-          ],
-        ),
+          ),
+          // Bottom Navigation Stepper Sesuai PDF (Tombol Panah Kiri, Dots Indikator, Tombol Panah Kanan)
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                // Tombol Kiri
+                Container(
+                  width: 50,
+                  height: 50,
+                  decoration: BoxDecoration(
+                    color: isDark ? AppTheme.darkSurface : Colors.white,
+                    shape: BoxShape.circle,
+                    border: Border.all(color: isDark ? AppTheme.darkBorder : AppTheme.border),
+                  ),
+                  child: IconButton(
+                    icon: const Icon(Icons.arrow_back),
+                    color: isDark ? Colors.white : AppTheme.textPrimary,
+                    onPressed: () {
+                      if (_activeStep > 0) {
+                        _pageController.previousPage(duration: const Duration(milliseconds: 300), curve: Curves.easeInOut);
+                      } else {
+                        Navigator.pop(context);
+                      }
+                    },
+                  ),
+                ),
+
+                // Dots Indikator 4 Halaman (Teori, Karakteristik, Galeri, Kuis)
+                Row(
+                  children: List.generate(4, (index) {
+                    final isActive = index == _activeStep;
+                    return GestureDetector(
+                      onTap: () {
+                        _pageController.animateToPage(index, duration: const Duration(milliseconds: 300), curve: Curves.easeInOut);
+                      },
+                      child: AnimatedContainer(
+                        duration: const Duration(milliseconds: 250),
+                        margin: const EdgeInsets.symmetric(horizontal: 4),
+                        width: isActive ? 24 : 8,
+                        height: 8,
+                        decoration: BoxDecoration(
+                          color: isActive ? AppTheme.accentGold : (isDark ? AppTheme.darkBorder : AppTheme.border),
+                          borderRadius: BorderRadius.circular(4),
+                        ),
+                      ),
+                    );
+                  }),
+                ),
+
+                // Tombol Kanan (Cokelat Tua)
+                Container(
+                  width: 50,
+                  height: 50,
+                  decoration: const BoxDecoration(
+                    color: Color(0xFF5A3416),
+                    shape: BoxShape.circle,
+                  ),
+                  child: IconButton(
+                    icon: const Icon(Icons.arrow_forward, color: Colors.white),
+                    onPressed: () {
+                      final provider = context.read<AppProvider>();
+                      if (_activeStep == 0) provider.updatePillarProgress(widget.module.id, 'history');
+                      if (_activeStep == 1) provider.updatePillarProgress(widget.module.id, 'character');
+                      if (_activeStep == 2) provider.updatePillarProgress(widget.module.id, 'gallery');
+
+                      if (_activeStep < 3) {
+                        _pageController.nextPage(duration: const Duration(milliseconds: 300), curve: Curves.easeInOut);
+                      } else {
+                        // Jika sudah di step terakhir (Kuis), buka kuis teori
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => TheoryQuizScreen(module: widget.module),
+                          ),
+                        );
+                      }
+                    },
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
       ),
     );
   }
 
   // Halaman 1: Teori & Filosofi Sesuai PDF Page 4
   Widget _buildPage4TeoriFilosofi(BuildContext context, bool isDark) {
+    final content = widget.module.content;
+    if (content == null) return const Center(child: CircularProgressIndicator());
+    final sejarah = content.sejarahDanFilosofi;
+
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
       child: Column(
@@ -276,9 +286,12 @@ class _ModuleDetailScreenState extends State<ModuleDetailScreen> {
             child: Stack(
               children: [
                 Positioned.fill(
-                  child: Center(
-                    child: Icon(Icons.waves, size: 90, color: Colors.white.withValues(alpha: 0.18)),
-                  ),
+                  child: widget.module.coverImage != null
+                      ? ClipRRect(
+                          borderRadius: BorderRadius.circular(24),
+                          child: Image.asset(widget.module.coverImage!, fit: BoxFit.cover),
+                        )
+                      : Center(child: Icon(Icons.waves, size: 90, color: Colors.white.withValues(alpha: 0.18))),
                 ),
                 Positioned(
                   top: 14,
@@ -338,112 +351,40 @@ class _ModuleDetailScreenState extends State<ModuleDetailScreen> {
               borderRadius: BorderRadius.circular(8),
             ),
             child: Text(
-              'MODUL 3 DARI 8 • TEORI & FILOSOFI',
+              'MODUL ${widget.module.orderNo} • TEORI & FILOSOFI',
               style: AppTheme.satoshi(fontSize: 10, fontWeight: FontWeight.bold, color: AppTheme.primaryDark),
             ),
           ),
           const SizedBox(height: 8),
           Text(
-            'Motif Parang Kusumo',
+            widget.module.title,
             style: AppTheme.satoshi(fontSize: 24, fontWeight: FontWeight.bold),
           ),
           const SizedBox(height: 4),
           Text(
-            'Batik Klasik Surakarta & Yogyakarta • Estimasi Baca 8 Menit',
+            '${content.origin} • Estimasi Baca ${content.estimatedTime}',
             style: AppTheme.inter(fontSize: 12, color: AppTheme.textSecondary),
           ),
           const SizedBox(height: 16),
 
-          // Narasi Filosofi Suara (Interactive Audio Player) Sesuai PDF Page 4
-          Container(
-            padding: const EdgeInsets.all(14),
-            decoration: BoxDecoration(
-              color: isDark ? AppTheme.darkSurface : Colors.white,
-              borderRadius: BorderRadius.circular(18),
-              border: Border.all(color: isDark ? AppTheme.darkBorder : AppTheme.border),
+          if (_youtubeController != null) ...[
+            ClipRRect(
+              borderRadius: BorderRadius.circular(16),
+              child: YoutubePlayer(
+                controller: _youtubeController!,
+              ),
             ),
-            child: Column(
-              children: [
-                Row(
-                  children: [
-                    GestureDetector(
-                      onTap: _toggleAudio,
-                      child: Container(
-                        width: 44,
-                        height: 44,
-                        decoration: BoxDecoration(
-                          color: const Color(0xFF5A3416),
-                          shape: BoxShape.circle,
-                          boxShadow: [
-                            BoxShadow(
-                              color: const Color(0xFF5A3416).withValues(alpha: 0.3),
-                              blurRadius: 8,
-                              offset: const Offset(0, 3),
-                            ),
-                          ],
-                        ),
-                        child: Center(
-                          child: Icon(
-                            _isPlayingAudio ? Icons.pause : Icons.play_arrow,
-                            color: Colors.white,
-                            size: 24,
-                          ),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 14),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            'Narasi Filosofi Suara',
-                            style: AppTheme.satoshi(fontSize: 14, fontWeight: FontWeight.bold),
-                          ),
-                          Text(
-                            'Dikisahkan oleh Abdi Dalem Keraton',
-                            style: AppTheme.inter(fontSize: 12, color: AppTheme.textSecondary),
-                          ),
-                        ],
-                      ),
-                    ),
-                    Text(
-                      _isPlayingAudio
-                          ? '${_formatAudioTime(_audioCurrentSeconds)} / ${_formatAudioTime(_audioTotalSeconds)}'
-                          : '3:45',
-                      style: AppTheme.satoshi(
-                        fontSize: 13,
-                        fontWeight: FontWeight.bold,
-                        color: AppTheme.accentGold,
-                      ),
-                    ),
-                  ],
-                ),
-                if (_isPlayingAudio) ...[
-                  const SizedBox(height: 10),
-                  ClipRRect(
-                    borderRadius: BorderRadius.circular(4),
-                    child: LinearProgressIndicator(
-                      value: _audioCurrentSeconds / _audioTotalSeconds,
-                      backgroundColor: isDark ? AppTheme.darkBorder : AppTheme.borderLight,
-                      valueColor: const AlwaysStoppedAnimation<Color>(AppTheme.accentGold),
-                      minHeight: 4,
-                    ),
-                  ),
-                ],
-              ],
-            ),
-          ),
-          const SizedBox(height: 20),
+            const SizedBox(height: 20),
+          ],
 
           // Section Hakikat & Simbol Ombak Laut Selatan
           Text(
-            'Hakikat & Simbol Ombak Laut Selatan',
+            'Hakikat & Simbol',
             style: AppTheme.satoshi(fontSize: 18, fontWeight: FontWeight.bold),
           ),
           const SizedBox(height: 8),
           Text(
-            'Motif Parang Kusumo memancarkan ritme visual diagonal yang merepresentasikan deburan ombak Samudra Hindia yang tiada henti menghantam tebing karang terjal. Garis meliuk tanpa putus mencerminkan laku prihatin, kesinambungan budi pekerti luhur, dan ketabahan batin manusia Jawa dalam mengarungi pasang surut gelombang kehidupan tanpa pernah kehilangan kehormatan martabatnya.',
+            sejarah.deskripsiUtama,
             style: AppTheme.inter(
               fontSize: 13,
               height: 1.6,
@@ -456,7 +397,7 @@ class _ModuleDetailScreenState extends State<ModuleDetailScreen> {
           _buildExpansionCard(
             title: 'Asal Daerah & Sejarah',
             icon: Icons.history_edu,
-            body: 'Diciptakan pada era Panembahan Senopati (pendiri Kesultanan Mataram Islam) saat melakukan semedi meditasi di pesisir tebing Parangtritis. Gerak dinamis air laut yang tak kenal menyerah mengilhami terciptanya garis diagonal sakral ini.',
+            body: sejarah.asalDaerah,
             isDark: isDark,
           ),
           const SizedBox(height: 10),
@@ -465,7 +406,7 @@ class _ModuleDetailScreenState extends State<ModuleDetailScreen> {
           _buildExpansionCard(
             title: 'Makna Filosofis Simbolik',
             icon: Icons.psychology,
-            body: 'Berasal dari kata Parang (batu karang/lereng terjal) dan Kusumo (bunga bangsawan). Motif ini memuat amanah luhur bahwa keturunan ningrat sejati wajib mengharumkan nama bangsa laksana bunga mekar dengan ketegaran jiwa sekeras batu karang.',
+            body: sejarah.maknaFilosofis,
             isDark: isDark,
           ),
           const SizedBox(height: 10),
@@ -474,7 +415,7 @@ class _ModuleDetailScreenState extends State<ModuleDetailScreen> {
           _buildExpansionCard(
             title: 'Penggunaan Tradisional & Pakem',
             icon: Icons.verified_user_outlined,
-            body: 'Tergolong sebagai batik larangan sakral (awisan dalem). Dahulu kala hanya boleh dikenakan keluarga sentana dalem keraton pada upacara tukar cincin pernikahan adat dan pisowanan agung menghadap Sri Sultan atau Sunan.',
+            body: sejarah.penggunaan,
             isDark: isDark,
           ),
         ],
@@ -484,159 +425,126 @@ class _ModuleDetailScreenState extends State<ModuleDetailScreen> {
 
   // Halaman 2: Karakteristik Sesuai PDF Page 5
   Widget _buildPage5Karakteristik(BuildContext context, bool isDark) {
+    final content = widget.module.content;
+    if (content == null) return const Center(child: CircularProgressIndicator());
+    final charData = content.karakteristik;
+
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            'Karakteristik Motif Parang\nKusumo',
+            'Karakteristik ${widget.module.title}',
             style: AppTheme.satoshi(fontSize: 22, fontWeight: FontWeight.bold, height: 1.3),
           ),
           const SizedBox(height: 8),
           Text(
-            'Kenali struktur anatomi visual dan ornamen pakem yang membedakan Parang Kusumo dari ragam parang lainnya dalam tradisi keraton Mataram.',
+            charData.deskripsi,
             style: AppTheme.inter(fontSize: 13, color: isDark ? Colors.white70 : AppTheme.textSecondary, height: 1.45),
           ),
           const SizedBox(height: 20),
 
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Text(
-                'GALERI DETAIL CANTING & WARNA',
-                style: AppTheme.satoshi(fontSize: 11, fontWeight: FontWeight.bold, letterSpacing: 0.8, color: AppTheme.primary),
-              ),
-              Text(
-                '3 Titik Pengamatan',
-                style: AppTheme.inter(fontSize: 12, color: AppTheme.textMuted),
-              ),
-            ],
+          Text(
+            'Struktur & Ornamen Visual',
+            style: AppTheme.satoshi(fontSize: 18, fontWeight: FontWeight.bold),
           ),
           const SizedBox(height: 12),
-
-          // Card Jejak Lilin Malam Alami
-          GestureDetector(
-            onTap: () => _showZoomImageDialog(context, isDark),
-            child: Container(
-              height: 180,
-              width: double.infinity,
-              decoration: BoxDecoration(
-                color: const Color(0xFF382516),
-                borderRadius: BorderRadius.circular(20),
-              ),
-              child: Stack(
-                children: [
-                  Positioned.fill(
-                    child: Center(
-                      child: Icon(Icons.architecture, size: 80, color: Colors.white.withValues(alpha: 0.15)),
-                    ),
+          
+          // Text-only List: Struktur Utama
+          Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: isDark ? AppTheme.darkSurface : Colors.white,
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(color: isDark ? AppTheme.darkBorder : AppTheme.border),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: AppTheme.primary.withValues(alpha: 0.1),
+                    borderRadius: BorderRadius.circular(8),
                   ),
-                  Positioned(
-                    top: 12,
-                    left: 12,
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                      decoration: BoxDecoration(
-                        color: Colors.black.withValues(alpha: 0.5),
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      child: const Text('• Struktur Utama • 45° Lereng', style: TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold)),
-                    ),
-                  ),
-                  Positioned(
-                    bottom: 12,
-                    left: 14,
-                    right: 14,
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text('Jejak Lilin Malam Alami', style: AppTheme.satoshi(fontSize: 15, fontWeight: FontWeight.bold, color: Colors.white)),
-                        Text('Tetesan canting membentuk kontur lereng ombak tanpa henti', style: AppTheme.inter(fontSize: 11, color: Colors.white70)),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
+                  child: Text(charData.strukturUtama.badge, style: const TextStyle(color: AppTheme.primary, fontSize: 10, fontWeight: FontWeight.bold)),
+                ),
+                const SizedBox(height: 8),
+                Text(charData.strukturUtama.title, style: AppTheme.satoshi(fontSize: 15, fontWeight: FontWeight.bold)),
+                const SizedBox(height: 4),
+                Text(charData.strukturUtama.desc, style: AppTheme.inter(fontSize: 13, color: isDark ? Colors.white70 : AppTheme.textSecondary)),
+              ],
             ),
           ),
           const SizedBox(height: 12),
 
-          // 2 Grid Bawah: Ornamen Mlinjon & Warna Khas Sogan
-          Row(
-            children: [
-              Expanded(
-                child: Container(
-                  padding: const EdgeInsets.all(14),
+          // Text-only List: Ornamen
+          Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: isDark ? AppTheme.darkSurface : Colors.white,
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(color: isDark ? AppTheme.darkBorder : AppTheme.border),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                   decoration: BoxDecoration(
-                    color: isDark ? AppTheme.darkSurface : Colors.white,
-                    borderRadius: BorderRadius.circular(16),
-                    border: Border.all(color: isDark ? AppTheme.darkBorder : AppTheme.border),
+                    color: AppTheme.primary.withValues(alpha: 0.1),
+                    borderRadius: BorderRadius.circular(8),
                   ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                        decoration: BoxDecoration(
-                          color: AppTheme.primary.withValues(alpha: 0.1),
-                          borderRadius: BorderRadius.circular(6),
-                        ),
-                        child: const Text('Isen-Isen Halus', style: TextStyle(color: AppTheme.primary, fontSize: 10, fontWeight: FontWeight.bold)),
-                      ),
-                      const SizedBox(height: 8),
-                      Text('Ornamen Mlinjon & Lidah Api', style: AppTheme.satoshi(fontSize: 13, fontWeight: FontWeight.bold)),
-                      const SizedBox(height: 4),
-                      Text('Tekstur belah ketupat mini pengisi ruang kosong motif.', style: AppTheme.inter(fontSize: 11, color: AppTheme.textSecondary)),
-                    ],
-                  ),
+                  child: Text(charData.ornamen.badge, style: const TextStyle(color: AppTheme.primary, fontSize: 10, fontWeight: FontWeight.bold)),
                 ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Container(
-                  padding: const EdgeInsets.all(14),
-                  decoration: BoxDecoration(
-                    color: isDark ? AppTheme.darkSurface : Colors.white,
-                    borderRadius: BorderRadius.circular(16),
-                    border: Border.all(color: isDark ? AppTheme.darkBorder : AppTheme.border),
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                        decoration: BoxDecoration(
-                          color: AppTheme.accentGold.withValues(alpha: 0.15),
-                          borderRadius: BorderRadius.circular(6),
-                        ),
-                        child: const Text('Pewarna Alami', style: TextStyle(color: AppTheme.primaryDark, fontSize: 10, fontWeight: FontWeight.bold)),
-                      ),
-                      const SizedBox(height: 8),
-                      Text('Warna Khas Sogan', style: AppTheme.satoshi(fontSize: 13, fontWeight: FontWeight.bold)),
-                      const SizedBox(height: 4),
-                      Text('Paduan soga tua, oker kuning, dan krem mori murni.', style: AppTheme.inter(fontSize: 11, color: AppTheme.textSecondary)),
-                    ],
-                  ),
-                ),
-              ),
-            ],
+                const SizedBox(height: 8),
+                Text(charData.ornamen.title, style: AppTheme.satoshi(fontSize: 15, fontWeight: FontWeight.bold)),
+                const SizedBox(height: 4),
+                Text(charData.ornamen.desc, style: AppTheme.inter(fontSize: 13, color: isDark ? Colors.white70 : AppTheme.textSecondary)),
+              ],
+            ),
           ),
-          const SizedBox(height: 20),
+          const SizedBox(height: 12),
 
-          // 4 Pakem Anatomi Visual Sesuai PDF
+          // Text-only List: Warna
+          Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: isDark ? AppTheme.darkSurface : Colors.white,
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(color: isDark ? AppTheme.darkBorder : AppTheme.border),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: AppTheme.accentGold.withValues(alpha: 0.15),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Text(charData.warna.badge, style: const TextStyle(color: AppTheme.primaryDark, fontSize: 10, fontWeight: FontWeight.bold)),
+                ),
+                const SizedBox(height: 8),
+                Text(charData.warna.title, style: AppTheme.satoshi(fontSize: 15, fontWeight: FontWeight.bold)),
+                const SizedBox(height: 4),
+                Text(charData.warna.desc, style: AppTheme.inter(fontSize: 13, color: isDark ? Colors.white70 : AppTheme.textSecondary)),
+              ],
+            ),
+          ),
+          const SizedBox(height: 24),
+
+          // Pakem Anatomi Visual
           Row(
             children: [
               Container(width: 4, height: 18, color: const Color(0xFF5A3416)),
               const SizedBox(width: 8),
-              Text('4 Pakem Anatomi Visual', style: AppTheme.satoshi(fontSize: 16, fontWeight: FontWeight.bold)),
+              Text('${charData.pakemList.length} Pakem Anatomi Visual', style: AppTheme.satoshi(fontSize: 16, fontWeight: FontWeight.bold)),
             ],
           ),
           const SizedBox(height: 12),
-          _buildPakemItem('1. Sudut Kemiringan 45°', 'Garis lereng sejajar membentang miring 45 derajat tanpa terputus, melambangkan kontinuitas tekad ksatria Jawa.', isDark),
-          _buildPakemItem('2. Ornamen Mlinjon & Lidah Api', 'Lekukan menyerupai lidah api berulang yang diselingi belah ketupat mikro, memberi keseimbangan ritme dinamis.', isDark),
-          _buildPakemItem('3. Tiga Warna Sakral Sogan', 'Didominasi warna cokelat soga tua (soga jambal), kuning oker keemasan (kayu tegeran), dan dasar putih gading mori prima.', isDark),
-          _buildPakemItem('4. Dimensi Khusus Ningrat', 'Ukuran lidah parang berkisar 3-4 cm, dikhususkan bagi bangsawan dan keturunan keraton Mataram.', isDark),
+          ...charData.pakemList.map((pakem) => _buildPakemItem(pakem.title, pakem.desc, isDark)),
         ],
       ),
     );
@@ -644,18 +552,22 @@ class _ModuleDetailScreenState extends State<ModuleDetailScreen> {
 
   // Halaman 3: Galeri Motif Sesuai PDF Page 6
   Widget _buildPage6Galeri(BuildContext context, bool isDark) {
+    final content = widget.module.content;
+    if (content == null) return const Center(child: CircularProgressIndicator());
+    final galeriList = content.galeri;
+
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            'Galeri Motif Parang Kusumo',
+            'Galeri ${widget.module.title}',
             style: AppTheme.satoshi(fontSize: 22, fontWeight: FontWeight.bold),
           ),
           const SizedBox(height: 6),
           Text(
-            'Dokumentasi visual kain mori prima karya sentana dalem keraton dan pengrajin batik tulis.',
+            'Dokumentasi visual karya sentana dalem keraton dan pengrajin batik tulis.',
             style: AppTheme.inter(fontSize: 13, color: isDark ? Colors.white70 : AppTheme.textSecondary),
           ),
           const SizedBox(height: 18),
@@ -670,36 +582,49 @@ class _ModuleDetailScreenState extends State<ModuleDetailScreen> {
                 color: const Color(0xFF382516),
                 borderRadius: BorderRadius.circular(22),
               ),
-              child: Center(
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    const Icon(Icons.photo_library, size: 54, color: AppTheme.accentGold),
-                    const SizedBox(height: 8),
-                    Text('Arsip Kain Batik Tulis Parang Kusumo', style: AppTheme.satoshi(fontSize: 14, fontWeight: FontWeight.bold, color: Colors.white)),
-                    const SizedBox(height: 4),
-                    Text('Ketuk untuk perbesar detail', style: AppTheme.inter(fontSize: 11, color: Colors.white70)),
-                  ],
-                ),
+              child: Stack(
+                children: [
+                  Positioned.fill(
+                    child: galeriList.isNotEmpty && galeriList[0].imageUrl.isNotEmpty
+                        ? ClipRRect(
+                            borderRadius: BorderRadius.circular(22),
+                            child: Image.asset(galeriList[0].imageUrl, fit: BoxFit.cover, color: Colors.black.withValues(alpha: 0.2), colorBlendMode: BlendMode.darken),
+                          )
+                        : const SizedBox(),
+                  ),
+                  Center(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        const Icon(Icons.photo_library, size: 54, color: AppTheme.accentGold),
+                        const SizedBox(height: 8),
+                        Text('Arsip Kain Batik Tulis', style: AppTheme.satoshi(fontSize: 14, fontWeight: FontWeight.bold, color: Colors.white)),
+                        const SizedBox(height: 4),
+                        Text('Ketuk untuk perbesar detail', style: AppTheme.inter(fontSize: 11, color: Colors.white70)),
+                      ],
+                    ),
+                  ),
+                ],
               ),
             ),
           ),
           const SizedBox(height: 14),
 
-          // 4 Grid Foto Dokumentasi Proses Membatik Sesuai PDF Page 6
-          GridView.count(
-            crossAxisCount: 2,
+          // Grid Foto Dokumentasi Proses Membatik
+          GridView.builder(
+            itemCount: galeriList.length > 1 ? galeriList.length - 1 : 0,
             shrinkWrap: true,
             physics: const NeverScrollableScrollPhysics(),
-            mainAxisSpacing: 12,
-            crossAxisSpacing: 12,
-            childAspectRatio: 1.1,
-            children: [
-              _buildGaleriItem('Proses Mencanting', Icons.brush, isDark),
-              _buildGaleriItem('Kain Sogan Klasik', Icons.texture, isDark),
-              _buildGaleriItem('Jejak Lilin Lereng', Icons.waves, isDark),
-              _buildGaleriItem('Detail Isen Canting', Icons.grain, isDark),
-            ],
+            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+              crossAxisCount: 2,
+              mainAxisSpacing: 12,
+              crossAxisSpacing: 12,
+              childAspectRatio: 1.1,
+            ),
+            itemBuilder: (context, index) {
+              final galeri = galeriList[index + 1];
+              return _buildGaleriItem(galeri.caption, galeri.imageUrl, isDark);
+            },
           ),
         ],
       ),
@@ -748,7 +673,7 @@ class _ModuleDetailScreenState extends State<ModuleDetailScreen> {
                 ),
                 const SizedBox(height: 8),
                 Text(
-                  'Selesaikan materi hari ini untuk meningkatkan keahlian canting dan membuka lencana baru.',
+                  'Uji pemahaman dan hasil karyamu di sini untuk menyelesaikan modul dan melihat sejauh mana kamu mengenali motif batik ini.',
                   style: AppTheme.inter(
                     fontSize: 13,
                     color: Colors.white.withValues(alpha: 0.85),
@@ -760,122 +685,240 @@ class _ModuleDetailScreenState extends State<ModuleDetailScreen> {
           ),
           const SizedBox(height: 20),
 
-          // Card 1: 45 Menit - Teori (Nilai Teori: 80% / 100%) Sesuai PDF
+          // Card 1: Kuis Teori
           Container(
-            padding: const EdgeInsets.all(18),
+            padding: const EdgeInsets.all(24),
             decoration: BoxDecoration(
               color: isDark ? AppTheme.darkSurface : Colors.white,
-              borderRadius: BorderRadius.circular(22),
-              border: Border.all(color: isDark ? AppTheme.darkBorder : AppTheme.border),
+              borderRadius: BorderRadius.circular(28),
+              border: Border.all(
+                color: widget.module.quizDone
+                    ? const Color(0xFF4CAF50).withValues(alpha: 0.4)
+                    : (isDark ? AppTheme.darkBorder : const Color(0xFFF0EAE1)),
+                width: 1.5,
+              ),
+              boxShadow: [
+                BoxShadow(
+                  color: widget.module.quizDone
+                      ? const Color(0xFF4CAF50).withValues(alpha: 0.05)
+                      : AppTheme.primary.withValues(alpha: 0.04),
+                  blurRadius: 24,
+                  offset: const Offset(0, 8),
+                )
+              ],
             ),
             child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Row(
-                      children: [
-                        const Icon(Icons.timer_outlined, size: 16, color: AppTheme.textSecondary),
-                        const SizedBox(width: 6),
-                        Text('45 Menit', style: AppTheme.inter(fontSize: 12, color: AppTheme.textSecondary)),
-                      ],
-                    ),
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                      width: 60,
+                      height: 60,
                       decoration: BoxDecoration(
-                        color: const Color(0xFFE8F5E9),
-                        borderRadius: BorderRadius.circular(8),
+                        color: widget.module.quizDone
+                            ? const Color(0xFF4CAF50).withValues(alpha: 0.1)
+                            : (isDark ? AppTheme.primary.withValues(alpha: 0.3) : AppTheme.accentGold.withValues(alpha: 0.2)),
+                        borderRadius: BorderRadius.circular(18),
                       ),
-                      child: Text(
-                        'Nilai Teori: 80%',
-                        style: AppTheme.satoshi(fontSize: 11, fontWeight: FontWeight.bold, color: const Color(0xFF2E7D32)),
+                      child: Icon(
+                        Icons.school_rounded,
+                        size: 30,
+                        color: widget.module.quizDone ? const Color(0xFF4CAF50) : AppTheme.primary,
+                      ),
+                    ),
+                    const SizedBox(width: 16),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            crossAxisAlignment: CrossAxisAlignment.center,
+                            children: [
+                              Text('Kuis Teori', style: AppTheme.satoshi(fontSize: 18, fontWeight: FontWeight.w800)),
+                              if (widget.module.quizDone)
+                                Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                                  decoration: BoxDecoration(
+                                    color: const Color(0xFF4CAF50).withValues(alpha: 0.1),
+                                    borderRadius: BorderRadius.circular(20),
+                                  ),
+                                  child: Row(
+                                    children: [
+                                      const Icon(Icons.check_circle, size: 14, color: Color(0xFF4CAF50)),
+                                      const SizedBox(width: 4),
+                                      Text(
+                                        'Nilai: ${widget.module.quizScore ?? 100}',
+                                        style: AppTheme.satoshi(fontSize: 13, fontWeight: FontWeight.bold, color: const Color(0xFF4CAF50)),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                            ],
+                          ),
+                          const SizedBox(height: 6),
+                          Text(
+                            'Uji wawasan mendalam mengenai pakem, sejarah, dan makna ornamen.',
+                            style: AppTheme.inter(fontSize: 13, color: AppTheme.textSecondary, height: 1.4),
+                          ),
+                        ],
                       ),
                     ),
                   ],
                 ),
-                const SizedBox(height: 10),
-                Text('Kuis Pemahaman Teori & Filosofi', style: AppTheme.satoshi(fontSize: 16, fontWeight: FontWeight.bold)),
-                const SizedBox(height: 4),
-                Text('Uji wawasan mengenai pakem, sejarah, dan makna ornamen lereng Parang Kusumo.', style: AppTheme.inter(fontSize: 12, color: AppTheme.textSecondary)),
-                const SizedBox(height: 16),
+                const SizedBox(height: 24),
                 ElevatedButton(
                   onPressed: () {
                     Navigator.push(
                       context,
-                      MaterialPageRoute(
-                        builder: (_) => TheoryQuizScreen(module: widget.module),
-                      ),
+                      MaterialPageRoute(builder: (_) => TheoryQuizScreen(module: widget.module)),
                     );
                   },
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFF5A3416),
-                    foregroundColor: Colors.white,
-                    minimumSize: const Size.fromHeight(46),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    backgroundColor: widget.module.quizDone ? Colors.transparent : AppTheme.primary,
+                    foregroundColor: widget.module.quizDone ? const Color(0xFF4CAF50) : Colors.white,
+                    minimumSize: const Size.fromHeight(54),
+                    elevation: 0,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(16),
+                      side: BorderSide(
+                        color: widget.module.quizDone ? const Color(0xFF4CAF50) : Colors.transparent,
+                        width: 1.5,
+                      ),
+                    ),
                   ),
-                  child: Text('Mulai Kuis Teori', style: AppTheme.satoshi(fontWeight: FontWeight.bold)),
+                  child: Text(
+                    widget.module.quizDone ? 'Kerjakan Ulang' : 'Mulai Kuis',
+                    style: AppTheme.satoshi(
+                      fontSize: 15,
+                      fontWeight: FontWeight.bold,
+                      letterSpacing: 0.5,
+                      color: widget.module.quizDone
+                          ? (isDark ? const Color(0xFF81C784) : const Color(0xFF2E7D32))
+                          : Colors.white,
+                    ),
+                  ),
                 ),
               ],
             ),
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: 20),
 
-          // Card 2: Praktik (Belum Dilakukan / Penilaian Kamera) Sesuai PDF
+          // Card 2: Kuis Praktik
           Container(
-            padding: const EdgeInsets.all(18),
+            padding: const EdgeInsets.all(24),
             decoration: BoxDecoration(
               color: isDark ? AppTheme.darkSurface : Colors.white,
-              borderRadius: BorderRadius.circular(22),
-              border: Border.all(color: isDark ? AppTheme.darkBorder : AppTheme.border),
+              borderRadius: BorderRadius.circular(28),
+              border: Border.all(
+                color: widget.module.practiceDone
+                    ? const Color(0xFFF57C00).withValues(alpha: 0.4)
+                    : (isDark ? AppTheme.darkBorder : const Color(0xFFF0EAE1)),
+                width: 1.5,
+              ),
+              boxShadow: [
+                BoxShadow(
+                  color: widget.module.practiceDone
+                      ? const Color(0xFFF57C00).withValues(alpha: 0.05)
+                      : AppTheme.primary.withValues(alpha: 0.04),
+                  blurRadius: 24,
+                  offset: const Offset(0, 8),
+                )
+              ],
             ),
             child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Row(
-                      children: [
-                        const Icon(Icons.camera_alt_outlined, size: 16, color: AppTheme.textSecondary),
-                        const SizedBox(width: 6),
-                        Text('Praktikum', style: AppTheme.inter(fontSize: 12, color: AppTheme.textSecondary)),
-                      ],
-                    ),
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                      width: 60,
+                      height: 60,
                       decoration: BoxDecoration(
-                        color: const Color(0xFFFFF3E0),
-                        borderRadius: BorderRadius.circular(8),
+                        color: widget.module.practiceDone
+                            ? const Color(0xFFF57C00).withValues(alpha: 0.1)
+                            : (isDark ? AppTheme.primary.withValues(alpha: 0.3) : AppTheme.accentGold.withValues(alpha: 0.2)),
+                        borderRadius: BorderRadius.circular(18),
                       ),
-                      child: Text(
-                        widget.module.practiceDone ? 'Selesai: 70%' : 'Belum Dilakukan',
-                        style: AppTheme.satoshi(fontSize: 11, fontWeight: FontWeight.bold, color: const Color(0xFFE65100)),
+                      child: Icon(
+                        Icons.brush_rounded,
+                        size: 30,
+                        color: widget.module.practiceDone ? const Color(0xFFF57C00) : AppTheme.primary,
+                      ),
+                    ),
+                    const SizedBox(width: 16),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            crossAxisAlignment: CrossAxisAlignment.center,
+                            children: [
+                              Text('Praktikum', style: AppTheme.satoshi(fontSize: 18, fontWeight: FontWeight.w800)),
+                              if (widget.module.practiceDone)
+                                Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                                  decoration: BoxDecoration(
+                                    color: const Color(0xFFF57C00).withValues(alpha: 0.1),
+                                    borderRadius: BorderRadius.circular(20),
+                                  ),
+                                  child: Row(
+                                    children: [
+                                      const Icon(Icons.auto_awesome, size: 14, color: Color(0xFFF57C00)),
+                                      const SizedBox(width: 4),
+                                      Text(
+                                        'Akurasi: ${widget.module.practiceScore ?? 100}%',
+                                        style: AppTheme.satoshi(fontSize: 13, fontWeight: FontWeight.bold, color: const Color(0xFFF57C00)),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                            ],
+                          ),
+                          const SizedBox(height: 6),
+                          Text(
+                            'Gambarlah motif batik ini, lalu pindai hasil karyamu untuk melihat seberapa mirip dengan aslinya.',
+                            style: AppTheme.inter(fontSize: 13, color: AppTheme.textSecondary, height: 1.4),
+                          ),
+                        ],
                       ),
                     ),
                   ],
                 ),
-                const SizedBox(height: 10),
-                Text('Kuis Praktik: Scan Kain Batikmu', style: AppTheme.satoshi(fontSize: 16, fontWeight: FontWeight.bold)),
-                const SizedBox(height: 4),
-                Text('Gunakan kamera AI untuk mencocokkan goresan canting dan ornamen karyamu dengan pakem daerah.', style: AppTheme.inter(fontSize: 12, color: AppTheme.textSecondary)),
-                const SizedBox(height: 16),
+                const SizedBox(height: 24),
                 ElevatedButton(
                   onPressed: () {
                     Navigator.push(
                       context,
-                      MaterialPageRoute(
-                        builder: (_) => PracticeQuizScreen(module: widget.module),
-                      ),
+                      MaterialPageRoute(builder: (_) => PracticeQuizScreen(module: widget.module)),
                     );
                   },
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFF5A3416),
-                    foregroundColor: Colors.white,
-                    minimumSize: const Size.fromHeight(46),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    backgroundColor: widget.module.practiceDone ? Colors.transparent : AppTheme.primary,
+                    foregroundColor: widget.module.practiceDone ? const Color(0xFFF57C00) : Colors.white,
+                    minimumSize: const Size.fromHeight(54),
+                    elevation: 0,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(16),
+                      side: BorderSide(
+                        color: widget.module.practiceDone ? const Color(0xFFF57C00) : Colors.transparent,
+                        width: 1.5,
+                      ),
+                    ),
                   ),
-                  child: Text('Mulai Kuis Praktik', style: AppTheme.satoshi(fontWeight: FontWeight.bold)),
+                  child: Text(
+                    widget.module.practiceDone ? 'Pindai Ulang' : 'Mulai Praktikum',
+                    style: AppTheme.satoshi(
+                      fontSize: 15,
+                      fontWeight: FontWeight.bold,
+                      letterSpacing: 0.5,
+                      color: widget.module.practiceDone
+                          ? (isDark ? const Color(0xFFFFB74D) : const Color(0xFFE65100))
+                          : Colors.white,
+                    ),
+                  ),
                 ),
               ],
             ),
@@ -892,19 +935,26 @@ class _ModuleDetailScreenState extends State<ModuleDetailScreen> {
     required bool isDark,
   }) {
     return Container(
+      padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: isDark ? AppTheme.darkSurface : Colors.white,
         borderRadius: BorderRadius.circular(18),
         border: Border.all(color: isDark ? AppTheme.darkBorder : AppTheme.border),
       ),
-      child: ExpansionTile(
-        leading: Icon(icon, color: AppTheme.primary, size: 22),
-        title: Text(title, style: AppTheme.satoshi(fontSize: 14, fontWeight: FontWeight.bold)),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Padding(
-            padding: const EdgeInsets.only(left: 18, right: 18, bottom: 16),
-            child: Text(body, style: AppTheme.inter(fontSize: 13, height: 1.5, color: isDark ? Colors.white70 : AppTheme.textSecondary)),
+          Row(
+            children: [
+              Icon(icon, color: AppTheme.primary, size: 22),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(title, style: AppTheme.satoshi(fontSize: 15, fontWeight: FontWeight.bold)),
+              ),
+            ],
           ),
+          const SizedBox(height: 12),
+          Text(body, style: AppTheme.inter(fontSize: 13, height: 1.5, color: isDark ? Colors.white70 : AppTheme.textSecondary)),
         ],
       ),
     );
@@ -912,25 +962,44 @@ class _ModuleDetailScreenState extends State<ModuleDetailScreen> {
 
   Widget _buildPakemItem(String title, String desc, bool isDark) {
     return Container(
-      margin: const EdgeInsets.only(bottom: 10),
-      padding: const EdgeInsets.all(14),
+      margin: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: isDark ? AppTheme.darkSurface : Colors.white,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: isDark ? AppTheme.darkBorder : AppTheme.border),
+        border: Border.all(color: isDark ? AppTheme.darkBorder : Colors.transparent),
+        boxShadow: isDark ? [] : [
+          BoxShadow(color: Colors.black.withValues(alpha: 0.03), blurRadius: 8, offset: const Offset(0, 3)),
+        ],
       ),
-      child: Column(
+      child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(title, style: AppTheme.satoshi(fontSize: 13, fontWeight: FontWeight.bold, color: AppTheme.primary)),
-          const SizedBox(height: 4),
-          Text(desc, style: AppTheme.inter(fontSize: 12, height: 1.4, color: isDark ? Colors.white70 : AppTheme.textSecondary)),
+          Container(
+            padding: const EdgeInsets.all(8),
+            decoration: BoxDecoration(
+              color: AppTheme.primary.withValues(alpha: 0.08),
+              shape: BoxShape.circle,
+            ),
+            child: const Icon(Icons.check_circle, color: AppTheme.primary, size: 18),
+          ),
+          const SizedBox(width: 14),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(title, style: AppTheme.satoshi(fontSize: 14, fontWeight: FontWeight.bold, color: isDark ? Colors.white : AppTheme.primaryDark)),
+                const SizedBox(height: 6),
+                Text(desc, style: AppTheme.inter(fontSize: 12, height: 1.5, color: isDark ? Colors.white70 : AppTheme.textSecondary)),
+              ],
+            ),
+          ),
         ],
       ),
     );
   }
 
-  Widget _buildGaleriItem(String label, IconData icon, bool isDark) {
+  Widget _buildGaleriItem(String label, String imageUrl, bool isDark) {
     return GestureDetector(
       onTap: () => _showZoomImageDialog(context, isDark),
       child: Container(
@@ -939,12 +1008,22 @@ class _ModuleDetailScreenState extends State<ModuleDetailScreen> {
           borderRadius: BorderRadius.circular(18),
           border: Border.all(color: isDark ? AppTheme.darkBorder : AppTheme.border),
         ),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
+        child: Stack(
           children: [
-            Icon(icon, size: 38, color: Colors.white70),
-            const SizedBox(height: 8),
-            Text(label, style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.bold)),
+            Positioned.fill(
+              child: imageUrl.isNotEmpty
+                  ? ClipRRect(
+                      borderRadius: BorderRadius.circular(18),
+                      child: Image.asset(imageUrl, fit: BoxFit.cover, color: Colors.black.withValues(alpha: 0.3), colorBlendMode: BlendMode.darken),
+                    )
+                  : const Center(child: Icon(Icons.image, size: 38, color: Colors.white70)),
+            ),
+            Center(
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 8.0),
+                child: Text(label, textAlign: TextAlign.center, style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.bold)),
+              ),
+            ),
           ],
         ),
       ),

@@ -106,150 +106,119 @@ class AppProvider with ChangeNotifier {
       ),
     ];
 
-    // 3. 11 Modul Belajar (6 Selesai = 55% Progress Sesuai PDF Page 3 & 12)
+    // 3. Daftar Modul Belajar — akan menyesuaikan dataset ML Engineer nantinya
     _modules = [
       ModuleModel(
         id: 1,
-        motifId: 2,
-        title: 'Sejarah & Filosofi Ragam\nMotif Parang',
+        motifId: 4,
+        title: 'Batik Parang Kusumo',
         description: 'Pelajari asal usul lereng ombak Panembahan Senopati dan pakem larangan Mataram.',
         orderNo: 1,
-        progressPercent: 100,
-        historyDone: true,
-        characterDone: true,
-        galleryDone: true,
-        quizDone: true,
-        practiceDone: true,
+        progressPercent: 0,
+        historyDone: false,
+        characterDone: false,
+        galleryDone: false,
+        quizDone: false,
+        practiceDone: false,
+        content: ModuleContentModel(
+          origin: 'Batik Klasik Surakarta & Yogyakarta',
+          estimatedTime: '8 Menit',
+          sejarahDanFilosofi: SejarahFilosofiModel(
+            youtubeUrl: 'https://www.youtube.com/watch?v=fq4N0hgOWzU', // Ganti dengan link video dokumenter Batik aslimu nanti
+            deskripsiUtama: 'Motif Parang Kusumo memancarkan ritme visual diagonal yang merepresentasikan deburan ombak Samudra Hindia yang tiada henti menghantam tebing karang terjal. Garis meliuk tanpa putus mencerminkan laku prihatin, kesinambungan budi pekerti luhur, dan ketabahan batin manusia Jawa dalam mengarungi pasang surut gelombang kehidupan tanpa pernah kehilangan kehormatan martabatnya.',
+            asalDaerah: 'Diciptakan pada era Panembahan Senopati (pendiri Kesultanan Mataram Islam) saat melakukan semedi meditasi di pesisir tebing Parangtritis. Gerak dinamis air laut yang tak kenal menyerah mengilhami terciptanya garis diagonal sakral ini.',
+            maknaFilosofis: 'Berasal dari kata Parang (batu karang/lereng terjal) dan Kusumo (bunga bangsawan). Motif ini memuat amanah luhur bahwa keturunan ningrat sejati wajib mengharumkan nama bangsa laksana bunga mekar dengan ketegaran jiwa sekeras batu karang.',
+            penggunaan: 'Tergolong sebagai batik larangan sakral (awisan dalem). Dahulu kala hanya boleh dikenakan keluarga sentana dalem keraton pada upacara tukar cincin pernikahan adat dan pisowanan agung menghadap Sri Sultan atau Sunan.',
+          ),
+          karakteristik: KarakteristikModel(
+            deskripsi: 'Kenali struktur anatomi visual dan ornamen pakem yang membedakan Parang Kusumo dari ragam parang lainnya dalam tradisi keraton Mataram.',
+            strukturUtama: KarakteristikDetailModel(
+              title: 'Jejak Lilin Malam Alami',
+              desc: 'Tetesan canting membentuk kontur lereng ombak tanpa henti',
+              badge: 'Struktur Utama • 45° Lereng',
+              image: '',
+            ),
+            ornamen: KarakteristikDetailModel(
+              title: 'Ornamen Mlinjon & Lidah Api',
+              desc: 'Tekstur belah ketupat mini pengisi ruang kosong motif.',
+              badge: 'Isen-Isen Halus',
+              image: '',
+            ),
+            warna: KarakteristikDetailModel(
+              title: 'Warna Khas Sogan',
+              desc: 'Paduan soga tua, oker kuning, dan krem mori murni.',
+              badge: 'Pewarna Alami',
+              image: '',
+            ),
+            pakemList: [
+              PakemModel(title: '1. Sudut Kemiringan 45°', desc: 'Garis lereng sejajar membentang miring 45 derajat tanpa terputus, melambangkan kontinuitas tekad ksatria Jawa.'),
+              PakemModel(title: '2. Ornamen Mlinjon & Lidah Api', desc: 'Lekukan menyerupai lidah api berulang yang diselingi belah ketupat mikro, memberi keseimbangan ritme dinamis.'),
+              PakemModel(title: '3. Tiga Warna Sakral Sogan', desc: 'Didominasi warna cokelat soga tua (soga jambal), kuning oker keemasan (kayu tegeran), dan dasar putih gading mori prima.'),
+              PakemModel(title: '4. Dimensi Khusus Ningrat', desc: 'Ukuran lidah parang berkisar 3-4 cm, dikhususkan bagi bangsawan dan keturunan keraton Mataram.'),
+            ],
+          ),
+          galeri: [
+            GaleriModel(imageUrl: '', caption: 'Proses Mencanting'),
+            GaleriModel(imageUrl: '', caption: 'Kain Sogan Klasik'),
+            GaleriModel(imageUrl: '', caption: 'Jejak Lilin Lereng'),
+            GaleriModel(imageUrl: '', caption: 'Detail Isen Canting'),
+          ],
+        ),
       ),
       ModuleModel(
         id: 2,
-        motifId: 1,
-        title: 'Pengenalan Kain Mori\nPrimissima & Canting',
-        description: 'Mengenal kualitas serat mori primissima dan pemilihan cucuk canting nglowongi dan isen.',
-        orderNo: 2,
-        progressPercent: 100,
-        historyDone: true,
-        characterDone: true,
-        galleryDone: true,
-        quizDone: true,
-        practiceDone: true,
-      ),
-      ModuleModel(
-        id: 3,
-        motifId: 4,
-        title: 'Harmoni Isen-Isen:\nOrnamen & Pola Cecek',
-        description: 'Latihan menjaga kestabilan aliran malam cucuk canting pada kain mori prima yang terbentang di gawangan.',
-        orderNo: 3,
-        progressPercent: 65,
-        historyDone: true,
-        characterDone: true,
-        galleryDone: true,
-        quizDone: true,
-        practiceDone: false,
-      ),
-      ModuleModel(
-        id: 4,
-        motifId: 3,
-        title: 'Teknik Pewarnaan Alami\nKulit Soga Jambal',
-        description: 'Proses ekstraksi warna soga klasik alami untuk menghasilkan gradasi cokelat keraton.',
-        orderNo: 4,
-        progressPercent: 0,
-        historyDone: false,
-        characterDone: false,
-        galleryDone: false,
-        quizDone: false,
-        practiceDone: false,
-      ),
-      ModuleModel(
-        id: 5,
-        motifId: 2,
-        title: 'Proses Nglorod:\nPelepasan Malam Lilin',
-        description: 'Melarutkan lilin malam pada air mendidih untuk memunculkan warna murni kain.',
-        orderNo: 5,
-        progressPercent: 0,
-        historyDone: false,
-        characterDone: false,
-        galleryDone: false,
-        quizDone: false,
-        practiceDone: false,
-      ),
-      ModuleModel(
-        id: 6,
-        motifId: 5,
-        title: 'Filosofi & Pola Geometri\nMotif Kawung',
-        description: 'Memahami makna empat kelopak bunga aren sebagai lambang kemurnian hati ksatria.',
-        orderNo: 6,
-        progressPercent: 100,
-        historyDone: true,
-        characterDone: true,
-        galleryDone: true,
-        quizDone: true,
-        practiceDone: true,
-      ),
-      ModuleModel(
-        id: 7,
         motifId: 6,
-        title: 'Gradasi Warna Teduh\nMotif Mega Mendung',
+        title: 'Batik Mega Mendung',
         description: 'Teknik kuasan tujuh tingkatan gradasi warna langit pesisir Cirebon.',
-        orderNo: 7,
-        progressPercent: 100,
-        historyDone: true,
-        characterDone: true,
-        galleryDone: true,
-        quizDone: true,
-        practiceDone: true,
-      ),
-      ModuleModel(
-        id: 8,
-        motifId: 3,
-        title: 'Taburan Bintang Kasih\nSayang Truntum',
-        description: 'Batik cinta tulus diciptakan Kanjeng Ratu Kencana permaisuri Pakubuwana III.',
-        orderNo: 8,
-        progressPercent: 100,
-        historyDone: true,
-        characterDone: true,
-        galleryDone: true,
-        quizDone: true,
-        practiceDone: true,
-      ),
-      ModuleModel(
-        id: 9,
-        motifId: 4,
-        title: 'Harapan & Kemuliaan\nMotif Sidomukti',
-        description: 'Batik pengantin agung Jawa bermakna kemakmuran abadi dan ketenteraman.',
-        orderNo: 9,
-        progressPercent: 100,
-        historyDone: true,
-        characterDone: true,
-        galleryDone: true,
-        quizDone: true,
-        practiceDone: true,
-      ),
-      ModuleModel(
-        id: 10,
-        motifId: 1,
-        title: 'Keanekaragaman Jagad\nRaya Sekar Jagad',
-        description: 'Peta keindahan nusantara dalam komposisi pulau dan kembang puspa warna-warni.',
-        orderNo: 10,
+        orderNo: 2,
         progressPercent: 0,
         historyDone: false,
         characterDone: false,
         galleryDone: false,
         quizDone: false,
         practiceDone: false,
-      ),
-      ModuleModel(
-        id: 11,
-        motifId: 2,
-        title: 'Rekonstruksi Jiwa\nMotif Tambal',
-        description: 'Menambal kekurangan diri dan memperbaiki budi pekerti manusia luhur.',
-        orderNo: 11,
-        progressPercent: 0,
-        historyDone: false,
-        characterDone: false,
-        galleryDone: false,
-        quizDone: false,
-        practiceDone: false,
+        content: ModuleContentModel(
+          origin: 'Batik Khas Pesisir Cirebon',
+          estimatedTime: '10 Menit',
+          sejarahDanFilosofi: SejarahFilosofiModel(
+            youtubeUrl: 'https://www.youtube.com/watch?v=fq4N0hgOWzU', // Ganti dengan link video dokumenter Batik aslimu nanti
+            deskripsiUtama: 'Motif Megamendung melambangkan awan pembawa hujan sebagai simbol kesuburan dan pemberi kehidupan. Tarikan garis awannya yang tegas mencerminkan maskulinitas, namun tetap luwes membawa kesejukan.',
+            asalDaerah: 'Diciptakan di wilayah pesisir utara Jawa, tepatnya Cirebon. Terinspirasi dari kedatangan bangsa Tiongkok ke wilayah keraton Cirebon pada masa lampau.',
+            maknaFilosofis: 'Mega berarti awan, dan Mendung berarti cuaca sejuk/menahan amarah. Filosofinya adalah manusia harus bisa meredam amarah (teduh) dalam situasi apa pun.',
+            penggunaan: 'Dahulu digunakan oleh kalangan keraton Cirebon, kini menjadi motif kebanggaan masyarakat umum baik untuk pakaian formal maupun kasual.',
+          ),
+          karakteristik: KarakteristikModel(
+            deskripsi: 'Berbeda dengan parang, Megamendung berfokus pada gradasi warna dan garis lengkung awan yang menyerupai gumpalan memanjang.',
+            strukturUtama: KarakteristikDetailModel(
+              title: 'Garis Awan Tegas',
+              desc: 'Lengkungan awan ditarik dengan garis yang tegas dan tidak putus.',
+              badge: 'Struktur Utama',
+              image: '',
+            ),
+            ornamen: KarakteristikDetailModel(
+              title: 'Bentuk Lonjong/Segitiga',
+              desc: 'Ujung awan cenderung meruncing membedakannya dengan awan Tiongkok yang bulat.',
+              badge: 'Ciri Khas Bentuk',
+              image: '',
+            ),
+            warna: KarakteristikDetailModel(
+              title: 'Gradasi 7 Warna',
+              desc: 'Pakem aslinya memiliki 7 gradasi warna dari biru tua hingga biru muda.',
+              badge: 'Pewarna Pesisir',
+              image: '',
+            ),
+            pakemList: [
+              PakemModel(title: '1. Gradasi Warna (Ganggeng)', desc: 'Harus memiliki gradasi warna yang halus, umumnya lebih dari 3 tingkat warna untuk menciptakan efek 3D awan.'),
+              PakemModel(title: '2. Bentuk Runcing', desc: 'Berbeda dengan motif awan Tiongkok yang membulat, Megamendung memiliki ujung yang agak lancip/runcing.'),
+              PakemModel(title: '3. Arah Horizontal', desc: 'Bentuk awan membentang secara horizontal, melambangkan kehidupan yang sejajar.'),
+            ],
+          ),
+          galeri: [
+            GaleriModel(imageUrl: '', caption: 'Proses Pembuatan Pola'),
+            GaleriModel(imageUrl: '', caption: 'Gradasi Warna Biru'),
+            GaleriModel(imageUrl: '', caption: 'Hasil Akhir Khas Cirebon'),
+          ],
+        ),
       ),
     ];
 
@@ -313,6 +282,30 @@ class AppProvider with ChangeNotifier {
     try {
       final prefs = await SharedPreferences.getInstance();
       _isDarkMode = prefs.getBool('is_dark_mode') ?? false;
+
+      // Load progress
+      for (int i = 0; i < _modules.length; i++) {
+        final mId = _modules[i].id;
+        final h = prefs.getBool('module_${mId}_history') ?? false;
+        final c = prefs.getBool('module_${mId}_character') ?? false;
+        final g = prefs.getBool('module_${mId}_gallery') ?? false;
+        final q = prefs.getBool('module_${mId}_quiz') ?? false;
+        final p = prefs.getBool('module_${mId}_practice') ?? false;
+        final qS = prefs.getInt('module_${mId}_quizScore');
+        final pS = prefs.getInt('module_${mId}_practiceScore');
+        final percent = prefs.getInt('module_${mId}_progress') ?? 0;
+
+        _modules[i] = _modules[i].copyWith(
+          historyDone: h,
+          characterDone: c,
+          galleryDone: g,
+          quizDone: q,
+          practiceDone: p,
+          quizScore: qS,
+          practiceScore: pS,
+          progressPercent: percent,
+        );
+      }
 
       // Coba load database SQLite di background jika tersedia secara non-blocking
       final db = await DatabaseHelper.instance.database;
@@ -428,6 +421,8 @@ class AppProvider with ChangeNotifier {
     notifyListeners();
   }
 
+  /// Dipanggil dari ModuleDetailScreen saat user menyelesaikan satu page/pillar.
+  /// pillar: 'history' | 'character' | 'gallery'
   Future<void> updatePillarProgress(int moduleId, String pillar) async {
     final index = _modules.indexWhere((m) => m.id == moduleId);
     if (index != -1) {
@@ -438,9 +433,9 @@ class AppProvider with ChangeNotifier {
       bool q = old.quizDone;
       bool p = old.practiceDone;
 
-      if (pillar == 'history') h = true;
-      if (pillar == 'character') c = true;
-      if (pillar == 'gallery') g = true;
+      if (pillar == 'history' && !h) h = true;
+      if (pillar == 'character' && !c) c = true;
+      if (pillar == 'gallery' && !g) g = true;
 
       int completedComponents = (h ? 1 : 0) + (c ? 1 : 0) + (g ? 1 : 0) + (q ? 1 : 0) + (p ? 1 : 0);
       int percent = (completedComponents * 20).clamp(0, 100);
@@ -459,8 +454,20 @@ class AppProvider with ChangeNotifier {
         galleryDone: g,
         quizDone: q,
         practiceDone: p,
+        content: old.content,
       );
       notifyListeners();
+
+      // Simpan progres ke SharedPreferences
+      try {
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.setInt('module_${moduleId}_progress', percent);
+        await prefs.setBool('module_${moduleId}_history', h);
+        await prefs.setBool('module_${moduleId}_character', c);
+        await prefs.setBool('module_${moduleId}_gallery', g);
+        await prefs.setBool('module_${moduleId}_quiz', q);
+        await prefs.setBool('module_${moduleId}_practice', p);
+      } catch (_) {}
     }
   }
 
@@ -476,22 +483,19 @@ class AppProvider with ChangeNotifier {
       int completedComponents = (h ? 1 : 0) + (c ? 1 : 0) + (g ? 1 : 0) + (passed ? 1 : 0) + (p ? 1 : 0);
       int percent = (completedComponents * 20).clamp(0, 100);
 
-      _modules[index] = ModuleModel(
-        id: old.id,
-        motifId: old.motifId,
-        title: old.title,
-        description: old.description,
-        coverImage: old.coverImage,
-        passingScore: old.passingScore,
-        orderNo: old.orderNo,
+      _modules[index] = old.copyWith(
         progressPercent: percent,
-        historyDone: h,
-        characterDone: c,
-        galleryDone: g,
         quizDone: passed,
-        practiceDone: p,
+        quizScore: score,
       );
       notifyListeners();
+
+      try {
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.setInt('module_${moduleId}_progress', percent);
+        await prefs.setBool('module_${moduleId}_quiz', passed);
+        await prefs.setInt('module_${moduleId}_quizScore', score);
+      } catch (_) {}
     }
   }
 
@@ -507,21 +511,19 @@ class AppProvider with ChangeNotifier {
       int completedComponents = (h ? 1 : 0) + (c ? 1 : 0) + (g ? 1 : 0) + (q ? 1 : 0) + (passed ? 1 : 0);
       int percent = (completedComponents * 20).clamp(0, 100);
 
-      _modules[index] = ModuleModel(
-        id: old.id,
-        motifId: old.motifId,
-        title: old.title,
-        description: old.description,
-        coverImage: old.coverImage,
-        passingScore: old.passingScore,
-        orderNo: old.orderNo,
+      _modules[index] = old.copyWith(
         progressPercent: percent,
-        historyDone: h,
-        characterDone: c,
-        galleryDone: g,
-        quizDone: q,
         practiceDone: passed,
+        practiceScore: (fitScore * 100).toInt(),
       );
+      notifyListeners();
+
+      try {
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.setInt('module_${moduleId}_progress', percent);
+        await prefs.setBool('module_${moduleId}_practice', passed);
+        await prefs.setInt('module_${moduleId}_practiceScore', (fitScore * 100).toInt());
+      } catch (_) {}
 
       // Tambahkan ke riwayat scan
       _scanHistories.insert(
