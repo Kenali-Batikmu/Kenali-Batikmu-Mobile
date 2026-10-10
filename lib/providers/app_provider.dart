@@ -1,10 +1,16 @@
+import 'dart:io';
 import 'package:flutter/foundation.dart';
+import 'package:path/path.dart' as pth;
+import 'package:path_provider/path_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../core/database/database_helper.dart';
 import '../models/app_models.dart';
 
 class AppProvider with ChangeNotifier {
+  static const String _photoPrefKey = 'profile_image_path';
+
   UserModel? _currentUser;
+  String? _savedPhotoPath; // path foto profil tersimpan (file lokal di folder aplikasi)
   bool _isLoading = false;
   String? _errorMessage;
 
@@ -51,6 +57,7 @@ class AppProvider with ChangeNotifier {
       id: 1,
       name: 'Sekar Ayu Kinanti',
       email: 'sekar@batikmu.id',
+      phone: '081234567890',
       createdAt: '2026-03-01T08:00:00Z',
     );
 
@@ -314,6 +321,12 @@ class AppProvider with ChangeNotifier {
       final prefs = await SharedPreferences.getInstance();
       _isDarkMode = prefs.getBool('is_dark_mode') ?? false;
 
+      // Muat foto profil tersimpan (hanya jika filenya masih ada)
+      final savedPhoto = prefs.getString(_photoPrefKey);
+      if (!kIsWeb && savedPhoto != null && File(savedPhoto).existsSync()) {
+        _savedPhotoPath = savedPhoto;
+      }
+
       // Coba load database SQLite di background jika tersedia secara non-blocking
       final db = await DatabaseHelper.instance.database;
       if (db != null) {
@@ -325,7 +338,15 @@ class AppProvider with ChangeNotifier {
     } catch (e) {
       debugPrint('Info sync SQLite: $e (Aplikasi berjalan dalam Interactive Prototype Mode)');
     } finally {
+      _applySavedPhoto();
       notifyListeners();
+    }
+  }
+
+  // Tempelkan foto tersimpan ke pengguna aktif (dipakai setelah data pengguna dimuat dari DB)
+  void _applySavedPhoto() {
+    if (_currentUser != null && _savedPhotoPath != null) {
+      _currentUser = _currentUser!.copyWith(profileImagePath: _savedPhotoPath);
     }
   }
 
@@ -359,6 +380,7 @@ class AppProvider with ChangeNotifier {
       id: 1,
       name: cleanEmail.startsWith('sekar') ? 'Sekar Ayu Kinanti' : 'Sekar Ayu Kinanti',
       email: cleanEmail,
+      profileImagePath: _savedPhotoPath,
       createdAt: DateTime.now().toIso8601String(),
     );
 
@@ -411,6 +433,7 @@ class AppProvider with ChangeNotifier {
       id: 1,
       name: cleanName,
       email: cleanEmail,
+      profileImagePath: _savedPhotoPath,
       createdAt: DateTime.now().toIso8601String(),
     );
 
@@ -426,6 +449,89 @@ class AppProvider with ChangeNotifier {
     } catch (_) {}
     _currentUser = null;
     notifyListeners();
+  }
+
+  // Simpan foto profil baru: salin ke folder aplikasi supaya tidak hilang
+  // saat file sementara dari kamera/galeri dibersihkan sistem.
+  Future<bool> setProfilePhoto(String sourcePath) async {
+    if (_currentUser == null) return false;
+    try {
+      String storedPath = sourcePath;
+      if (!kIsWeb) {
+        final dir = await getApplicationDocumentsDirectory();
+        final ext = pth.extension(sourcePath).isEmpty ? '.jpg' : pth.extension(sourcePath);
+        storedPath = pth.join(dir.path, 'profile_${DateTime.now().millisecondsSinceEpoch}$ext');
+        await File(sourcePath).copy(storedPath);
+        await _deletePhotoFile(_savedPhotoPath);
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.setString(_photoPrefKey, storedPath);
+      }
+      _savedPhotoPath = storedPath;
+      _currentUser = _currentUser!.copyWith(profileImagePath: storedPath);
+      notifyListeners();
+      return true;
+    } catch (e) {
+      debugPrint('Gagal menyimpan foto profil: $e');
+      return false;
+    }
+  }
+
+  Future<void> removeProfilePhoto() async {
+    if (_currentUser == null) return;
+    try {
+      await _deletePhotoFile(_savedPhotoPath);
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.remove(_photoPrefKey);
+    } catch (_) {}
+    _savedPhotoPath = null;
+    final u = _currentUser!;
+    // copyWith tidak bisa mengosongkan nilai, jadi buat ulang tanpa foto
+    _currentUser = UserModel(
+      id: u.id,
+      name: u.name,
+      email: u.email,
+      phone: u.phone,
+      profileImagePath: null,
+      createdAt: u.createdAt,
+    );
+    notifyListeners();
+  }
+
+  Future<void> _deletePhotoFile(String? path) async {
+    if (kIsWeb || path == null) return;
+    try {
+      final f = File(path);
+      if (await f.exists()) await f.delete();
+    } catch (_) {}
+  }
+
+  Future<bool> updateProfile({
+    String? name,
+    String? email,
+    String? phone,
+    String? profileImagePath,
+    String? password, // Password in a real app would be handled securely
+  }) async {
+    if (_currentUser == null) return false;
+    
+    _isLoading = true;
+    notifyListeners();
+    
+    // Simulate API call
+    await Future.delayed(const Duration(milliseconds: 500));
+    
+    _currentUser = _currentUser!.copyWith(
+      name: name,
+      email: email,
+      phone: phone,
+      profileImagePath: profileImagePath,
+    );
+    
+    // In a real app, you would also save the new password securely if provided.
+    
+    _isLoading = false;
+    notifyListeners();
+    return true;
   }
 
   Future<void> updatePillarProgress(int moduleId, String pillar) async {

@@ -4,6 +4,7 @@ import '../../widgets/kb_bottom_nav.dart';
 import 'dashboard_screen.dart';
 import '../modules/modules_list_screen.dart';
 import '../scan/universal_scan_screen.dart';
+import '../profile/profile_screen.dart';
 
 class MainNavigationScreen extends StatefulWidget {
   const MainNavigationScreen({super.key});
@@ -27,6 +28,7 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
       ),
       const UniversalScanScreen(),
       const ModulesListScreen(),
+      const ProfileScreen(),
     ];
 
     return Scaffold(
