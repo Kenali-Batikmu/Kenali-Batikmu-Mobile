@@ -34,6 +34,16 @@ class _DashboardScreenState extends State<DashboardScreen> {
   int _currentHeroPage = _initialPage;
   bool _isScrolledPast = false;
 
+  // Foto untuk kartu modul. Ganti dengan nama file fotomu.
+  static const List<String> _motifPhotos = [
+    'assets/images/motif_1.jpg',
+    'assets/images/motif_2.jpg',
+    'assets/images/motif_3.jpg',
+    'assets/images/motif_4.jpg',
+    'assets/images/motif_5.jpg',
+    'assets/images/motif_6.jpg',
+  ];
+
   @override
   void initState() {
     super.initState();
@@ -43,9 +53,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
   }
 
   void _onScroll() {
-    final offset = _scrollController.hasClients
-        ? _scrollController.offset
-        : 0.0;
+    final offset =
+        _scrollController.hasClients ? _scrollController.offset : 0.0;
     final isPast = offset > 120.0;
     if (isPast != _isScrolledPast) {
       setState(() {
@@ -114,7 +123,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
       width: double.infinity,
       child: Stack(
         children: [
-          // ── Lapisan bawah: PageView looping maju ──
           PageView.builder(
             controller: _pageController,
             onPageChanged: (index) {
@@ -131,14 +139,16 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 case 1:
                   return _buildBatikSlide(
                     title: 'Warisan Dunia',
-                    description: 'Batik Indonesia diakui UNESCO sebagai Warisan Budaya Takbenda sejak 2009.',
+                    description:
+                        'Batik Indonesia diakui UNESCO sebagai Warisan Budaya Takbenda sejak 2009.',
                     tag: 'WARISAN BUDAYA',
                     icon: Icons.public_rounded,
                   );
                 case 2:
                   return _buildBatikSlide(
                     title: 'Parang',
-                    description: 'Motif tertua yang melambangkan kekuatan dan keteguhan hati.',
+                    description:
+                        'Motif tertua yang melambangkan kekuatan dan keteguhan hati.',
                     tag: 'MOTIF BATIK',
                     icon: Icons.waves_rounded,
                   );
@@ -146,15 +156,14 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 default:
                   return _buildBatikSlide(
                     title: 'Kawung',
-                    description: 'Pola lingkaran yang melambangkan kesucian dan keadilan.',
+                    description:
+                        'Pola lingkaran yang melambangkan kesucian dan keadilan.',
                     tag: 'MOTIF BATIK',
                     icon: Icons.grain_rounded,
                   );
               }
             },
           ),
-
-          // ── Lapisan atas: Gradasi gelap tipis (agar status bar/ikon terbaca saat di atas) ──
           Positioned(
             top: 0,
             left: 0,
@@ -175,8 +184,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
               ),
             ),
           ),
-
-          // ── Indikator titik di dasar hero ──
           Positioned(
             left: 0,
             right: 0,
@@ -196,9 +203,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
     final isActive = activeIndex == index;
     final isLightSlide = activeIndex == 0;
 
-    final activeColor = isLightSlide
-        ? const Color(0xFFC4882F)
-        : const Color(0xFFE8C98A);
+    final activeColor =
+        isLightSlide ? const Color(0xFFC4882F) : const Color(0xFFE8C98A);
     final inactiveColor = isLightSlide
         ? Colors.grey.shade500.withValues(alpha: 0.5)
         : const Color(0xFFE8C98A).withValues(alpha: 0.35);
@@ -345,10 +351,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
             children: [
               if (tag != null) ...[
                 Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 10,
-                    vertical: 4,
-                  ),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                   decoration: BoxDecoration(
                     color: const Color(0xFFE8C98A).withValues(alpha: 0.18),
                     borderRadius: BorderRadius.circular(10),
@@ -400,6 +404,115 @@ class _DashboardScreenState extends State<DashboardScreen> {
     );
   }
 
+  // ── Kartu foto + label, judul, dan nomor modul ──
+  Widget _buildPhotoCard({
+    required String imagePath,
+    required String title,
+    required String subtitle,
+    required VoidCallback onTap,
+  }) {
+    return Container(
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.12),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(16),
+        child: Stack(
+          fit: StackFit.expand,
+          children: [
+            Image.asset(
+              imagePath,
+              fit: BoxFit.cover,
+              errorBuilder: (context, error, stackTrace) => Container(
+                color: const Color(0xFF382516),
+                child: const CustomPaint(
+                  painter: _KawungHeroPainter(
+                    color: Color(0xFFE8C98A),
+                    opacity: 0.18,
+                  ),
+                ),
+              ),
+            ),
+            Positioned.fill(
+              child: DecoratedBox(
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.topCenter,
+                    end: Alignment.bottomCenter,
+                    colors: [
+                      Colors.transparent,
+                      Colors.black.withValues(alpha: 0.75),
+                    ],
+                    stops: const [0.45, 1.0],
+                  ),
+                ),
+              ),
+            ),
+            Positioned(
+              top: 10,
+              left: 10,
+              child: Container(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                decoration: BoxDecoration(
+                  color: Colors.black.withValues(alpha: 0.4),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Text(
+                  'Batik Klasik',
+                  style: AppTheme.satoshi(
+                    fontSize: 9,
+                    fontWeight: FontWeight.bold,
+                    color: AppTheme.accentGold,
+                  ),
+                ),
+              ),
+            ),
+            Positioned(
+              left: 12,
+              right: 12,
+              bottom: 12,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    title,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: AppTheme.satoshi(
+                      fontSize: 14,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.white,
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    subtitle,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: AppTheme.inter(fontSize: 10, color: Colors.white70),
+                  ),
+                ],
+              ),
+            ),
+            Material(
+              color: Colors.transparent,
+              child: InkWell(onTap: onTap),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
@@ -420,7 +533,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
       backgroundColor: bgColor,
       body: Stack(
         children: [
-          // ── Lapisan bawah: konten scrollable ──
+          // ── Konten scrollable ──
           MediaQuery.removePadding(
             context: context,
             removeTop: true,
@@ -444,7 +557,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     offset: const Offset(0, -32),
                     child: Column(
                       children: [
-                        // Gelombang: isian krem + garis emas
                         CustomPaint(
                           painter: _WaveTopPainter(
                             fill: bgColor,
@@ -452,8 +564,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
                           ),
                           size: const Size(double.infinity, 32),
                         ),
-
-                        // Konten di bawah gelombang (tanpa ClipPath)
                         Container(
                           width: double.infinity,
                           color: bgColor,
@@ -463,9 +573,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
                             children: [
                               // ── Header Riwayat Belajar ──
                               Padding(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 16,
-                                ),
+                                padding:
+                                    const EdgeInsets.symmetric(horizontal: 16),
                                 child: Text(
                                   'Riwayat Belajar',
                                   style: AppTheme.satoshi(
@@ -477,25 +586,17 @@ class _DashboardScreenState extends State<DashboardScreen> {
                               ),
                               const SizedBox(height: 14),
 
-                              // ── Riwayat Belajar: hanya modul yang sedang dikerjakan ──
+                              // ── Riwayat Belajar: modul yang sedang dikerjakan ──
                               Builder(
                                 builder: (_) {
-                                  // Modul sedang berjalan, progres tertinggi dulu
-                                  final inProgress =
-                                      provider.modules
-                                          .where(
-                                            (m) =>
-                                                m.progressPercent > 0 &&
-                                                m.progressPercent < 100,
-                                          )
-                                          .toList()
-                                        ..sort(
-                                          (a, b) => b.progressPercent.compareTo(
-                                            a.progressPercent,
-                                          ),
-                                        );
+                                  final inProgress = provider.modules
+                                      .where((m) =>
+                                          m.progressPercent > 0 &&
+                                          m.progressPercent < 100)
+                                      .toList()
+                                    ..sort((a, b) => b.progressPercent
+                                        .compareTo(a.progressPercent));
 
-                                  // 1 modul = 1 kartu, bertambah otomatis
                                   if (inProgress.isNotEmpty) {
                                     return _RiwayatSlider(
                                       modules: inProgress.take(5).toList(),
@@ -503,15 +604,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
                                     );
                                   }
 
-                                  // Belum ada yang dikerjakan: sarankan modul pertama
-                                  final notStarted =
-                                      provider.modules
-                                          .where((m) => m.progressPercent == 0)
-                                          .toList()
-                                        ..sort(
-                                          (a, b) =>
-                                              a.orderNo.compareTo(b.orderNo),
-                                        );
+                                  final notStarted = provider.modules
+                                      .where((m) => m.progressPercent == 0)
+                                      .toList()
+                                    ..sort((a, b) =>
+                                        a.orderNo.compareTo(b.orderNo));
 
                                   if (notStarted.isNotEmpty) {
                                     return KbModuleCard(
@@ -520,7 +617,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
                                     );
                                   }
 
-                                  // Semua selesai: tampilkan modul terakhir
                                   final done = provider.modules
                                       .where((m) => m.progressPercent == 100)
                                       .toList();
@@ -533,12 +629,12 @@ class _DashboardScreenState extends State<DashboardScreen> {
                                   );
                                 },
                               ),
+                              const SizedBox(height: 24),
 
                               // ── Header Modul Kenali Batikmu ──
                               Padding(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 16,
-                                ),
+                                padding:
+                                    const EdgeInsets.symmetric(horizontal: 16),
                                 child: Row(
                                   mainAxisAlignment:
                                       MainAxisAlignment.spaceBetween,
@@ -567,31 +663,31 @@ class _DashboardScreenState extends State<DashboardScreen> {
                               ),
                               const SizedBox(height: 14),
 
-                              // ── List horizontal kartu motif kecil ──
-                              SizedBox(
-                                height: 160,
-                                child: ListView.separated(
-                                  scrollDirection: Axis.horizontal,
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 16,
+                              // ── Grid foto (2 kolom) ──
+                              Padding(
+                                padding:
+                                    const EdgeInsets.symmetric(horizontal: 16),
+                                child: GridView.builder(
+                                  shrinkWrap: true,
+                                  physics: const NeverScrollableScrollPhysics(),
+                                  padding: EdgeInsets.zero,
+                                  itemCount: provider.modules.length > 6
+                                      ? 6
+                                      : provider.modules.length,
+                                  gridDelegate:
+                                      const SliverGridDelegateWithFixedCrossAxisCount(
+                                    crossAxisCount: 2,
+                                    mainAxisSpacing: 12,
+                                    crossAxisSpacing: 12,
+                                    childAspectRatio: 1,
                                   ),
-                                  itemCount: provider.modules.length,
-                                  separatorBuilder: (context, index) =>
-                                      const SizedBox(width: 14),
                                   itemBuilder: (ctx, idx) {
                                     final m = provider.modules[idx];
-                                    final icons = [
-                                      Icons.grain,
-                                      Icons.waves,
-                                      Icons.auto_awesome,
-                                      Icons.eco,
-                                      Icons.water_drop,
-                                    ];
-                                    return _buildMotifCard(
-                                      context: context,
+                                    return _buildPhotoCard(
+                                      imagePath: _motifPhotos[
+                                          idx % _motifPhotos.length],
                                       title: m.title.split('\n').first,
                                       subtitle: 'Modul ${m.orderNo}',
-                                      icon: icons[idx % icons.length],
                                       onTap: () {
                                         Navigator.push(
                                           context,
@@ -616,7 +712,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
             ),
           ),
 
-          // ── Lapisan atas: sticky app bar ──
+          // ── Sticky app bar ──
           Positioned(
             top: 0,
             left: 0,
@@ -645,14 +741,13 @@ class _DashboardScreenState extends State<DashboardScreen> {
     );
   }
 
-  // ── Top bar floating di atas hero slide ──────────────────────────────────
   List<BoxShadow> get _softShadow => [
-    BoxShadow(
-      color: Colors.black.withValues(alpha: 0.10),
-      blurRadius: 10,
-      offset: const Offset(0, 3),
-    ),
-  ];
+        BoxShadow(
+          color: Colors.black.withValues(alpha: 0.10),
+          blurRadius: 10,
+          offset: const Offset(0, 3),
+        ),
+      ];
 
   Widget _buildTopBar(BuildContext context, bool isDark) {
     final surface = isDark ? AppTheme.darkSurface : Colors.white;
@@ -664,7 +759,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
       padding: const EdgeInsets.symmetric(horizontal: 16),
       child: Row(
         children: [
-          // Logo KB
           Container(
             width: 44,
             height: 44,
@@ -681,8 +775,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
             ),
           ),
           const SizedBox(width: 10),
-
-          // Search bar (fungsional → buka modal pencarian)
           Expanded(
             child: GestureDetector(
               onTap: () => _showSearchSheet(context, isDark),
@@ -696,11 +788,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 ),
                 child: Row(
                   children: [
-                    const Icon(
-                      Icons.search_rounded,
-                      color: iconColor,
-                      size: 20,
-                    ),
+                    const Icon(Icons.search_rounded,
+                        color: iconColor, size: 20),
                     const SizedBox(width: 8),
                     Expanded(
                       child: Text(
@@ -717,8 +806,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
             ),
           ),
           const SizedBox(width: 10),
-
-          // Profile Avatar (Clickable: opens Profile tab)
           GestureDetector(
             onTap: widget.onOpenProfile,
             child: Container(
@@ -754,99 +841,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
       ),
     );
   }
-
-  // ── Kartu motif kecil horizontal (dari versi lama) ───────────────────────
-  Widget _buildMotifCard({
-    required BuildContext context,
-    required String title,
-    required String subtitle,
-    required IconData icon,
-    required VoidCallback onTap,
-  }) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        width: 140,
-        decoration: BoxDecoration(
-          color: const Color(0xFF382516),
-          borderRadius: BorderRadius.circular(18),
-          border: Border.all(
-            color: isDark ? AppTheme.darkBorder : AppTheme.border,
-          ),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withValues(alpha: 0.1),
-              blurRadius: 8,
-              offset: const Offset(0, 4),
-            ),
-          ],
-        ),
-        child: Stack(
-          children: [
-            Positioned.fill(
-              child: Center(
-                child: Icon(
-                  icon,
-                  size: 54,
-                  color: Colors.white.withValues(alpha: 0.15),
-                ),
-              ),
-            ),
-            // Tag Label
-            Positioned(
-              top: 10,
-              left: 10,
-              child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                decoration: BoxDecoration(
-                  color: Colors.black.withValues(alpha: 0.4),
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: Text(
-                  'Batik Klasik',
-                  style: AppTheme.satoshi(
-                    fontSize: 9,
-                    fontWeight: FontWeight.bold,
-                    color: AppTheme.accentGold,
-                  ),
-                ),
-              ),
-            ),
-            // Judul & Subtitle
-            Positioned(
-              bottom: 12,
-              left: 12,
-              right: 12,
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    title,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: AppTheme.satoshi(
-                      fontSize: 14,
-                      fontWeight: FontWeight.bold,
-                      color: Colors.white,
-                    ),
-                  ),
-                  const SizedBox(height: 2),
-                  Text(
-                    subtitle,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: AppTheme.inter(fontSize: 10, color: Colors.white70),
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
 }
 
 // ── Modal pencarian ───────────────────────────────────────────────────────────
@@ -868,11 +862,8 @@ class _SearchModalContentState extends State<_SearchModalContent> {
   String _query = '';
   List<int> _historyIds = [];
 
-  // Warna ikon normal & pressed — reuse warna dari KbModuleCard
-  static const Color _iconNormal = AppTheme.primaryDark; // 0xFF543118
-  static const Color _iconPressed = Color(
-    0xFF3E2418,
-  ); // _kBrown di kb_module_card
+  static const Color _iconNormal = AppTheme.primaryDark;
+  static const Color _iconPressed = Color(0xFF3E2418);
 
   @override
   void initState() {
@@ -927,7 +918,6 @@ class _SearchModalContentState extends State<_SearchModalContent> {
           m.description.toLowerCase().contains(_query.toLowerCase());
     }).toList();
 
-    // Ambil data modul terbaru untuk riwayat pencarian (berdasarkan urutan _historyIds)
     final historyModules = <dynamic>[];
     for (final id in _historyIds) {
       final matches = provider.modules.where((m) => m.id == id);
@@ -957,9 +947,8 @@ class _SearchModalContentState extends State<_SearchModalContent> {
           ),
           decoration: BoxDecoration(
             color: widget.isDark ? AppTheme.darkSurface : Colors.white,
-            borderRadius: const BorderRadius.vertical(
-              bottom: Radius.circular(24),
-            ),
+            borderRadius:
+                const BorderRadius.vertical(bottom: Radius.circular(24)),
           ),
           child: Column(
             mainAxisSize: MainAxisSize.min,
@@ -978,10 +967,8 @@ class _SearchModalContentState extends State<_SearchModalContent> {
                     fontSize: 13,
                     color: const Color(0xFFA59284),
                   ),
-                  prefixIcon: const Icon(
-                    Icons.search,
-                    color: Color(0xFF8A6D56),
-                  ),
+                  prefixIcon:
+                      const Icon(Icons.search, color: Color(0xFF8A6D56)),
                   suffixIcon: _query.isNotEmpty
                       ? IconButton(
                           icon: const Icon(Icons.clear, size: 18),
@@ -992,36 +979,29 @@ class _SearchModalContentState extends State<_SearchModalContent> {
                         )
                       : null,
                   filled: true,
-                  fillColor: widget.isDark
-                      ? AppTheme.darkSurface
-                      : Colors.white,
+                  fillColor:
+                      widget.isDark ? AppTheme.darkSurface : Colors.white,
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(23),
                     borderSide: BorderSide(
-                      color: widget.isDark
-                          ? AppTheme.darkBorder
-                          : AppTheme.border,
+                      color:
+                          widget.isDark ? AppTheme.darkBorder : AppTheme.border,
                     ),
                   ),
                   enabledBorder: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(23),
                     borderSide: BorderSide(
-                      color: widget.isDark
-                          ? AppTheme.darkBorder
-                          : AppTheme.border,
+                      color:
+                          widget.isDark ? AppTheme.darkBorder : AppTheme.border,
                     ),
                   ),
                   focusedBorder: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(23),
-                    borderSide: const BorderSide(
-                      color: AppTheme.primary,
-                      width: 2,
-                    ),
+                    borderSide:
+                        const BorderSide(color: AppTheme.primary, width: 2),
                   ),
-                  contentPadding: const EdgeInsets.symmetric(
-                    horizontal: 16,
-                    vertical: 12,
-                  ),
+                  contentPadding:
+                      const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                 ),
               ),
               if (_query.isNotEmpty) ...[
@@ -1172,11 +1152,8 @@ class _SearchResultTileState extends State<_SearchResultTile> {
                       borderRadius: BorderRadius.circular(10),
                     ),
                     child: const Center(
-                      child: Icon(
-                        Icons.menu_book,
-                        color: Colors.white,
-                        size: 18,
-                      ),
+                      child:
+                          Icon(Icons.menu_book, color: Colors.white, size: 18),
                     ),
                   ),
                   const SizedBox(width: 12),
@@ -1237,7 +1214,7 @@ class _SearchResultTileState extends State<_SearchResultTile> {
   }
 }
 
-/// Motif kawung: empat kelopak lonjong bertemu di satu titik, diulang memenuhi area
+/// Motif kawung untuk latar slide hero dan kartu foto cadangan.
 class _KawungHeroPainter extends CustomPainter {
   final Color color;
   final double opacity;
@@ -1264,34 +1241,22 @@ class _KawungHeroPainter extends CustomPainter {
         final c = Offset(x + cell / 2, y + cell / 2);
         canvas.drawOval(
           Rect.fromCenter(
-            center: c.translate(0, -q),
-            width: short,
-            height: long,
-          ),
+              center: c.translate(0, -q), width: short, height: long),
           line,
         );
         canvas.drawOval(
           Rect.fromCenter(
-            center: c.translate(0, q),
-            width: short,
-            height: long,
-          ),
+              center: c.translate(0, q), width: short, height: long),
           line,
         );
         canvas.drawOval(
           Rect.fromCenter(
-            center: c.translate(-q, 0),
-            width: long,
-            height: short,
-          ),
+              center: c.translate(-q, 0), width: long, height: short),
           line,
         );
         canvas.drawOval(
           Rect.fromCenter(
-            center: c.translate(q, 0),
-            width: long,
-            height: short,
-          ),
+              center: c.translate(q, 0), width: long, height: short),
           line,
         );
         canvas.drawCircle(c, 1.5, dot);
@@ -1317,13 +1282,11 @@ class _WaveTopPainter extends CustomPainter {
     final w = size.width;
     final h = size.height;
 
-    // Path gelombang: 2 lengkung kubik sepanjang lebar
     final wavePath = Path()
       ..moveTo(0, amp)
       ..cubicTo(w * 0.12, 0, w * 0.24, amp * 2, w * 0.5, amp)
       ..cubicTo(w * 0.76, 0, w * 0.88, amp * 2, w, amp);
 
-    // Area isi di bawah gelombang
     final fillPath = Path.from(wavePath)
       ..lineTo(w, h)
       ..lineTo(0, h)
