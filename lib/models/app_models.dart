@@ -2,12 +2,16 @@ class UserModel {
   final int id;
   final String name;
   final String email;
+  final String? phone;
+  final String? profileImagePath;
   final String? createdAt;
 
   UserModel({
     required this.id,
     required this.name,
     required this.email,
+    this.phone,
+    this.profileImagePath,
     this.createdAt,
   });
 
@@ -16,7 +20,27 @@ class UserModel {
       id: map['id'] as int,
       name: map['name'] as String,
       email: map['email'] as String,
+      phone: map['phone'] as String?,
+      profileImagePath: map['profile_image_path'] as String?,
       createdAt: map['created_at'] as String?,
+    );
+  }
+
+  UserModel copyWith({
+    int? id,
+    String? name,
+    String? email,
+    String? phone,
+    String? profileImagePath,
+    String? createdAt,
+  }) {
+    return UserModel(
+      id: id ?? this.id,
+      name: name ?? this.name,
+      email: email ?? this.email,
+      phone: phone ?? this.phone,
+      profileImagePath: profileImagePath ?? this.profileImagePath,
+      createdAt: createdAt ?? this.createdAt,
     );
   }
 }

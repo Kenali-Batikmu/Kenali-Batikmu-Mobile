@@ -1,12 +1,20 @@
+import 'dart:io';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import '../../core/theme/app_theme.dart';
 import '../../models/app_models.dart';
 import '../../providers/app_provider.dart';
+import '../profile/profile_screen.dart';
 import 'module_detail_screen.dart';
 
 class ModulesListScreen extends StatefulWidget {
-  const ModulesListScreen({super.key});
+  /// Dipanggil saat avatar profil diketuk. Diisi oleh MainNavigationScreen
+  /// supaya pindah ke tab Profil dan footer tetap tampil.
+  final VoidCallback? onOpenProfile;
+
+  const ModulesListScreen({super.key, this.onOpenProfile});
 
   @override
   State<ModulesListScreen> createState() => _ModulesListScreenState();
@@ -14,27 +22,37 @@ class ModulesListScreen extends StatefulWidget {
 
 class _ModulesListScreenState extends State<ModulesListScreen> {
   final TextEditingController _searchCtrl = TextEditingController();
+  final FocusNode _searchFocus = FocusNode();
   final ScrollController _scrollController = ScrollController();
   String _searchQuery = '';
   String _sortFilter = 'all'; // 'all', 'completed', 'in_progress', 'not_started'
 
-  // Tinggi top bar tetap supaya posisi background bisa dihitung presisi
+  // Tinggi top bar tetap
   static const double _topBarHeight = 68;
 
   // Rasio gambar background: 1170 x 1560
   static const double _bgRatio = 1560 / 1170;
 
   @override
+  void initState() {
+    super.initState();
+    // Rebuild saat fokus berubah supaya border search bar ikut berganti
+    _searchFocus.addListener(() => setState(() {}));
+  }
+
+  @override
   void dispose() {
     _searchCtrl.dispose();
+    _searchFocus.dispose();
     _scrollController.dispose();
     super.dispose();
   }
 
-  double get _scrollOffset {
-    if (!_scrollController.hasClients) return 0;
-    final o = _scrollController.offset;
-    return o < 0 ? 0 : o; // jangan bergerak saat overscroll
+  /// Foto profil: file lokal (Android/iOS) atau URL/blob (web)
+  ImageProvider? _avatarImage(String? path) {
+    if (path == null || path.isEmpty) return null;
+    if (kIsWeb || path.startsWith('http')) return NetworkImage(path);
+    return FileImage(File(path));
   }
 
   void _showSortModal(BuildContext context, bool isDark) {
@@ -104,17 +122,19 @@ class _ModulesListScreenState extends State<ModulesListScreen> {
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final provider = context.watch<AppProvider>();
+    final user = provider.currentUser;
     final screenWidth = MediaQuery.of(context).size.width;
     final safeTop = MediaQuery.of(context).padding.top;
+
+    // Warna cokelat muda: dipakai untuk top bar DAN latar daftar modul
     final bgColor = isDark ? AppTheme.darkBackground : const Color(0xFFFBF3E3);
 
     // Semua ukuran dihitung dari lebar layar agar selalu proporsional dengan gambar
-    final headerHeight = safeTop + _topBarHeight;
     final bgHeight = screenWidth * _bgRatio;
     final textLeft = screenWidth * 0.09;
     final textTop = screenWidth * 0.10; // makin kecil = makin naik
-    final textWidth = screenWidth * 0.46;
-    final textHeight = screenWidth * 0.30;
+    final textWidth = screenWidth * 0.48;
+    final textHeight = screenWidth * 0.36;
     final listStart = screenWidth * 0.58; // awal daftar, tepat di bawah lengkungan krem
 
     // Filter modul sesuai pencarian & sort
@@ -133,94 +153,102 @@ class _ModulesListScreenState extends State<ModulesListScreen> {
 
     const brown = Color(0xFF4A2F1D);
 
-    return Scaffold(
-      backgroundColor: bgColor,
-      body: Stack(
-        children: [
-          // ── Background ilustrasi (ikut scroll, dimulai tepat di bawah top bar) ──
-          AnimatedBuilder(
-            animation: _scrollController,
-            builder: (context, child) {
-              return Positioned(
-                top: headerHeight - _scrollOffset,
-                left: 0,
-                right: 0,
-                height: bgHeight,
-                child: child!,
-              );
-            },
-            child: Stack(
-              children: [
-                // Fade di tepi atas & bawah agar menyatu dengan warna latar
-                ShaderMask(
-                  blendMode: BlendMode.dstIn,
-                  shaderCallback: (rect) => const LinearGradient(
-                    begin: Alignment.topCenter,
-                    end: Alignment.bottomCenter,
-                    colors: [Colors.transparent, Colors.black, Colors.black, Colors.transparent],
-                    stops: [0.0, 0.05, 0.9, 1.0],
-                  ).createShader(rect),
-                  child: Image.asset(
-                    'assets/images/module_bg.jpeg',
-                    width: screenWidth,
-                    height: bgHeight,
-                    fit: BoxFit.fill,
-                  ),
-                ),
+    return AnnotatedRegion<SystemUiOverlayStyle>(
+      // Header terang, jadi ikon status bar dibuat gelap (terang bila mode gelap)
+      value: isDark ? SystemUiOverlayStyle.light : SystemUiOverlayStyle.dark,
+      child: Scaffold(
+        backgroundColor: bgColor,
+        body: Column(
+          children: [
+            // ── Top bar TETAP (status bar + logo + search + profil) ──
+            // Diberi warna latar penuh supaya konten yang di-scroll tidak tembus ke belakangnya
+            Container(
+              color: bgColor,
+              padding: EdgeInsets.only(top: safeTop),
+              child: _buildTopBar(isDark, user),
+            ),
 
-                // Teks sambutan: di kolom kiri, sejajar dengan tokoh kebaya
-                Positioned(
-                  left: textLeft,
-                  top: textTop,
-                  width: textWidth,
-                  height: textHeight,
-                  child: FittedBox(
-                    fit: BoxFit.scaleDown,
-                    alignment: Alignment.centerLeft,
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Text(
-                          'Selamat\nmengerjakan!',
-                          style: AppTheme.satoshi(
-                            fontSize: 20,
-                            fontWeight: FontWeight.w800,
-                            color: brown,
-                            height: 1.15,
-                          ),
-                        ),
-                        const SizedBox(height: 8),
-                        ConstrainedBox(
-                          constraints: BoxConstraints(maxWidth: textWidth),
-                          child: Text(
-                            'Selesaikan materi hari ini untuk membuka lencana baru.',
-                            style: AppTheme.inter(
-                              fontSize: 12,
-                              color: brown,
-                              height: 1.4,
+            // ── Area scroll: ilustrasi + teks sambutan + daftar modul ikut bergerak ──
+            Expanded(
+              child: SingleChildScrollView(
+                controller: _scrollController,
+                padding: const EdgeInsets.only(bottom: 120),
+                child: Stack(
+                  children: [
+                    // Ilustrasi latar (ikut scroll)
+                    Positioned(
+                      top: 0,
+                      left: 0,
+                      right: 0,
+                      height: bgHeight,
+                      child: Stack(
+                        children: [
+                          // Fade di tepi atas dan bawah supaya menyatu dengan cokelat muda
+                          ShaderMask(
+                            blendMode: BlendMode.dstIn,
+                            shaderCallback: (rect) => const LinearGradient(
+                              begin: Alignment.topCenter,
+                              end: Alignment.bottomCenter,
+                              colors: [
+                                Colors.transparent,
+                                Colors.black,
+                                Colors.black,
+                                Colors.transparent,
+                              ],
+                              stops: [0.0, 0.06, 0.9, 1.0],
+                            ).createShader(rect),
+                            child: Image.asset(
+                              'assets/images/module_bg.jpeg',
+                              width: screenWidth,
+                              height: bgHeight,
+                              fit: BoxFit.fill,
                             ),
                           ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
 
-          // ── Top bar (tetap) + konten yang bisa di-scroll ──
-          SafeArea(
-            bottom: false,
-            child: Column(
-              children: [
-                _buildTopBar(isDark, bgColor),
-                Expanded(
-                  child: SingleChildScrollView(
-                    controller: _scrollController,
-                    padding: const EdgeInsets.only(bottom: 120),
-                    child: Column(
+                          // Teks sambutan: di kolom kiri, sejajar dengan tokoh kebaya
+                          Positioned(
+                            left: textLeft,
+                            top: textTop,
+                            width: textWidth,
+                            height: textHeight,
+                            child: FittedBox(
+                              fit: BoxFit.scaleDown,
+                              alignment: Alignment.centerLeft,
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Text(
+                                    'Setiap Motif\nPunya Cerita',
+                                    style: AppTheme.satoshi(
+                                      fontSize: 26,
+                                      fontWeight: FontWeight.w800,
+                                      color: brown,
+                                      height: 1.15,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 8),
+                                  ConstrainedBox(
+                                    constraints: BoxConstraints(maxWidth: textWidth),
+                                    child: Text(
+                                      'Selesaikan materi hari ini untuk membuka lencana baru.',
+                                      style: AppTheme.inter(
+                                        fontSize: 13,
+                                        color: brown,
+                                        height: 1.4,
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+
+                    // Konten daftar modul (menentukan tinggi Stack)
+                    Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         SizedBox(height: listStart),
@@ -241,22 +269,21 @@ class _ModulesListScreenState extends State<ModulesListScreen> {
                           )
                         else
                           ...displayModules.map((m) => _buildModuleCard(context, m, isDark)),
-
                       ],
                     ),
-                  ),
+                  ],
                 ),
-              ],
+              ),
             ),
-          ),
 
-          // ── Footer berada di level MainNavigationScreen ──
-        ],
+            // ── Footer berada di level MainNavigationScreen ──
+          ],
+        ),
       ),
     );
   }
 
-  // ── Top bar: logo, search, lonceng (semua tinggi 46, bayangan seragam) ──
+  // ── Top bar: logo, search, profil (semua tinggi 46, bayangan seragam) ──
   List<BoxShadow> get _softShadow => [
         BoxShadow(
           color: Colors.black.withValues(alpha: 0.06),
@@ -265,21 +292,14 @@ class _ModulesListScreenState extends State<ModulesListScreen> {
         ),
       ];
 
-  Widget _buildTopBar(bool isDark, Color bgColor) {
-    final surface = isDark ? AppTheme.darkSurface : Colors.white;
-    const iconColor = Color(0xFF8A6D56);
+  Widget _buildTopBar(bool isDark, UserModel? user) {
+    final avatarImage = _avatarImage(user?.profileImagePath);
+    final initial = (user?.name.isNotEmpty ?? false) ? user!.name[0].toUpperCase() : 'S';
 
-    return AnimatedBuilder(
-      animation: _scrollController,
-      builder: (context, child) {
-        return Container(
-          height: _topBarHeight,
-          padding: const EdgeInsets.symmetric(horizontal: 20),
-          alignment: Alignment.center,
-          color: _scrollOffset > 4 ? bgColor.withValues(alpha: 0.95) : Colors.transparent,
-          child: child,
-        );
-      },
+    return Container(
+      height: _topBarHeight,
+      padding: const EdgeInsets.symmetric(horizontal: 16),
+      alignment: Alignment.center,
       child: Row(
         children: [
           // Logo KB
@@ -295,25 +315,41 @@ class _ModulesListScreenState extends State<ModulesListScreen> {
               child: Image.asset('assets/images/kb_logo.jpeg', fit: BoxFit.cover),
             ),
           ),
-          const SizedBox(width: 12),
+          const SizedBox(width: 10),
 
           // Search bar
           Expanded(
-            child: Container(
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 200),
               height: 46,
-              padding: const EdgeInsets.symmetric(horizontal: 14),
+              padding: const EdgeInsets.only(left: 6, right: 14),
               decoration: BoxDecoration(
-                color: surface,
+                color: isDark ? AppTheme.darkSurface : const Color(0xFFFFFDF8),
                 borderRadius: BorderRadius.circular(23),
+                border: Border.all(
+                  color: _searchFocus.hasFocus ? AppTheme.accentGold : const Color(0xFFE5D3B8),
+                  width: _searchFocus.hasFocus ? 1.5 : 1,
+                ),
                 boxShadow: _softShadow,
               ),
               child: Row(
                 children: [
-                  const Icon(Icons.search_rounded, color: iconColor, size: 20),
-                  const SizedBox(width: 8),
+                  // Ikon dalam lingkaran emas muda
+                  Container(
+                    width: 34,
+                    height: 34,
+                    decoration: const BoxDecoration(
+                      color: Color(0xFFF4E4C4),
+                      shape: BoxShape.circle,
+                    ),
+                    child: const Icon(Icons.search_rounded, color: Color(0xFF7B3A1A), size: 19),
+                  ),
+                  const SizedBox(width: 10),
                   Expanded(
                     child: TextField(
                       controller: _searchCtrl,
+                      focusNode: _searchFocus,
+                      cursorColor: const Color(0xFF7B3A1A),
                       onChanged: (val) => setState(() => _searchQuery = val),
                       textAlignVertical: TextAlignVertical.center,
                       style: AppTheme.inter(fontSize: 13),
@@ -334,51 +370,52 @@ class _ModulesListScreenState extends State<ModulesListScreen> {
                       },
                       child: const Padding(
                         padding: EdgeInsets.only(left: 6),
-                        child: Icon(Icons.close_rounded, size: 18, color: Color(0xFFA59284)),
+                        child: Icon(Icons.close_rounded, size: 18, color: Color(0xFF8A6D56)),
                       ),
                     ),
                 ],
               ),
             ),
           ),
-          const SizedBox(width: 12),
+          const SizedBox(width: 10),
 
-          // Lonceng notifikasi
+          // Profil (di kanan paling ujung) -> membuka ProfileScreen
           GestureDetector(
             onTap: () {
-              // TODO: buka halaman notifikasi
+              final open = widget.onOpenProfile;
+              if (open != null) {
+                open(); // pindah tab Profil, footer tetap ada
+              } else {
+                // Cadangan bila layar ini dipakai tanpa MainNavigationScreen
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => const ProfileScreen()),
+                );
+              }
             },
             child: Container(
               width: 46,
               height: 46,
+              alignment: Alignment.center,
               decoration: BoxDecoration(
-                color: surface,
                 shape: BoxShape.circle,
+                color: AppTheme.primary,
+                border: Border.all(color: AppTheme.accentGold, width: 2),
                 boxShadow: _softShadow,
+                image: avatarImage != null
+                    ? DecorationImage(image: avatarImage, fit: BoxFit.cover)
+                    : null,
               ),
-              child: Stack(
-                alignment: Alignment.center,
-                children: [
-                  Icon(
-                    Icons.notifications_none_rounded,
-                    color: isDark ? Colors.white : const Color(0xFF4A2F1D),
-                    size: 24,
-                  ),
-                  Positioned(
-                    top: 11,
-                    right: 12,
-                    child: Container(
-                      width: 10,
-                      height: 10,
-                      decoration: BoxDecoration(
-                        color: const Color(0xFFD9534F),
-                        shape: BoxShape.circle,
-                        border: Border.all(color: surface, width: 1.5),
+              child: avatarImage == null
+                  ? Text(
+                      initial,
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
                       ),
-                    ),
-                  ),
-                ],
-              ),
+                    )
+                  : null,
             ),
           ),
         ],

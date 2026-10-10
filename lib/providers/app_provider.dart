@@ -1,10 +1,16 @@
+import 'dart:io';
 import 'package:flutter/foundation.dart';
+import 'package:path/path.dart' as pth;
+import 'package:path_provider/path_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../core/database/database_helper.dart';
 import '../models/app_models.dart';
 
 class AppProvider with ChangeNotifier {
+  static const String _photoPrefKey = 'profile_image_path';
+
   UserModel? _currentUser;
+  String? _savedPhotoPath; // path foto profil tersimpan (file lokal di folder aplikasi)
   bool _isLoading = false;
   String? _errorMessage;
 
@@ -51,6 +57,7 @@ class AppProvider with ChangeNotifier {
       id: 1,
       name: 'Sekar Ayu Kinanti',
       email: 'sekar@batikmu.id',
+      phone: '081234567890',
       createdAt: '2026-03-01T08:00:00Z',
     );
 
@@ -305,6 +312,10 @@ class AppProvider with ChangeNotifier {
           practiceScore: pS,
           progressPercent: percent,
         );
+      // Muat foto profil tersimpan (hanya jika filenya masih ada)
+      final savedPhoto = prefs.getString(_photoPrefKey);
+      if (!kIsWeb && savedPhoto != null && File(savedPhoto).existsSync()) {
+        _savedPhotoPath = savedPhoto;
       }
 
       // Coba load database SQLite di background jika tersedia secara non-blocking
@@ -318,7 +329,15 @@ class AppProvider with ChangeNotifier {
     } catch (e) {
       debugPrint('Info sync SQLite: $e (Aplikasi berjalan dalam Interactive Prototype Mode)');
     } finally {
+      _applySavedPhoto();
       notifyListeners();
+    }
+  }
+
+  // Tempelkan foto tersimpan ke pengguna aktif (dipakai setelah data pengguna dimuat dari DB)
+  void _applySavedPhoto() {
+    if (_currentUser != null && _savedPhotoPath != null) {
+      _currentUser = _currentUser!.copyWith(profileImagePath: _savedPhotoPath);
     }
   }
 
@@ -352,6 +371,7 @@ class AppProvider with ChangeNotifier {
       id: 1,
       name: cleanEmail.startsWith('sekar') ? 'Sekar Ayu Kinanti' : 'Sekar Ayu Kinanti',
       email: cleanEmail,
+      profileImagePath: _savedPhotoPath,
       createdAt: DateTime.now().toIso8601String(),
     );
 
@@ -404,6 +424,7 @@ class AppProvider with ChangeNotifier {
       id: 1,
       name: cleanName,
       email: cleanEmail,
+      profileImagePath: _savedPhotoPath,
       createdAt: DateTime.now().toIso8601String(),
     );
 
