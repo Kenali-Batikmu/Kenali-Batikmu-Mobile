@@ -126,9 +126,201 @@ class _ModuleDetailScreenState extends State<ModuleDetailScreen> {
     );
   }
 
+  void _showCompletionDialog(BuildContext context, ModuleModel module) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (dialogCtx) {
+        return Dialog(
+          backgroundColor: Colors.transparent,
+          insetPadding: const EdgeInsets.symmetric(horizontal: 24),
+          child: Container(
+            padding: const EdgeInsets.all(24),
+            decoration: BoxDecoration(
+              color: isDark ? AppTheme.darkSurface : Colors.white,
+              borderRadius: BorderRadius.circular(28),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.25),
+                  blurRadius: 24,
+                  offset: const Offset(0, 10),
+                ),
+              ],
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  width: 76,
+                  height: 76,
+                  decoration: BoxDecoration(
+                    gradient: const LinearGradient(
+                      colors: [Color(0xFF4CAF50), Color(0xFF2E7D32)],
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                    ),
+                    shape: BoxShape.circle,
+                    boxShadow: [
+                      BoxShadow(
+                        color: const Color(0xFF4CAF50).withValues(alpha: 0.35),
+                        blurRadius: 16,
+                        offset: const Offset(0, 6),
+                      ),
+                    ],
+                  ),
+                  child: const Center(
+                    child: Icon(
+                      Icons.emoji_events_rounded,
+                      size: 40,
+                      color: Colors.white,
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 18),
+                Text(
+                  'Selamat! Modul Tuntas 🎉',
+                  textAlign: TextAlign.center,
+                  style: AppTheme.satoshi(
+                    fontSize: 20,
+                    fontWeight: FontWeight.w800,
+                    color: isDark ? Colors.white : const Color(0xFF2C1810),
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  'Kamu telah berhasil mempelajari dan menyelesaikan seluruh evaluasi pada ${module.title}.',
+                  textAlign: TextAlign.center,
+                  style: AppTheme.inter(
+                    fontSize: 13,
+                    color: isDark ? Colors.white70 : AppTheme.textSecondary,
+                    height: 1.45,
+                  ),
+                ),
+                const SizedBox(height: 20),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                  decoration: BoxDecoration(
+                    color: isDark ? AppTheme.darkBackground : const Color(0xFFF9F6F0),
+                    borderRadius: BorderRadius.circular(18),
+                    border: Border.all(
+                      color: isDark ? AppTheme.darkBorder : const Color(0xFFEFE7DA),
+                    ),
+                  ),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceAround,
+                    children: [
+                      Column(
+                        children: [
+                          Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              const Icon(Icons.school_rounded, size: 14, color: Color(0xFF2E7D32)),
+                              const SizedBox(width: 4),
+                              Text(
+                                'Kuis Teori',
+                                style: AppTheme.inter(fontSize: 11, fontWeight: FontWeight.bold, color: AppTheme.textSecondary),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            '${module.quizScore ?? 100}',
+                            style: AppTheme.satoshi(fontSize: 18, fontWeight: FontWeight.w800, color: const Color(0xFF2E7D32)),
+                          ),
+                        ],
+                      ),
+                      Container(height: 32, width: 1, color: isDark ? AppTheme.darkBorder : const Color(0xFFDCD2C4)),
+                      Column(
+                        children: [
+                          Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              const Icon(Icons.brush_rounded, size: 14, color: Color(0xFFE65100)),
+                              const SizedBox(width: 4),
+                              Text(
+                                'Kuis Praktik',
+                                style: AppTheme.inter(fontSize: 11, fontWeight: FontWeight.bold, color: AppTheme.textSecondary),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            '${module.practiceScore ?? 100}%',
+                            style: AppTheme.satoshi(fontSize: 18, fontWeight: FontWeight.w800, color: const Color(0xFFE65100)),
+                          ),
+                        ],
+                      ),
+                      Container(height: 32, width: 1, color: isDark ? AppTheme.darkBorder : const Color(0xFFDCD2C4)),
+                      Column(
+                        children: [
+                          Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              const Icon(Icons.verified_rounded, size: 14, color: Color(0xFF5A3416)),
+                              const SizedBox(width: 4),
+                              Text(
+                                'Progres',
+                                style: AppTheme.inter(fontSize: 11, fontWeight: FontWeight.bold, color: AppTheme.textSecondary),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            '100%',
+                            style: AppTheme.satoshi(fontSize: 18, fontWeight: FontWeight.w800, color: const Color(0xFF5A3416)),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 22),
+                ElevatedButton(
+                  onPressed: () {
+                    Navigator.pop(dialogCtx);
+                    Navigator.pop(context);
+                  },
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF5A3416),
+                    foregroundColor: Colors.white,
+                    minimumSize: const Size.fromHeight(50),
+                    elevation: 0,
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                  ),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      const Icon(Icons.check_circle_outline_rounded, size: 18),
+                      const SizedBox(width: 8),
+                      Text(
+                        'Selesai & Kembali ke Modul',
+                        style: AppTheme.satoshi(
+                          fontSize: 15,
+                          fontWeight: FontWeight.bold,
+                          letterSpacing: 0.3,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
+    final provider = context.watch<AppProvider>();
+    final module = provider.modules.firstWhere(
+      (m) => m.id == widget.module.id,
+      orElse: () => widget.module,
+    );
+    final isBothQuizzesDone = module.quizDone && module.practiceDone;
 
     return Scaffold(
       backgroundColor: isDark ? AppTheme.darkBackground : AppTheme.background,
@@ -171,7 +363,7 @@ class _ModuleDetailScreenState extends State<ModuleDetailScreen> {
                 SingleChildScrollView(child: _buildPage4TeoriFilosofi(context, isDark)),
                 SingleChildScrollView(child: _buildPage5Karakteristik(context, isDark)),
                 SingleChildScrollView(child: _buildPage6Galeri(context, isDark)),
-                SingleChildScrollView(child: _buildPage7KuisModul(context, isDark)),
+                SingleChildScrollView(child: _buildPage7KuisModul(context, isDark, module)),
               ],
             ),
           ),
@@ -225,36 +417,56 @@ class _ModuleDetailScreenState extends State<ModuleDetailScreen> {
                   }),
                 ),
 
-                // Tombol Kanan (Cokelat Tua)
-                Container(
-                  width: 50,
-                  height: 50,
-                  decoration: const BoxDecoration(
-                    color: Color(0xFF5A3416),
-                    shape: BoxShape.circle,
-                  ),
-                  child: IconButton(
-                    icon: const Icon(Icons.arrow_forward, color: Colors.white),
-                    onPressed: () {
-                      final provider = context.read<AppProvider>();
-                      if (_activeStep == 0) provider.updatePillarProgress(widget.module.id, 'history');
-                      if (_activeStep == 1) provider.updatePillarProgress(widget.module.id, 'character');
-                      if (_activeStep == 2) provider.updatePillarProgress(widget.module.id, 'gallery');
+                // Tombol Kanan (Panah Lanjut di Halaman 0,1,2 | Sembunyi jika Kuis belum tuntas | Centang jika Kuis sudah tuntas)
+                if (_activeStep < 3)
+                  Container(
+                    width: 50,
+                    height: 50,
+                    decoration: const BoxDecoration(
+                      color: Color(0xFF5A3416),
+                      shape: BoxShape.circle,
+                    ),
+                    child: IconButton(
+                      icon: const Icon(Icons.arrow_forward, color: Colors.white),
+                      onPressed: () {
+                        if (_activeStep == 0) provider.updatePillarProgress(widget.module.id, 'history');
+                        if (_activeStep == 1) provider.updatePillarProgress(widget.module.id, 'character');
+                        if (_activeStep == 2) provider.updatePillarProgress(widget.module.id, 'gallery');
 
-                      if (_activeStep < 3) {
-                        _pageController.nextPage(duration: const Duration(milliseconds: 300), curve: Curves.easeInOut);
-                      } else {
-                        // Jika sudah di step terakhir (Kuis), buka kuis teori
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (_) => TheoryQuizScreen(module: widget.module),
-                          ),
+                        _pageController.nextPage(
+                          duration: const Duration(milliseconds: 300),
+                          curve: Curves.easeInOut,
                         );
-                      }
-                    },
-                  ),
-                ),
+                      },
+                    ),
+                  )
+                else if (isBothQuizzesDone)
+                  Container(
+                    width: 50,
+                    height: 50,
+                    decoration: BoxDecoration(
+                      gradient: const LinearGradient(
+                        colors: [Color(0xFF4CAF50), Color(0xFF2E7D32)],
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                      ),
+                      shape: BoxShape.circle,
+                      boxShadow: [
+                        BoxShadow(
+                          color: const Color(0xFF4CAF50).withValues(alpha: 0.35),
+                          blurRadius: 10,
+                          offset: const Offset(0, 4),
+                        ),
+                      ],
+                    ),
+                    child: IconButton(
+                      icon: const Icon(Icons.check_rounded, color: Colors.white, size: 28),
+                      tooltip: 'Selesaikan Modul',
+                      onPressed: () => _showCompletionDialog(context, module),
+                    ),
+                  )
+                else
+                  const SizedBox(width: 50, height: 50),
               ],
             ),
           ),
@@ -634,7 +846,7 @@ class _ModuleDetailScreenState extends State<ModuleDetailScreen> {
   }
 
   // Halaman 4: Kuis Modul Sesuai PDF Page 7
-  Widget _buildPage7KuisModul(BuildContext context, bool isDark) {
+  Widget _buildPage7KuisModul(BuildContext context, bool isDark, ModuleModel module) {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
       child: Column(
@@ -735,14 +947,14 @@ class _ModuleDetailScreenState extends State<ModuleDetailScreen> {
               color: isDark ? AppTheme.darkSurface : Colors.white,
               borderRadius: BorderRadius.circular(24),
               border: Border.all(
-                color: widget.module.quizDone
+                color: module.quizDone
                     ? const Color(0xFF4CAF50).withValues(alpha: 0.4)
                     : (isDark ? AppTheme.darkBorder : const Color(0xFFF0EAE1)),
                 width: 1.5,
               ),
               boxShadow: [
                 BoxShadow(
-                  color: widget.module.quizDone
+                  color: module.quizDone
                       ? const Color(0xFF4CAF50).withValues(alpha: 0.05)
                       : AppTheme.primary.withValues(alpha: 0.04),
                   blurRadius: 20,
@@ -760,7 +972,7 @@ class _ModuleDetailScreenState extends State<ModuleDetailScreen> {
                       width: 46,
                       height: 46,
                       decoration: BoxDecoration(
-                        color: widget.module.quizDone
+                        color: module.quizDone
                             ? const Color(0xFF4CAF50).withValues(alpha: 0.12)
                             : (isDark ? AppTheme.primary.withValues(alpha: 0.3) : AppTheme.accentGold.withValues(alpha: 0.2)),
                         borderRadius: BorderRadius.circular(14),
@@ -768,7 +980,7 @@ class _ModuleDetailScreenState extends State<ModuleDetailScreen> {
                       child: Icon(
                         Icons.school_rounded,
                         size: 24,
-                        color: widget.module.quizDone ? const Color(0xFF4CAF50) : AppTheme.primary,
+                        color: module.quizDone ? const Color(0xFF4CAF50) : AppTheme.primary,
                       ),
                     ),
                     const SizedBox(width: 12),
@@ -788,7 +1000,7 @@ class _ModuleDetailScreenState extends State<ModuleDetailScreen> {
                               maxLines: 2,
                             ),
                           ),
-                          if (widget.module.quizDone) ...[
+                          if (module.quizDone) ...[
                             const SizedBox(width: 8),
                             Container(
                               padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4.5),
@@ -806,7 +1018,7 @@ class _ModuleDetailScreenState extends State<ModuleDetailScreen> {
                                   const Icon(Icons.check_circle, size: 13, color: Color(0xFF4CAF50)),
                                   const SizedBox(width: 4),
                                   Text(
-                                    'Nilai: ${widget.module.quizScore ?? 100}',
+                                    'Nilai: ${module.quizScore ?? 100}',
                                     style: AppTheme.satoshi(
                                       fontSize: 12,
                                       fontWeight: FontWeight.bold,
@@ -836,18 +1048,18 @@ class _ModuleDetailScreenState extends State<ModuleDetailScreen> {
                   onPressed: () {
                     Navigator.push(
                       context,
-                      MaterialPageRoute(builder: (_) => TheoryQuizScreen(module: widget.module)),
+                      MaterialPageRoute(builder: (_) => TheoryQuizScreen(module: module)),
                     );
                   },
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: widget.module.quizDone ? Colors.transparent : AppTheme.primary,
-                    foregroundColor: widget.module.quizDone ? const Color(0xFF4CAF50) : Colors.white,
+                    backgroundColor: module.quizDone ? Colors.transparent : AppTheme.primary,
+                    foregroundColor: module.quizDone ? const Color(0xFF4CAF50) : Colors.white,
                     minimumSize: const Size.fromHeight(50),
                     elevation: 0,
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(16),
                       side: BorderSide(
-                        color: widget.module.quizDone ? const Color(0xFF4CAF50) : Colors.transparent,
+                        color: module.quizDone ? const Color(0xFF4CAF50) : Colors.transparent,
                         width: 1.5,
                       ),
                     ),
@@ -856,20 +1068,20 @@ class _ModuleDetailScreenState extends State<ModuleDetailScreen> {
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
                       Icon(
-                        widget.module.quizDone ? Icons.refresh_rounded : Icons.play_arrow_rounded,
+                        module.quizDone ? Icons.refresh_rounded : Icons.play_arrow_rounded,
                         size: 18,
-                        color: widget.module.quizDone
+                        color: module.quizDone
                             ? (isDark ? const Color(0xFF81C784) : const Color(0xFF2E7D32))
                             : Colors.white,
                       ),
                       const SizedBox(width: 6),
                       Text(
-                        widget.module.quizDone ? 'Kerjakan Ulang' : 'Mulai Kuis',
+                        module.quizDone ? 'Kerjakan Ulang' : 'Mulai Kuis',
                         style: AppTheme.satoshi(
                           fontSize: 15,
                           fontWeight: FontWeight.bold,
                           letterSpacing: 0.3,
-                          color: widget.module.quizDone
+                          color: module.quizDone
                               ? (isDark ? const Color(0xFF81C784) : const Color(0xFF2E7D32))
                               : Colors.white,
                         ),
@@ -889,14 +1101,14 @@ class _ModuleDetailScreenState extends State<ModuleDetailScreen> {
               color: isDark ? AppTheme.darkSurface : Colors.white,
               borderRadius: BorderRadius.circular(24),
               border: Border.all(
-                color: widget.module.practiceDone
+                color: module.practiceDone
                     ? const Color(0xFFF57C00).withValues(alpha: 0.4)
                     : (isDark ? AppTheme.darkBorder : const Color(0xFFF0EAE1)),
                 width: 1.5,
               ),
               boxShadow: [
                 BoxShadow(
-                  color: widget.module.practiceDone
+                  color: module.practiceDone
                       ? const Color(0xFFF57C00).withValues(alpha: 0.05)
                       : AppTheme.primary.withValues(alpha: 0.04),
                   blurRadius: 20,
@@ -914,7 +1126,7 @@ class _ModuleDetailScreenState extends State<ModuleDetailScreen> {
                       width: 46,
                       height: 46,
                       decoration: BoxDecoration(
-                        color: widget.module.practiceDone
+                        color: module.practiceDone
                             ? const Color(0xFFF57C00).withValues(alpha: 0.12)
                             : (isDark ? AppTheme.primary.withValues(alpha: 0.3) : AppTheme.accentGold.withValues(alpha: 0.2)),
                         borderRadius: BorderRadius.circular(14),
@@ -922,7 +1134,7 @@ class _ModuleDetailScreenState extends State<ModuleDetailScreen> {
                       child: Icon(
                         Icons.brush_rounded,
                         size: 24,
-                        color: widget.module.practiceDone ? const Color(0xFFF57C00) : AppTheme.primary,
+                        color: module.practiceDone ? const Color(0xFFF57C00) : AppTheme.primary,
                       ),
                     ),
                     const SizedBox(width: 12),
@@ -942,7 +1154,7 @@ class _ModuleDetailScreenState extends State<ModuleDetailScreen> {
                               maxLines: 2,
                             ),
                           ),
-                          if (widget.module.practiceDone) ...[
+                          if (module.practiceDone) ...[
                             const SizedBox(width: 8),
                             Container(
                               padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4.5),
@@ -960,7 +1172,7 @@ class _ModuleDetailScreenState extends State<ModuleDetailScreen> {
                                   const Icon(Icons.auto_awesome, size: 13, color: Color(0xFFF57C00)),
                                   const SizedBox(width: 4),
                                   Text(
-                                    'Akurasi: ${widget.module.practiceScore ?? 100}%',
+                                    'Akurasi: ${module.practiceScore ?? 100}%',
                                     style: AppTheme.satoshi(
                                       fontSize: 12,
                                       fontWeight: FontWeight.bold,
@@ -990,18 +1202,18 @@ class _ModuleDetailScreenState extends State<ModuleDetailScreen> {
                   onPressed: () {
                     Navigator.push(
                       context,
-                      MaterialPageRoute(builder: (_) => PracticeQuizScreen(module: widget.module)),
+                      MaterialPageRoute(builder: (_) => PracticeQuizScreen(module: module)),
                     );
                   },
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: widget.module.practiceDone ? Colors.transparent : AppTheme.primary,
-                    foregroundColor: widget.module.practiceDone ? const Color(0xFFF57C00) : Colors.white,
+                    backgroundColor: module.practiceDone ? Colors.transparent : AppTheme.primary,
+                    foregroundColor: module.practiceDone ? const Color(0xFFF57C00) : Colors.white,
                     minimumSize: const Size.fromHeight(50),
                     elevation: 0,
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(16),
                       side: BorderSide(
-                        color: widget.module.practiceDone ? const Color(0xFFF57C00) : Colors.transparent,
+                        color: module.practiceDone ? const Color(0xFFF57C00) : Colors.transparent,
                         width: 1.5,
                       ),
                     ),
@@ -1010,20 +1222,20 @@ class _ModuleDetailScreenState extends State<ModuleDetailScreen> {
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
                       Icon(
-                        widget.module.practiceDone ? Icons.refresh_rounded : Icons.camera_alt_outlined,
+                        module.practiceDone ? Icons.refresh_rounded : Icons.camera_alt_outlined,
                         size: 18,
-                        color: widget.module.practiceDone
+                        color: module.practiceDone
                             ? (isDark ? const Color(0xFFFFB74D) : const Color(0xFFE65100))
                             : Colors.white,
                       ),
                       const SizedBox(width: 6),
                       Text(
-                        widget.module.practiceDone ? 'Pindai Ulang' : 'Mulai Praktik',
+                        module.practiceDone ? 'Pindai Ulang' : 'Mulai Praktik',
                         style: AppTheme.satoshi(
                           fontSize: 15,
                           fontWeight: FontWeight.bold,
                           letterSpacing: 0.3,
-                          color: widget.module.practiceDone
+                          color: module.practiceDone
                               ? (isDark ? const Color(0xFFFFB74D) : const Color(0xFFE65100))
                               : Colors.white,
                         ),
