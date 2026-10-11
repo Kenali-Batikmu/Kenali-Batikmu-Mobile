@@ -199,7 +199,7 @@ class _ModuleDetailScreenState extends State<ModuleDetailScreen> {
                 ),
                 const SizedBox(height: 20),
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 14),
                   decoration: BoxDecoration(
                     color: isDark ? AppTheme.darkBackground : const Color(0xFFF9F6F0),
                     borderRadius: BorderRadius.circular(18),
@@ -207,92 +207,160 @@ class _ModuleDetailScreenState extends State<ModuleDetailScreen> {
                       color: isDark ? AppTheme.darkBorder : const Color(0xFFEFE7DA),
                     ),
                   ),
-                  child: Row(
-                    children: [
-                      Expanded(
-                        child: Column(
-                          children: [
-                            Row(
+                  child: IntrinsicHeight(
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        // Kuis Teori
+                        Expanded(
+                          child: Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 4),
+                            child: Column(
                               mainAxisAlignment: MainAxisAlignment.center,
-                              mainAxisSize: MainAxisSize.min,
                               children: [
-                                const Icon(Icons.school_rounded, size: 13, color: AppTheme.primary),
-                                const SizedBox(width: 4),
-                                Flexible(
+                                FittedBox(
+                                  fit: BoxFit.scaleDown,
+                                  child: Row(
+                                    mainAxisAlignment: MainAxisAlignment.center,
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      const Icon(Icons.school_rounded, size: 13, color: AppTheme.primary),
+                                      const SizedBox(width: 4),
+                                      Text(
+                                        'Kuis Teori',
+                                        style: AppTheme.inter(
+                                          fontSize: 11,
+                                          fontWeight: FontWeight.bold,
+                                          color: AppTheme.textSecondary,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                                const SizedBox(height: 5),
+                                FittedBox(
+                                  fit: BoxFit.scaleDown,
                                   child: Text(
-                                    'Kuis Teori',
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
-                                    style: AppTheme.inter(fontSize: 11, fontWeight: FontWeight.bold, color: AppTheme.textSecondary),
+                                    '${module.quizScore ?? 100}',
+                                    style: AppTheme.satoshi(
+                                      fontSize: 18,
+                                      fontWeight: FontWeight.w800,
+                                      color: AppTheme.primary,
+                                    ),
                                   ),
                                 ),
                               ],
                             ),
-                            const SizedBox(height: 4),
-                            Text(
-                              '${module.quizScore ?? 100}',
-                              style: AppTheme.satoshi(fontSize: 18, fontWeight: FontWeight.w800, color: AppTheme.primary),
-                            ),
-                          ],
+                          ),
                         ),
-                      ),
-                      Container(height: 32, width: 1, color: isDark ? AppTheme.darkBorder : const Color(0xFFDCD2C4)),
-                      Expanded(
-                        child: Column(
-                          children: [
-                            Row(
+
+                        // Garis Pemisah 1
+                        Container(
+                          width: 1.5,
+                          margin: const EdgeInsets.symmetric(vertical: 2),
+                          decoration: BoxDecoration(
+                            color: isDark ? const Color(0xFF4A3C2F) : const Color(0xFFC7B8A5),
+                            borderRadius: BorderRadius.circular(1),
+                          ),
+                        ),
+
+                        // Kuis Praktik
+                        Expanded(
+                          child: Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 4),
+                            child: Column(
                               mainAxisAlignment: MainAxisAlignment.center,
-                              mainAxisSize: MainAxisSize.min,
                               children: [
-                                const Icon(Icons.brush_rounded, size: 13, color: Color(0xFFE65100)),
-                                const SizedBox(width: 4),
-                                Flexible(
+                                FittedBox(
+                                  fit: BoxFit.scaleDown,
+                                  child: Row(
+                                    mainAxisAlignment: MainAxisAlignment.center,
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      const Icon(Icons.brush_rounded, size: 13, color: Color(0xFFE65100)),
+                                      const SizedBox(width: 4),
+                                      Text(
+                                        'Kuis Praktik',
+                                        style: AppTheme.inter(
+                                          fontSize: 11,
+                                          fontWeight: FontWeight.bold,
+                                          color: AppTheme.textSecondary,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                                const SizedBox(height: 5),
+                                FittedBox(
+                                  fit: BoxFit.scaleDown,
                                   child: Text(
-                                    'Kuis Praktik',
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
-                                    style: AppTheme.inter(fontSize: 11, fontWeight: FontWeight.bold, color: AppTheme.textSecondary),
+                                    '${module.practiceScore ?? 100}%',
+                                    style: AppTheme.satoshi(
+                                      fontSize: 18,
+                                      fontWeight: FontWeight.w800,
+                                      color: const Color(0xFFE65100),
+                                    ),
                                   ),
                                 ),
                               ],
                             ),
-                            const SizedBox(height: 4),
-                            Text(
-                              '${module.practiceScore ?? 100}%',
-                              style: AppTheme.satoshi(fontSize: 18, fontWeight: FontWeight.w800, color: const Color(0xFFE65100)),
-                            ),
-                          ],
+                          ),
                         ),
-                      ),
-                      Container(height: 32, width: 1, color: isDark ? AppTheme.darkBorder : const Color(0xFFDCD2C4)),
-                      Expanded(
-                        child: Column(
-                          children: [
-                            Row(
+
+                        // Garis Pemisah 2
+                        Container(
+                          width: 1.5,
+                          margin: const EdgeInsets.symmetric(vertical: 2),
+                          decoration: BoxDecoration(
+                            color: isDark ? const Color(0xFF4A3C2F) : const Color(0xFFC7B8A5),
+                            borderRadius: BorderRadius.circular(1),
+                          ),
+                        ),
+
+                        // Progres
+                        Expanded(
+                          child: Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 4),
+                            child: Column(
                               mainAxisAlignment: MainAxisAlignment.center,
-                              mainAxisSize: MainAxisSize.min,
                               children: [
-                                const Icon(Icons.verified_rounded, size: 13, color: Color(0xFF5A3416)),
-                                const SizedBox(width: 4),
-                                Flexible(
+                                FittedBox(
+                                  fit: BoxFit.scaleDown,
+                                  child: Row(
+                                    mainAxisAlignment: MainAxisAlignment.center,
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      const Icon(Icons.verified_rounded, size: 13, color: Color(0xFF5A3416)),
+                                      const SizedBox(width: 4),
+                                      Text(
+                                        'Progres',
+                                        style: AppTheme.inter(
+                                          fontSize: 11,
+                                          fontWeight: FontWeight.bold,
+                                          color: AppTheme.textSecondary,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                                const SizedBox(height: 5),
+                                FittedBox(
+                                  fit: BoxFit.scaleDown,
                                   child: Text(
-                                    'Progres',
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
-                                    style: AppTheme.inter(fontSize: 11, fontWeight: FontWeight.bold, color: AppTheme.textSecondary),
+                                    '100%',
+                                    style: AppTheme.satoshi(
+                                      fontSize: 18,
+                                      fontWeight: FontWeight.w800,
+                                      color: const Color(0xFF5A3416),
+                                    ),
                                   ),
                                 ),
                               ],
                             ),
-                            const SizedBox(height: 4),
-                            Text(
-                              '100%',
-                              style: AppTheme.satoshi(fontSize: 18, fontWeight: FontWeight.w800, color: const Color(0xFF5A3416)),
-                            ),
-                          ],
+                          ),
                         ),
-                      ),
-                    ],
+                      ],
+                    ),
                   ),
                 ),
                 const SizedBox(height: 22),
