@@ -540,7 +540,9 @@ class _ModuleDetailScreenState extends State<ModuleDetailScreen> {
             children: [
               Container(width: 4, height: 18, color: const Color(0xFF5A3416)),
               const SizedBox(width: 8),
-              Text('${charData.pakemList.length} Pakem Anatomi Visual', style: AppTheme.satoshi(fontSize: 16, fontWeight: FontWeight.bold)),
+              Expanded(
+                child: Text('${charData.pakemList.length} Pakem Anatomi Visual', style: AppTheme.satoshi(fontSize: 16, fontWeight: FontWeight.bold)),
+              ),
             ],
           ),
           const SizedBox(height: 12),
@@ -736,8 +738,16 @@ class _ModuleDetailScreenState extends State<ModuleDetailScreen> {
                             mainAxisAlignment: MainAxisAlignment.spaceBetween,
                             crossAxisAlignment: CrossAxisAlignment.center,
                             children: [
-                              Text('Kuis Teori', style: AppTheme.satoshi(fontSize: 18, fontWeight: FontWeight.w800)),
-                              if (widget.module.quizDone)
+                              Flexible(
+                                child: Text(
+                                  'Kuis Teori',
+                                  style: AppTheme.satoshi(fontSize: 18, fontWeight: FontWeight.w800),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
+                              if (widget.module.quizDone) ...[
+                                const SizedBox(width: 8),
                                 Container(
                                   padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                                   decoration: BoxDecoration(
@@ -745,6 +755,7 @@ class _ModuleDetailScreenState extends State<ModuleDetailScreen> {
                                     borderRadius: BorderRadius.circular(20),
                                   ),
                                   child: Row(
+                                    mainAxisSize: MainAxisSize.min,
                                     children: [
                                       const Icon(Icons.check_circle, size: 14, color: Color(0xFF4CAF50)),
                                       const SizedBox(width: 4),
@@ -755,6 +766,7 @@ class _ModuleDetailScreenState extends State<ModuleDetailScreen> {
                                     ],
                                   ),
                                 ),
+                              ],
                             ],
                           ),
                           const SizedBox(height: 6),
@@ -856,8 +868,16 @@ class _ModuleDetailScreenState extends State<ModuleDetailScreen> {
                             mainAxisAlignment: MainAxisAlignment.spaceBetween,
                             crossAxisAlignment: CrossAxisAlignment.center,
                             children: [
-                              Text('Praktikum', style: AppTheme.satoshi(fontSize: 18, fontWeight: FontWeight.w800)),
-                              if (widget.module.practiceDone)
+                              Flexible(
+                                child: Text(
+                                  'Praktikum',
+                                  style: AppTheme.satoshi(fontSize: 18, fontWeight: FontWeight.w800),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
+                              if (widget.module.practiceDone) ...[
+                                const SizedBox(width: 8),
                                 Container(
                                   padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                                   decoration: BoxDecoration(
@@ -865,6 +885,7 @@ class _ModuleDetailScreenState extends State<ModuleDetailScreen> {
                                     borderRadius: BorderRadius.circular(20),
                                   ),
                                   child: Row(
+                                    mainAxisSize: MainAxisSize.min,
                                     children: [
                                       const Icon(Icons.auto_awesome, size: 14, color: Color(0xFFF57C00)),
                                       const SizedBox(width: 4),
@@ -875,6 +896,7 @@ class _ModuleDetailScreenState extends State<ModuleDetailScreen> {
                                     ],
                                   ),
                                 ),
+                              ],
                             ],
                           ),
                           const SizedBox(height: 6),

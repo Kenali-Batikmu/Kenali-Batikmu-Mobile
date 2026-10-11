@@ -47,8 +47,8 @@ class AppProvider with ChangeNotifier {
   int get overallProgressPercent => totalModulesCount > 0 ? ((completedModulesCount / totalModulesCount) * 100).round() : 0;
   int get scannedMotifsCount => _scanHistories.length;
 
-  AppProvider({bool initialIsLoggedIn = false}) {
-    _initInMemoryDefaultData(isLoggedIn: initialIsLoggedIn);
+  AppProvider({bool initialIsLoggedIn = false, String? initialEmail}) {
+    _initInMemoryDefaultData(isLoggedIn: initialIsLoggedIn, userEmail: initialEmail);
     initApp();
   }
 
@@ -65,12 +65,16 @@ class AppProvider with ChangeNotifier {
     } catch (_) {}
   }
 
-  void _initInMemoryDefaultData({bool isLoggedIn = false}) {
+  void _initInMemoryDefaultData({bool isLoggedIn = false, String? userEmail}) {
     if (isLoggedIn) {
+      final email = userEmail ?? 'sekar@batikmu.id';
+      final name = email.startsWith('kenalibatikmu')
+          ? 'Kenali Batikmu'
+          : (email.startsWith('sekar') ? 'Sekar Ayu Kinanti' : 'Sahabat Batik');
       _currentUser = UserModel(
         id: 1,
-        name: 'Sekar Ayu Kinanti',
-        email: 'sekar@batikmu.id',
+        name: name,
+        email: email,
         phone: '081234567890',
         createdAt: '2026-03-01T08:00:00Z',
       );
@@ -343,6 +347,18 @@ class AppProvider with ChangeNotifier {
           final dbUser = await DatabaseHelper.instance.getUserByEmail(savedEmail);
           if (dbUser != null) {
             _currentUser = UserModel.fromMap(dbUser);
+          } else {
+            final name = savedEmail.startsWith('kenalibatikmu')
+                ? 'Kenali Batikmu'
+                : (savedEmail.startsWith('sekar') ? 'Sekar Ayu Kinanti' : 'Sahabat Batik');
+            _currentUser = UserModel(
+              id: 1,
+              name: name,
+              email: savedEmail,
+              phone: '081234567890',
+              profileImagePath: _savedPhotoPath,
+              createdAt: '2026-03-01T08:00:00Z',
+            );
           }
         }
       } else {
@@ -430,11 +446,16 @@ class AppProvider with ChangeNotifier {
 
     // Simpan preferensi secara asinkron
     try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setBool('has_seen_onboarding', true);
       if (rememberMe) {
-        final prefs = await SharedPreferences.getInstance();
         await prefs.setInt('logged_user_id', _currentUser?.id ?? 1);
         await prefs.setBool('is_logged_in', true);
         await prefs.setString('logged_user_email', cleanEmail);
+      } else {
+        await prefs.remove('logged_user_id');
+        await prefs.setBool('is_logged_in', false);
+        await prefs.remove('logged_user_email');
       }
     } catch (_) {}
 
@@ -612,6 +633,13 @@ class AppProvider with ChangeNotifier {
       profileImagePath: _savedPhotoPath,
       createdAt: DateTime.now().toIso8601String(),
     );
+
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setBool('has_seen_onboarding', true);
+      await prefs.setBool('is_logged_in', true);
+      await prefs.setString('logged_user_email', cleanEmail);
+    } catch (_) {}
 
     _isLoading = false;
     notifyListeners();
