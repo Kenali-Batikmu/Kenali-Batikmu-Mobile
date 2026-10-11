@@ -649,38 +649,79 @@ class _ModuleDetailScreenState extends State<ModuleDetailScreen> {
           // Hero Banner: Selamat mengerjakan!
           Container(
             width: double.infinity,
-            padding: const EdgeInsets.all(20),
+            padding: const EdgeInsets.all(22),
             decoration: BoxDecoration(
-              color: const Color(0xFF6E4324),
+              gradient: const LinearGradient(
+                colors: [Color(0xFF5B341B), Color(0xFF7E4A25)],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+              ),
               borderRadius: BorderRadius.circular(24),
               boxShadow: [
                 BoxShadow(
-                  color: AppTheme.primary.withValues(alpha: 0.2),
-                  blurRadius: 14,
+                  color: AppTheme.primary.withValues(alpha: 0.25),
+                  blurRadius: 16,
                   offset: const Offset(0, 6),
                 ),
               ],
             ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+            child: Stack(
               children: [
-                Text(
-                  'Selamat\nmengerjakan!',
-                  style: AppTheme.satoshi(
-                    fontSize: 22,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.white,
-                    height: 1.2,
+                Positioned(
+                  right: -10,
+                  bottom: -15,
+                  child: Icon(
+                    Icons.auto_stories_rounded,
+                    size: 96,
+                    color: Colors.white.withValues(alpha: 0.08),
                   ),
                 ),
-                const SizedBox(height: 8),
-                Text(
-                  'Uji pemahaman dan hasil karyamu di sini untuk menyelesaikan modul dan melihat sejauh mana kamu mengenali motif batik ini.',
-                  style: AppTheme.inter(
-                    fontSize: 13,
-                    color: Colors.white.withValues(alpha: 0.85),
-                    height: 1.4,
-                  ),
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: Colors.white.withValues(alpha: 0.15),
+                        borderRadius: BorderRadius.circular(20),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const Icon(Icons.verified_outlined, size: 12, color: Colors.white),
+                          const SizedBox(width: 5),
+                          Text(
+                            'Evaluasi Modul',
+                            style: AppTheme.satoshi(
+                              fontSize: 11,
+                              fontWeight: FontWeight.bold,
+                              color: Colors.white,
+                              letterSpacing: 0.5,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 10),
+                    Text(
+                      'Selamat\nmengerjakan!',
+                      style: AppTheme.satoshi(
+                        fontSize: 22,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.white,
+                        height: 1.2,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      'Uji pemahaman dan hasil karyamu di sini untuk menyelesaikan modul dan melihat sejauh mana kamu mengenali motif batik ini.',
+                      style: AppTheme.inter(
+                        fontSize: 13,
+                        color: Colors.white.withValues(alpha: 0.9),
+                        height: 1.45,
+                      ),
+                    ),
+                  ],
                 ),
               ],
             ),
@@ -689,10 +730,10 @@ class _ModuleDetailScreenState extends State<ModuleDetailScreen> {
 
           // Card 1: Kuis Teori
           Container(
-            padding: const EdgeInsets.all(24),
+            padding: const EdgeInsets.all(20),
             decoration: BoxDecoration(
               color: isDark ? AppTheme.darkSurface : Colors.white,
-              borderRadius: BorderRadius.circular(28),
+              borderRadius: BorderRadius.circular(24),
               border: Border.all(
                 color: widget.module.quizDone
                     ? const Color(0xFF4CAF50).withValues(alpha: 0.4)
@@ -704,82 +745,93 @@ class _ModuleDetailScreenState extends State<ModuleDetailScreen> {
                   color: widget.module.quizDone
                       ? const Color(0xFF4CAF50).withValues(alpha: 0.05)
                       : AppTheme.primary.withValues(alpha: 0.04),
-                  blurRadius: 24,
-                  offset: const Offset(0, 8),
+                  blurRadius: 20,
+                  offset: const Offset(0, 6),
                 )
               ],
             ),
             child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+                  crossAxisAlignment: CrossAxisAlignment.center,
                   children: [
                     Container(
-                      width: 60,
-                      height: 60,
+                      width: 46,
+                      height: 46,
                       decoration: BoxDecoration(
                         color: widget.module.quizDone
-                            ? const Color(0xFF4CAF50).withValues(alpha: 0.1)
+                            ? const Color(0xFF4CAF50).withValues(alpha: 0.12)
                             : (isDark ? AppTheme.primary.withValues(alpha: 0.3) : AppTheme.accentGold.withValues(alpha: 0.2)),
-                        borderRadius: BorderRadius.circular(18),
+                        borderRadius: BorderRadius.circular(14),
                       ),
                       child: Icon(
                         Icons.school_rounded,
-                        size: 30,
+                        size: 24,
                         color: widget.module.quizDone ? const Color(0xFF4CAF50) : AppTheme.primary,
                       ),
                     ),
-                    const SizedBox(width: 16),
+                    const SizedBox(width: 12),
                     Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        crossAxisAlignment: CrossAxisAlignment.center,
                         children: [
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            crossAxisAlignment: CrossAxisAlignment.center,
-                            children: [
-                              Flexible(
-                                child: Text(
-                                  'Kuis Teori',
-                                  style: AppTheme.satoshi(fontSize: 18, fontWeight: FontWeight.w800),
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
+                          Expanded(
+                            child: Text(
+                              'Kuis Teori',
+                              style: AppTheme.satoshi(
+                                fontSize: 17.5,
+                                fontWeight: FontWeight.w800,
+                                color: isDark ? Colors.white : const Color(0xFF2C1810),
+                              ),
+                              maxLines: 2,
+                            ),
+                          ),
+                          if (widget.module.quizDone) ...[
+                            const SizedBox(width: 8),
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4.5),
+                              decoration: BoxDecoration(
+                                color: const Color(0xFF4CAF50).withValues(alpha: 0.12),
+                                borderRadius: BorderRadius.circular(20),
+                                border: Border.all(
+                                  color: const Color(0xFF4CAF50).withValues(alpha: 0.35),
+                                  width: 1,
                                 ),
                               ),
-                              if (widget.module.quizDone) ...[
-                                const SizedBox(width: 8),
-                                Container(
-                                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                                  decoration: BoxDecoration(
-                                    color: const Color(0xFF4CAF50).withValues(alpha: 0.1),
-                                    borderRadius: BorderRadius.circular(20),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  const Icon(Icons.check_circle, size: 13, color: Color(0xFF4CAF50)),
+                                  const SizedBox(width: 4),
+                                  Text(
+                                    'Nilai: ${widget.module.quizScore ?? 100}',
+                                    style: AppTheme.satoshi(
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.bold,
+                                      color: const Color(0xFF2E7D32),
+                                    ),
                                   ),
-                                  child: Row(
-                                    mainAxisSize: MainAxisSize.min,
-                                    children: [
-                                      const Icon(Icons.check_circle, size: 14, color: Color(0xFF4CAF50)),
-                                      const SizedBox(width: 4),
-                                      Text(
-                                        'Nilai: ${widget.module.quizScore ?? 100}',
-                                        style: AppTheme.satoshi(fontSize: 13, fontWeight: FontWeight.bold, color: const Color(0xFF4CAF50)),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                              ],
-                            ],
-                          ),
-                          const SizedBox(height: 6),
-                          Text(
-                            'Uji wawasan mendalam mengenai pakem, sejarah, dan makna ornamen.',
-                            style: AppTheme.inter(fontSize: 13, color: AppTheme.textSecondary, height: 1.4),
-                          ),
+                                ],
+                              ),
+                            ),
+                          ],
                         ],
                       ),
                     ),
                   ],
                 ),
-                const SizedBox(height: 24),
+                const SizedBox(height: 12),
+                Text(
+                  'Uji wawasan mendalam mengenai pakem, sejarah, dan makna ornamen.',
+                  style: AppTheme.inter(
+                    fontSize: 13,
+                    color: isDark ? Colors.white70 : AppTheme.textSecondary,
+                    height: 1.45,
+                  ),
+                ),
+                const SizedBox(height: 18),
                 ElevatedButton(
                   onPressed: () {
                     Navigator.push(
@@ -790,7 +842,7 @@ class _ModuleDetailScreenState extends State<ModuleDetailScreen> {
                   style: ElevatedButton.styleFrom(
                     backgroundColor: widget.module.quizDone ? Colors.transparent : AppTheme.primary,
                     foregroundColor: widget.module.quizDone ? const Color(0xFF4CAF50) : Colors.white,
-                    minimumSize: const Size.fromHeight(54),
+                    minimumSize: const Size.fromHeight(50),
                     elevation: 0,
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(16),
@@ -800,16 +852,29 @@ class _ModuleDetailScreenState extends State<ModuleDetailScreen> {
                       ),
                     ),
                   ),
-                  child: Text(
-                    widget.module.quizDone ? 'Kerjakan Ulang' : 'Mulai Kuis',
-                    style: AppTheme.satoshi(
-                      fontSize: 15,
-                      fontWeight: FontWeight.bold,
-                      letterSpacing: 0.5,
-                      color: widget.module.quizDone
-                          ? (isDark ? const Color(0xFF81C784) : const Color(0xFF2E7D32))
-                          : Colors.white,
-                    ),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(
+                        widget.module.quizDone ? Icons.refresh_rounded : Icons.play_arrow_rounded,
+                        size: 18,
+                        color: widget.module.quizDone
+                            ? (isDark ? const Color(0xFF81C784) : const Color(0xFF2E7D32))
+                            : Colors.white,
+                      ),
+                      const SizedBox(width: 6),
+                      Text(
+                        widget.module.quizDone ? 'Kerjakan Ulang' : 'Mulai Kuis',
+                        style: AppTheme.satoshi(
+                          fontSize: 15,
+                          fontWeight: FontWeight.bold,
+                          letterSpacing: 0.3,
+                          color: widget.module.quizDone
+                              ? (isDark ? const Color(0xFF81C784) : const Color(0xFF2E7D32))
+                              : Colors.white,
+                        ),
+                      ),
+                    ],
                   ),
                 ),
               ],
@@ -819,10 +884,10 @@ class _ModuleDetailScreenState extends State<ModuleDetailScreen> {
 
           // Card 2: Kuis Praktik
           Container(
-            padding: const EdgeInsets.all(24),
+            padding: const EdgeInsets.all(20),
             decoration: BoxDecoration(
               color: isDark ? AppTheme.darkSurface : Colors.white,
-              borderRadius: BorderRadius.circular(28),
+              borderRadius: BorderRadius.circular(24),
               border: Border.all(
                 color: widget.module.practiceDone
                     ? const Color(0xFFF57C00).withValues(alpha: 0.4)
@@ -834,82 +899,93 @@ class _ModuleDetailScreenState extends State<ModuleDetailScreen> {
                   color: widget.module.practiceDone
                       ? const Color(0xFFF57C00).withValues(alpha: 0.05)
                       : AppTheme.primary.withValues(alpha: 0.04),
-                  blurRadius: 24,
-                  offset: const Offset(0, 8),
+                  blurRadius: 20,
+                  offset: const Offset(0, 6),
                 )
               ],
             ),
             child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+                  crossAxisAlignment: CrossAxisAlignment.center,
                   children: [
                     Container(
-                      width: 60,
-                      height: 60,
+                      width: 46,
+                      height: 46,
                       decoration: BoxDecoration(
                         color: widget.module.practiceDone
-                            ? const Color(0xFFF57C00).withValues(alpha: 0.1)
+                            ? const Color(0xFFF57C00).withValues(alpha: 0.12)
                             : (isDark ? AppTheme.primary.withValues(alpha: 0.3) : AppTheme.accentGold.withValues(alpha: 0.2)),
-                        borderRadius: BorderRadius.circular(18),
+                        borderRadius: BorderRadius.circular(14),
                       ),
                       child: Icon(
                         Icons.brush_rounded,
-                        size: 30,
+                        size: 24,
                         color: widget.module.practiceDone ? const Color(0xFFF57C00) : AppTheme.primary,
                       ),
                     ),
-                    const SizedBox(width: 16),
+                    const SizedBox(width: 12),
                     Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        crossAxisAlignment: CrossAxisAlignment.center,
                         children: [
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            crossAxisAlignment: CrossAxisAlignment.center,
-                            children: [
-                              Flexible(
-                                child: Text(
-                                  'Praktikum',
-                                  style: AppTheme.satoshi(fontSize: 18, fontWeight: FontWeight.w800),
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
+                          Expanded(
+                            child: Text(
+                              'Kuis Praktik',
+                              style: AppTheme.satoshi(
+                                fontSize: 17.5,
+                                fontWeight: FontWeight.w800,
+                                color: isDark ? Colors.white : const Color(0xFF2C1810),
+                              ),
+                              maxLines: 2,
+                            ),
+                          ),
+                          if (widget.module.practiceDone) ...[
+                            const SizedBox(width: 8),
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4.5),
+                              decoration: BoxDecoration(
+                                color: const Color(0xFFF57C00).withValues(alpha: 0.12),
+                                borderRadius: BorderRadius.circular(20),
+                                border: Border.all(
+                                  color: const Color(0xFFF57C00).withValues(alpha: 0.35),
+                                  width: 1,
                                 ),
                               ),
-                              if (widget.module.practiceDone) ...[
-                                const SizedBox(width: 8),
-                                Container(
-                                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                                  decoration: BoxDecoration(
-                                    color: const Color(0xFFF57C00).withValues(alpha: 0.1),
-                                    borderRadius: BorderRadius.circular(20),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  const Icon(Icons.auto_awesome, size: 13, color: Color(0xFFF57C00)),
+                                  const SizedBox(width: 4),
+                                  Text(
+                                    'Akurasi: ${widget.module.practiceScore ?? 100}%',
+                                    style: AppTheme.satoshi(
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.bold,
+                                      color: const Color(0xFFE65100),
+                                    ),
                                   ),
-                                  child: Row(
-                                    mainAxisSize: MainAxisSize.min,
-                                    children: [
-                                      const Icon(Icons.auto_awesome, size: 14, color: Color(0xFFF57C00)),
-                                      const SizedBox(width: 4),
-                                      Text(
-                                        'Akurasi: ${widget.module.practiceScore ?? 100}%',
-                                        style: AppTheme.satoshi(fontSize: 13, fontWeight: FontWeight.bold, color: const Color(0xFFF57C00)),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                              ],
-                            ],
-                          ),
-                          const SizedBox(height: 6),
-                          Text(
-                            'Gambarlah motif batik ini, lalu pindai hasil karyamu untuk melihat seberapa mirip dengan aslinya.',
-                            style: AppTheme.inter(fontSize: 13, color: AppTheme.textSecondary, height: 1.4),
-                          ),
+                                ],
+                              ),
+                            ),
+                          ],
                         ],
                       ),
                     ),
                   ],
                 ),
-                const SizedBox(height: 24),
+                const SizedBox(height: 12),
+                Text(
+                  'Gambarlah motif batik ini, lalu pindai hasil karyamu untuk melihat seberapa mirip dengan aslinya.',
+                  style: AppTheme.inter(
+                    fontSize: 13,
+                    color: isDark ? Colors.white70 : AppTheme.textSecondary,
+                    height: 1.45,
+                  ),
+                ),
+                const SizedBox(height: 18),
                 ElevatedButton(
                   onPressed: () {
                     Navigator.push(
@@ -920,7 +996,7 @@ class _ModuleDetailScreenState extends State<ModuleDetailScreen> {
                   style: ElevatedButton.styleFrom(
                     backgroundColor: widget.module.practiceDone ? Colors.transparent : AppTheme.primary,
                     foregroundColor: widget.module.practiceDone ? const Color(0xFFF57C00) : Colors.white,
-                    minimumSize: const Size.fromHeight(54),
+                    minimumSize: const Size.fromHeight(50),
                     elevation: 0,
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(16),
@@ -930,16 +1006,29 @@ class _ModuleDetailScreenState extends State<ModuleDetailScreen> {
                       ),
                     ),
                   ),
-                  child: Text(
-                    widget.module.practiceDone ? 'Pindai Ulang' : 'Mulai Praktikum',
-                    style: AppTheme.satoshi(
-                      fontSize: 15,
-                      fontWeight: FontWeight.bold,
-                      letterSpacing: 0.5,
-                      color: widget.module.practiceDone
-                          ? (isDark ? const Color(0xFFFFB74D) : const Color(0xFFE65100))
-                          : Colors.white,
-                    ),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(
+                        widget.module.practiceDone ? Icons.refresh_rounded : Icons.camera_alt_outlined,
+                        size: 18,
+                        color: widget.module.practiceDone
+                            ? (isDark ? const Color(0xFFFFB74D) : const Color(0xFFE65100))
+                            : Colors.white,
+                      ),
+                      const SizedBox(width: 6),
+                      Text(
+                        widget.module.practiceDone ? 'Pindai Ulang' : 'Mulai Praktik',
+                        style: AppTheme.satoshi(
+                          fontSize: 15,
+                          fontWeight: FontWeight.bold,
+                          letterSpacing: 0.3,
+                          color: widget.module.practiceDone
+                              ? (isDark ? const Color(0xFFFFB74D) : const Color(0xFFE65100))
+                              : Colors.white,
+                        ),
+                      ),
+                    ],
                   ),
                 ),
               ],
