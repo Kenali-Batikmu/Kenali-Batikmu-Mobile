@@ -134,9 +134,9 @@ class _ModuleDetailScreenState extends State<ModuleDetailScreen> {
       builder: (dialogCtx) {
         return Dialog(
           backgroundColor: Colors.transparent,
-          insetPadding: const EdgeInsets.symmetric(horizontal: 24),
+          insetPadding: const EdgeInsets.symmetric(horizontal: 20),
           child: Container(
-            padding: const EdgeInsets.all(24),
+            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
             decoration: BoxDecoration(
               color: isDark ? AppTheme.darkSurface : Colors.white,
               borderRadius: BorderRadius.circular(28),
@@ -152,8 +152,8 @@ class _ModuleDetailScreenState extends State<ModuleDetailScreen> {
               mainAxisSize: MainAxisSize.min,
               children: [
                 Container(
-                  width: 76,
-                  height: 76,
+                  width: 74,
+                  height: 74,
                   decoration: BoxDecoration(
                     gradient: const LinearGradient(
                       colors: [Color(0xFF4CAF50), Color(0xFF2E7D32)],
@@ -172,14 +172,14 @@ class _ModuleDetailScreenState extends State<ModuleDetailScreen> {
                   child: const Center(
                     child: Icon(
                       Icons.emoji_events_rounded,
-                      size: 40,
+                      size: 38,
                       color: Colors.white,
                     ),
                   ),
                 ),
                 const SizedBox(height: 18),
                 Text(
-                  'Selamat! Modul Tuntas 🎉',
+                  'Selamat! Modul Tuntas',
                   textAlign: TextAlign.center,
                   style: AppTheme.satoshi(
                     fontSize: 20,
@@ -199,7 +199,7 @@ class _ModuleDetailScreenState extends State<ModuleDetailScreen> {
                 ),
                 const SizedBox(height: 20),
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
                   decoration: BoxDecoration(
                     color: isDark ? AppTheme.darkBackground : const Color(0xFFF9F6F0),
                     borderRadius: BorderRadius.circular(18),
@@ -208,100 +208,123 @@ class _ModuleDetailScreenState extends State<ModuleDetailScreen> {
                     ),
                   ),
                   child: Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceAround,
                     children: [
-                      Column(
-                        children: [
-                          Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              const Icon(Icons.school_rounded, size: 14, color: Color(0xFF2E7D32)),
-                              const SizedBox(width: 4),
-                              Text(
-                                'Kuis Teori',
-                                style: AppTheme.inter(fontSize: 11, fontWeight: FontWeight.bold, color: AppTheme.textSecondary),
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 4),
-                          Text(
-                            '${module.quizScore ?? 100}',
-                            style: AppTheme.satoshi(fontSize: 18, fontWeight: FontWeight.w800, color: const Color(0xFF2E7D32)),
-                          ),
-                        ],
+                      Expanded(
+                        child: Column(
+                          children: [
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                const Icon(Icons.school_rounded, size: 13, color: Color(0xFF2E7D32)),
+                                const SizedBox(width: 4),
+                                Flexible(
+                                  child: Text(
+                                    'Kuis Teori',
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: AppTheme.inter(fontSize: 11, fontWeight: FontWeight.bold, color: AppTheme.textSecondary),
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              '${module.quizScore ?? 100}',
+                              style: AppTheme.satoshi(fontSize: 18, fontWeight: FontWeight.w800, color: const Color(0xFF2E7D32)),
+                            ),
+                          ],
+                        ),
                       ),
                       Container(height: 32, width: 1, color: isDark ? AppTheme.darkBorder : const Color(0xFFDCD2C4)),
-                      Column(
-                        children: [
-                          Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              const Icon(Icons.brush_rounded, size: 14, color: Color(0xFFE65100)),
-                              const SizedBox(width: 4),
-                              Text(
-                                'Kuis Praktik',
-                                style: AppTheme.inter(fontSize: 11, fontWeight: FontWeight.bold, color: AppTheme.textSecondary),
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 4),
-                          Text(
-                            '${module.practiceScore ?? 100}%',
-                            style: AppTheme.satoshi(fontSize: 18, fontWeight: FontWeight.w800, color: const Color(0xFFE65100)),
-                          ),
-                        ],
+                      Expanded(
+                        child: Column(
+                          children: [
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                const Icon(Icons.brush_rounded, size: 13, color: Color(0xFFE65100)),
+                                const SizedBox(width: 4),
+                                Flexible(
+                                  child: Text(
+                                    'Kuis Praktik',
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: AppTheme.inter(fontSize: 11, fontWeight: FontWeight.bold, color: AppTheme.textSecondary),
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              '${module.practiceScore ?? 100}%',
+                              style: AppTheme.satoshi(fontSize: 18, fontWeight: FontWeight.w800, color: const Color(0xFFE65100)),
+                            ),
+                          ],
+                        ),
                       ),
                       Container(height: 32, width: 1, color: isDark ? AppTheme.darkBorder : const Color(0xFFDCD2C4)),
-                      Column(
-                        children: [
-                          Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              const Icon(Icons.verified_rounded, size: 14, color: Color(0xFF5A3416)),
-                              const SizedBox(width: 4),
-                              Text(
-                                'Progres',
-                                style: AppTheme.inter(fontSize: 11, fontWeight: FontWeight.bold, color: AppTheme.textSecondary),
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 4),
-                          Text(
-                            '100%',
-                            style: AppTheme.satoshi(fontSize: 18, fontWeight: FontWeight.w800, color: const Color(0xFF5A3416)),
-                          ),
-                        ],
+                      Expanded(
+                        child: Column(
+                          children: [
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                const Icon(Icons.verified_rounded, size: 13, color: Color(0xFF5A3416)),
+                                const SizedBox(width: 4),
+                                Flexible(
+                                  child: Text(
+                                    'Progres',
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: AppTheme.inter(fontSize: 11, fontWeight: FontWeight.bold, color: AppTheme.textSecondary),
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              '100%',
+                              style: AppTheme.satoshi(fontSize: 18, fontWeight: FontWeight.w800, color: const Color(0xFF5A3416)),
+                            ),
+                          ],
+                        ),
                       ),
                     ],
                   ),
                 ),
                 const SizedBox(height: 22),
-                ElevatedButton(
-                  onPressed: () {
-                    Navigator.pop(dialogCtx);
-                    Navigator.pop(context);
-                  },
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFF5A3416),
-                    foregroundColor: Colors.white,
-                    minimumSize: const Size.fromHeight(50),
-                    elevation: 0,
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-                  ),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      const Icon(Icons.check_circle_outline_rounded, size: 18),
-                      const SizedBox(width: 8),
-                      Text(
-                        'Selesai & Kembali ke Modul',
-                        style: AppTheme.satoshi(
-                          fontSize: 15,
-                          fontWeight: FontWeight.bold,
-                          letterSpacing: 0.3,
+                SizedBox(
+                  width: double.infinity,
+                  height: 50,
+                  child: ElevatedButton(
+                    onPressed: () {
+                      Navigator.pop(dialogCtx);
+                      Navigator.pop(context);
+                    },
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFF5A3416),
+                      foregroundColor: Colors.white,
+                      elevation: 0,
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                      padding: const EdgeInsets.symmetric(horizontal: 16),
+                    ),
+                    child: Center(
+                      child: FittedBox(
+                        fit: BoxFit.scaleDown,
+                        child: Text(
+                          'Selesai & Kembali ke Modul',
+                          style: AppTheme.satoshi(
+                            fontSize: 15,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.white,
+                            letterSpacing: 0.3,
+                          ),
                         ),
                       ),
-                    ],
+                    ),
                   ),
                 ),
               ],
