@@ -44,7 +44,9 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
         onOpenScan: () => _goToTab(_scanIndex),
         onOpenProfile: () => _goToTab(_profileIndex),
       ),
-      const UniversalScanScreen(),
+      UniversalScanScreen(
+        isActive: _currentIndex == _scanIndex,
+      ),
       // Avatar di top bar halaman modul pindah ke tab Profil (footer tetap tampil)
       ModulesListScreen(
         onOpenProfile: () => _goToTab(_profileIndex),
