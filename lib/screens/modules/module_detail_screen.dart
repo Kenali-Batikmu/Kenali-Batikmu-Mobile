@@ -156,14 +156,14 @@ class _ModuleDetailScreenState extends State<ModuleDetailScreen> {
                   height: 74,
                   decoration: BoxDecoration(
                     gradient: const LinearGradient(
-                      colors: [Color(0xFF4CAF50), Color(0xFF2E7D32)],
+                      colors: [Color(0xFFE4BA73), Color(0xFFD49B45)],
                       begin: Alignment.topLeft,
                       end: Alignment.bottomRight,
                     ),
                     shape: BoxShape.circle,
                     boxShadow: [
                       BoxShadow(
-                        color: const Color(0xFF4CAF50).withValues(alpha: 0.35),
+                        color: AppTheme.secondary.withValues(alpha: 0.35),
                         blurRadius: 16,
                         offset: const Offset(0, 6),
                       ),
@@ -216,7 +216,7 @@ class _ModuleDetailScreenState extends State<ModuleDetailScreen> {
                               mainAxisAlignment: MainAxisAlignment.center,
                               mainAxisSize: MainAxisSize.min,
                               children: [
-                                const Icon(Icons.school_rounded, size: 13, color: Color(0xFF2E7D32)),
+                                const Icon(Icons.school_rounded, size: 13, color: AppTheme.primary),
                                 const SizedBox(width: 4),
                                 Flexible(
                                   child: Text(
@@ -231,7 +231,7 @@ class _ModuleDetailScreenState extends State<ModuleDetailScreen> {
                             const SizedBox(height: 4),
                             Text(
                               '${module.quizScore ?? 100}',
-                              style: AppTheme.satoshi(fontSize: 18, fontWeight: FontWeight.w800, color: const Color(0xFF2E7D32)),
+                              style: AppTheme.satoshi(fontSize: 18, fontWeight: FontWeight.w800, color: AppTheme.primary),
                             ),
                           ],
                         ),
@@ -469,14 +469,14 @@ class _ModuleDetailScreenState extends State<ModuleDetailScreen> {
                     height: 50,
                     decoration: BoxDecoration(
                       gradient: const LinearGradient(
-                        colors: [Color(0xFF4CAF50), Color(0xFF2E7D32)],
+                        colors: [Color(0xFFE4BA73), Color(0xFFD49B45)],
                         begin: Alignment.topLeft,
                         end: Alignment.bottomRight,
                       ),
                       shape: BoxShape.circle,
                       boxShadow: [
                         BoxShadow(
-                          color: const Color(0xFF4CAF50).withValues(alpha: 0.35),
+                          color: AppTheme.secondary.withValues(alpha: 0.35),
                           blurRadius: 10,
                           offset: const Offset(0, 4),
                         ),
@@ -971,14 +971,14 @@ class _ModuleDetailScreenState extends State<ModuleDetailScreen> {
               borderRadius: BorderRadius.circular(24),
               border: Border.all(
                 color: module.quizDone
-                    ? const Color(0xFF4CAF50).withValues(alpha: 0.4)
+                    ? AppTheme.primary.withValues(alpha: 0.4)
                     : (isDark ? AppTheme.darkBorder : const Color(0xFFF0EAE1)),
                 width: 1.5,
               ),
               boxShadow: [
                 BoxShadow(
                   color: module.quizDone
-                      ? const Color(0xFF4CAF50).withValues(alpha: 0.05)
+                      ? AppTheme.primary.withValues(alpha: 0.05)
                       : AppTheme.primary.withValues(alpha: 0.04),
                   blurRadius: 20,
                   offset: const Offset(0, 6),
@@ -996,14 +996,14 @@ class _ModuleDetailScreenState extends State<ModuleDetailScreen> {
                       height: 46,
                       decoration: BoxDecoration(
                         color: module.quizDone
-                            ? const Color(0xFF4CAF50).withValues(alpha: 0.12)
+                            ? AppTheme.primary.withValues(alpha: 0.12)
                             : (isDark ? AppTheme.primary.withValues(alpha: 0.3) : AppTheme.accentGold.withValues(alpha: 0.2)),
                         borderRadius: BorderRadius.circular(14),
                       ),
-                      child: Icon(
+                      child: const Icon(
                         Icons.school_rounded,
                         size: 24,
-                        color: module.quizDone ? const Color(0xFF4CAF50) : AppTheme.primary,
+                        color: AppTheme.primary,
                       ),
                     ),
                     const SizedBox(width: 12),
@@ -1028,24 +1028,24 @@ class _ModuleDetailScreenState extends State<ModuleDetailScreen> {
                             Container(
                               padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4.5),
                               decoration: BoxDecoration(
-                                color: const Color(0xFF4CAF50).withValues(alpha: 0.12),
+                                color: AppTheme.primary.withValues(alpha: 0.12),
                                 borderRadius: BorderRadius.circular(20),
                                 border: Border.all(
-                                  color: const Color(0xFF4CAF50).withValues(alpha: 0.35),
+                                  color: AppTheme.primary.withValues(alpha: 0.35),
                                   width: 1,
                                 ),
                               ),
                               child: Row(
                                 mainAxisSize: MainAxisSize.min,
                                 children: [
-                                  const Icon(Icons.check_circle, size: 13, color: Color(0xFF4CAF50)),
+                                  const Icon(Icons.check_circle_rounded, size: 13, color: AppTheme.primary),
                                   const SizedBox(width: 4),
                                   Text(
                                     'Nilai: ${module.quizScore ?? 100}',
                                     style: AppTheme.satoshi(
                                       fontSize: 12,
                                       fontWeight: FontWeight.bold,
-                                      color: const Color(0xFF2E7D32),
+                                      color: isDark ? AppTheme.secondaryLight : AppTheme.primaryDark,
                                     ),
                                   ),
                                 ],
@@ -1076,13 +1076,13 @@ class _ModuleDetailScreenState extends State<ModuleDetailScreen> {
                   },
                   style: ElevatedButton.styleFrom(
                     backgroundColor: module.quizDone ? Colors.transparent : AppTheme.primary,
-                    foregroundColor: module.quizDone ? const Color(0xFF4CAF50) : Colors.white,
+                    foregroundColor: module.quizDone ? AppTheme.primary : Colors.white,
                     minimumSize: const Size.fromHeight(50),
                     elevation: 0,
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(16),
                       side: BorderSide(
-                        color: module.quizDone ? const Color(0xFF4CAF50) : Colors.transparent,
+                        color: module.quizDone ? AppTheme.primary : Colors.transparent,
                         width: 1.5,
                       ),
                     ),
@@ -1094,7 +1094,7 @@ class _ModuleDetailScreenState extends State<ModuleDetailScreen> {
                         module.quizDone ? Icons.refresh_rounded : Icons.play_arrow_rounded,
                         size: 18,
                         color: module.quizDone
-                            ? (isDark ? const Color(0xFF81C784) : const Color(0xFF2E7D32))
+                            ? (isDark ? AppTheme.secondaryLight : AppTheme.primary)
                             : Colors.white,
                       ),
                       const SizedBox(width: 6),
@@ -1105,7 +1105,7 @@ class _ModuleDetailScreenState extends State<ModuleDetailScreen> {
                           fontWeight: FontWeight.bold,
                           letterSpacing: 0.3,
                           color: module.quizDone
-                              ? (isDark ? const Color(0xFF81C784) : const Color(0xFF2E7D32))
+                              ? (isDark ? AppTheme.secondaryLight : AppTheme.primary)
                               : Colors.white,
                         ),
                       ),
