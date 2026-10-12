@@ -1,9 +1,10 @@
 import 'dart:io';
+import 'dart:math';
 import 'package:flutter/foundation.dart';
-import 'package:path/path.dart' as pth;
-import 'package:path_provider/path_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../core/database/database_helper.dart';
+import '../core/services/email_service.dart';
+import '../core/utils/password_hasher.dart';
 import '../models/app_models.dart';
 
 class AppProvider with ChangeNotifier {
@@ -13,6 +14,14 @@ class AppProvider with ChangeNotifier {
   String? _savedPhotoPath; // path foto profil tersimpan (file lokal di folder aplikasi)
   bool _isLoading = false;
   String? _errorMessage;
+
+  String? _resetTargetEmail;
+  String? _resetOtpCode;
+  DateTime? _resetOtpExpiresAt;
+  final Map<String, String> _inMemoryPasswordHashes = {
+    'sekar@batikmu.id': PasswordHasher.hashPassword('Batikmu123#'),
+    'kenalibatikmu@gmail.com': PasswordHasher.hashPassword('kenalibatikmupbl'),
+  };
 
   List<ModuleModel> _modules = [];
   List<BatikMotifModel> _motifs = [];
@@ -27,14 +36,19 @@ class AppProvider with ChangeNotifier {
   List<ScanHistoryModel> get scanHistories => _scanHistories;
   bool get isDarkMode => _isDarkMode;
 
+  // Getters Pemulihan Kata Sandi
+  String? get resetTargetEmail => _resetTargetEmail;
+  String? get activeResetOtp => _resetOtpCode;
+  bool get hasActiveResetOtp => _resetOtpCode != null;
+
   // Stats kalkulasi dinamis sesuai PDF Page 3 & Page 12
   int get completedModulesCount => _modules.where((m) => m.progressPercent >= 100).length;
   int get totalModulesCount => _modules.length;
   int get overallProgressPercent => totalModulesCount > 0 ? ((completedModulesCount / totalModulesCount) * 100).round() : 0;
   int get scannedMotifsCount => _scanHistories.length;
 
-  AppProvider() {
-    _initInMemoryDefaultData();
+  AppProvider({bool initialIsLoggedIn = false, String? initialEmail}) {
+    _initInMemoryDefaultData(isLoggedIn: initialIsLoggedIn, userEmail: initialEmail);
     initApp();
   }
 
@@ -51,15 +65,22 @@ class AppProvider with ChangeNotifier {
     } catch (_) {}
   }
 
-  void _initInMemoryDefaultData() {
-    // 1. Akun Default Sekar Ayu Kinanti (@sekar_artisan) Sesuai PDF Page 12, 13, 14
-    _currentUser = UserModel(
-      id: 1,
-      name: 'Sekar Ayu Kinanti',
-      email: 'sekar@batikmu.id',
-      phone: '081234567890',
-      createdAt: '2026-03-01T08:00:00Z',
-    );
+  void _initInMemoryDefaultData({bool isLoggedIn = false, String? userEmail}) {
+    if (isLoggedIn) {
+      final email = userEmail ?? 'sekar@batikmu.id';
+      final name = email.startsWith('kenalibatikmu')
+          ? 'Kenali Batikmu'
+          : (email.startsWith('sekar') ? 'Sekar Ayu Kinanti' : 'Sahabat Batik');
+      _currentUser = UserModel(
+        id: 1,
+        name: name,
+        email: email,
+        phone: '081234567890',
+        createdAt: '2026-03-01T08:00:00Z',
+      );
+    } else {
+      _currentUser = null;
+    }
 
     // 2. Daftar 6 Motif Utama Sesuai PDF Page 2 & Skema Database
     _motifs = [
@@ -319,13 +340,29 @@ class AppProvider with ChangeNotifier {
         _savedPhotoPath = savedPhoto;
       }
 
-      // Coba load database SQLite di background jika tersedia secara non-blocking
-      final db = await DatabaseHelper.instance.database;
-      if (db != null) {
-        final users = await db.query('users', limit: 1);
-        if (users.isNotEmpty) {
-          _currentUser = UserModel.fromMap(users.first);
+      final isLoggedIn = prefs.getBool('is_logged_in') ?? false;
+      if (isLoggedIn) {
+        final savedEmail = prefs.getString('logged_user_email');
+        if (savedEmail != null) {
+          final dbUser = await DatabaseHelper.instance.getUserByEmail(savedEmail);
+          if (dbUser != null) {
+            _currentUser = UserModel.fromMap(dbUser);
+          } else {
+            final name = savedEmail.startsWith('kenalibatikmu')
+                ? 'Kenali Batikmu'
+                : (savedEmail.startsWith('sekar') ? 'Sekar Ayu Kinanti' : 'Sahabat Batik');
+            _currentUser = UserModel(
+              id: 1,
+              name: name,
+              email: savedEmail,
+              phone: '081234567890',
+              profileImagePath: _savedPhotoPath,
+              createdAt: '2026-03-01T08:00:00Z',
+            );
+          }
         }
+      } else {
+        _currentUser = null;
       }
     } catch (e) {
       debugPrint('Info sync SQLite: $e (Aplikasi berjalan dalam Interactive Prototype Mode)');
@@ -367,10 +404,38 @@ class AppProvider with ChangeNotifier {
       return false;
     }
 
-    // Login Sukses (Mendukung kredensial demo maupun email kustom pengguna)
+    final dbUser = await DatabaseHelper.instance.getUserByEmail(cleanEmail);
+    if (dbUser != null && dbUser['password_hash'] != null) {
+      final storedHash = dbUser['password_hash'] as String;
+      if (!PasswordHasher.verify(cleanPass, storedHash)) {
+        _errorMessage = 'Kata sandi salah. Silakan periksa kembali.';
+        _isLoading = false;
+        notifyListeners();
+        return false;
+      }
+    } else if (_inMemoryPasswordHashes.containsKey(cleanEmail)) {
+      final storedHash = _inMemoryPasswordHashes[cleanEmail]!;
+      if (!PasswordHasher.verify(cleanPass, storedHash)) {
+        _errorMessage = 'Kata sandi salah. Silakan periksa kembali.';
+        _isLoading = false;
+        notifyListeners();
+        return false;
+      }
+    }
+
+    // Ambil nama profil jika ada
+    final userName = dbUser != null && dbUser['name'] != null
+        ? dbUser['name'] as String
+        : (cleanEmail.startsWith('sekar')
+            ? 'Sekar Ayu Kinanti'
+            : (cleanEmail.startsWith('kenalibatikmu')
+                ? 'Kenali Batikmu'
+                : 'Sahabat Batik'));
+
+    // Login Sukses
     _currentUser = UserModel(
-      id: 1,
-      name: cleanEmail.startsWith('sekar') ? 'Sekar Ayu Kinanti' : 'Sekar Ayu Kinanti',
+      id: dbUser != null ? (dbUser['id'] as int? ?? 1) : 1,
+      name: userName,
       email: cleanEmail,
       profileImagePath: _savedPhotoPath,
       createdAt: DateTime.now().toIso8601String(),
@@ -381,12 +446,152 @@ class AppProvider with ChangeNotifier {
 
     // Simpan preferensi secara asinkron
     try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setBool('has_seen_onboarding', true);
       if (rememberMe) {
-        final prefs = await SharedPreferences.getInstance();
-        await prefs.setInt('logged_user_id', 1);
+        await prefs.setInt('logged_user_id', _currentUser?.id ?? 1);
+        await prefs.setBool('is_logged_in', true);
+        await prefs.setString('logged_user_email', cleanEmail);
+      } else {
+        await prefs.remove('logged_user_id');
+        await prefs.setBool('is_logged_in', false);
+        await prefs.remove('logged_user_email');
       }
     } catch (_) {}
 
+    return true;
+  }
+
+  /// Meminta kode OTP untuk pemulihan kata sandi
+  Future<EmailSendResult> requestPasswordReset(String email) async {
+    _isLoading = true;
+    _errorMessage = null;
+    notifyListeners();
+
+    final cleanEmail = email.trim().toLowerCase();
+
+    // Validasi format email
+    if (cleanEmail.isEmpty || !RegExp(r'^[^@]+@[^@]+\.[^@]+').hasMatch(cleanEmail)) {
+      _errorMessage = 'Format email tidak valid';
+      _isLoading = false;
+      notifyListeners();
+      return const EmailSendResult(
+        isSuccess: false,
+        isDemoSimulated: false,
+        message: 'Format email tidak valid',
+      );
+    }
+
+    // Cek apakah email terdaftar di SQLite atau in-memory default
+    bool isRegistered = false;
+    String recipientName = 'Sahabat Batik';
+
+    if (cleanEmail == 'kenalibatikmu@gmail.com') {
+      isRegistered = true;
+      recipientName = 'Kenali Batikmu';
+    } else if (cleanEmail == 'sekar@batikmu.id') {
+      isRegistered = true;
+      recipientName = 'Sekar Ayu Kinanti';
+    } else {
+      final dbUser = await DatabaseHelper.instance.getUserByEmail(cleanEmail);
+      if (dbUser != null) {
+        isRegistered = true;
+        recipientName = dbUser['name'] as String? ?? 'Sahabat Batik';
+      } else if (_inMemoryPasswordHashes.containsKey(cleanEmail)) {
+        isRegistered = true;
+        recipientName = 'Sahabat Batik';
+      }
+    }
+
+    if (!isRegistered) {
+      _errorMessage = 'Email tidak terdaftar dalam sistem';
+      _isLoading = false;
+      notifyListeners();
+      return const EmailSendResult(
+        isSuccess: false,
+        isDemoSimulated: false,
+        message: 'Email belum terdaftar di Kenali Batikmu',
+      );
+    }
+
+    // Generate 4 digit OTP acak (1000 - 9999)
+    final otp = (1000 + Random().nextInt(9000)).toString();
+    _resetTargetEmail = cleanEmail;
+    _resetOtpCode = otp;
+    _resetOtpExpiresAt = DateTime.now().add(const Duration(minutes: 5));
+
+    // Kirim via EmailService (baik live via EmailJS maupun demo simulation)
+    final result = await EmailService.sendPasswordResetOtp(
+      recipientEmail: cleanEmail,
+      recipientName: recipientName,
+      otpCode: otp,
+    );
+
+    _isLoading = false;
+    notifyListeners();
+    return result;
+  }
+
+  /// Verifikasi kecocokan kode OTP yang diinput
+  bool verifyResetOtp(String inputOtp) {
+    if (_resetOtpCode == null || _resetOtpExpiresAt == null) {
+      _errorMessage = 'Sesi pemulihan tidak valid. Silakan minta kode baru.';
+      notifyListeners();
+      return false;
+    }
+
+    if (DateTime.now().isAfter(_resetOtpExpiresAt!)) {
+      _errorMessage = 'Kode OTP telah kedaluwarsa. Silakan kirim ulang.';
+      notifyListeners();
+      return false;
+    }
+
+    if (inputOtp.trim() != _resetOtpCode) {
+      _errorMessage = 'Kode verifikasi salah. Periksa kembali kode Anda.';
+      notifyListeners();
+      return false;
+    }
+
+    _errorMessage = null;
+    notifyListeners();
+    return true;
+  }
+
+  /// Menyimpan kata sandi baru ke database & memory
+  Future<bool> finalizePasswordReset(String newPassword) async {
+    if (_resetTargetEmail == null) {
+      _errorMessage = 'Sesi pemulihan telah berakhir';
+      notifyListeners();
+      return false;
+    }
+
+    final cleanPass = newPassword.trim();
+    if (cleanPass.length < 8) {
+      _errorMessage = 'Kata sandi baru minimal 8 karakter';
+      notifyListeners();
+      return false;
+    }
+
+    _isLoading = true;
+    _errorMessage = null;
+    notifyListeners();
+
+    final newHash = PasswordHasher.hashPassword(cleanPass);
+    final targetEmail = _resetTargetEmail!;
+
+    // Perbarui hash di database SQLite
+    await DatabaseHelper.instance.updateUserPassword(targetEmail, newHash);
+
+    // Perbarui di in-memory map
+    _inMemoryPasswordHashes[targetEmail] = newHash;
+
+    // Bersihkan sesi reset
+    _resetTargetEmail = null;
+    _resetOtpCode = null;
+    _resetOtpExpiresAt = null;
+
+    _isLoading = false;
+    notifyListeners();
     return true;
   }
 
@@ -429,6 +634,13 @@ class AppProvider with ChangeNotifier {
       createdAt: DateTime.now().toIso8601String(),
     );
 
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setBool('has_seen_onboarding', true);
+      await prefs.setBool('is_logged_in', true);
+      await prefs.setString('logged_user_email', cleanEmail);
+    } catch (_) {}
+
     _isLoading = false;
     notifyListeners();
     return true;
@@ -438,6 +650,8 @@ class AppProvider with ChangeNotifier {
     try {
       final prefs = await SharedPreferences.getInstance();
       await prefs.remove('logged_user_id');
+      await prefs.setBool('is_logged_in', false);
+      await prefs.remove('logged_user_email');
     } catch (_) {}
     _currentUser = null;
     notifyListeners();

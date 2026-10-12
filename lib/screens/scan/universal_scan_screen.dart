@@ -15,7 +15,8 @@ import '../modules/module_detail_screen.dart';
 /// Screen Universal Scan Batik
 /// Mendukung pengoperasian di Windows Desktop (webcam / galeri fallback) maupun HP (Android / iOS)
 class UniversalScanScreen extends StatefulWidget {
-  const UniversalScanScreen({super.key});
+  final bool isActive;
+  const UniversalScanScreen({super.key, this.isActive = true});
 
   @override
   State<UniversalScanScreen> createState() => _UniversalScanScreenState();
@@ -51,7 +52,32 @@ class _UniversalScanScreenState extends State<UniversalScanScreen>
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
-    _initCam();
+    if (widget.isActive) {
+      _initCam();
+    }
+  }
+
+  @override
+  void didUpdateWidget(UniversalScanScreen oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.isActive != oldWidget.isActive) {
+      if (widget.isActive) {
+        if (_cams.isEmpty) {
+          _initCam();
+        } else {
+          _start();
+        }
+      } else {
+        _stop();
+      }
+    }
+  }
+
+  Future<void> _stop() async {
+    final old = _cam;
+    _cam = null;
+    if (mounted) setState(() {});
+    await old?.dispose();
   }
 
   @override
@@ -63,12 +89,10 @@ class _UniversalScanScreenState extends State<UniversalScanScreen>
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
-    if (state == AppLifecycleState.inactive) {
-      final c = _cam;
-      _cam = null;
-      if (mounted) setState(() {});
-      c?.dispose();
+    if (state == AppLifecycleState.inactive || state == AppLifecycleState.paused) {
+      _stop();
     } else if (state == AppLifecycleState.resumed &&
+        widget.isActive &&
         _cam == null &&
         _cams.isNotEmpty &&
         _isCamAvailable) {
@@ -123,11 +147,14 @@ class _UniversalScanScreenState extends State<UniversalScanScreen>
   }
 
   Future<void> _start() async {
+    if (!widget.isActive) return;
     if (_cams.isEmpty) return;
     final old = _cam;
     _cam = null;
     if (mounted) setState(() {});
     await old?.dispose();
+
+    if (!widget.isActive) return;
 
     final c = CameraController(
       _cams[_camIdx],
@@ -139,7 +166,7 @@ class _UniversalScanScreenState extends State<UniversalScanScreen>
     try {
       await c.initialize();
       _flash = false;
-      if (!mounted) {
+      if (!mounted || !widget.isActive) {
         await c.dispose();
         return;
       }
@@ -295,17 +322,22 @@ class _UniversalScanScreenState extends State<UniversalScanScreen>
   }
 
   /// Menutup sheet lalu membuka modul belajar dari motif terkait
-  void _openModule(BuildContext ctx, int motifId) {
+  Future<void> _openModule(BuildContext ctx, int motifId) async {
     Navigator.pop(ctx);
     final provider = Provider.of<AppProvider>(context, listen: false);
     final target = provider.modules.firstWhere(
       (m) => m.motifId == motifId,
       orElse: () => provider.modules[0],
     );
-    Navigator.push(
+    await _stop();
+    if (!mounted) return;
+    await Navigator.push(
       context,
       MaterialPageRoute(builder: (_) => ModuleDetailScreen(module: target)),
     );
+    if (mounted && widget.isActive) {
+      _start();
+    }
   }
 
   /// Warna medali peringkat: emas, perak, perunggu, lalu cokelat
