@@ -6,6 +6,7 @@ import 'package:provider/provider.dart';
 import '../../core/theme/app_theme.dart';
 import '../../providers/app_provider.dart';
 import '../dashboard/main_navigation_screen.dart';
+import 'forgot_password_screen.dart';
 import 'register_screen.dart';
 
 class LoginScreen extends StatefulWidget {
@@ -42,8 +43,9 @@ class _LoginScreenState extends State<LoginScreen> {
     if (!mounted) return;
 
     if (success) {
-      Navigator.of(context).pushReplacement(
+      Navigator.of(context).pushAndRemoveUntil(
         MaterialPageRoute(builder: (_) => const MainNavigationScreen()),
+        (route) => false,
       );
     } else {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -407,18 +409,20 @@ class _LoginScreenState extends State<LoginScreen> {
                                     ),
                                   ),
                                   GestureDetector(
-                                    onTap: () {
-                                      ScaffoldMessenger.of(
-                                        context,
-                                      ).showSnackBar(
-                                        SnackBar(
-                                          content: Text(
-                                            'Tautan pemulihan kata sandi dikirim jika email terdaftar.',
-                                            style: AppTheme.plusJakartaSans(),
+                                    onTap: () async {
+                                      final resetEmail = await Navigator.of(context).push<String>(
+                                        MaterialPageRoute(
+                                          builder: (_) => ForgotPasswordScreen(
+                                            initialEmail: _emailController.text.trim(),
                                           ),
-                                          backgroundColor: AppTheme.primary,
                                         ),
                                       );
+                                      if (resetEmail != null && resetEmail.isNotEmpty && mounted) {
+                                        setState(() {
+                                          _emailController.text = resetEmail;
+                                          _passwordController.clear();
+                                        });
+                                      }
                                     },
                                     child: Row(
                                       mainAxisSize: MainAxisSize.min,

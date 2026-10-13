@@ -42,13 +42,25 @@ class DatabaseHelper {
 
   Future<void> _ensureSeedData(Database db) async {
     try {
+      final now = DateTime.now().toIso8601String();
+
       final users = await db.query('users', where: 'LOWER(email) = ?', whereArgs: ['sekar@batikmu.id']);
       if (users.isEmpty) {
-        final now = DateTime.now().toIso8601String();
         await db.insert('users', {
           'name': 'Sekar Ayu Kinanti',
           'email': 'sekar@batikmu.id',
           'password_hash': PasswordHasher.hashPassword('Batikmu123#'),
+          'created_at': now,
+          'updated_at': now,
+        });
+      }
+
+      final batikmuUser = await db.query('users', where: 'LOWER(email) = ?', whereArgs: ['kenalibatikmu@gmail.com']);
+      if (batikmuUser.isEmpty) {
+        await db.insert('users', {
+          'name': 'Kenali Batikmu',
+          'email': 'kenalibatikmu@gmail.com',
+          'password_hash': PasswordHasher.hashPassword('kenalibatikmupbl'),
           'created_at': now,
           'updated_at': now,
         });
@@ -446,5 +458,115 @@ class DatabaseHelper {
       'practice_done': 0,
       'last_accessed_at': now,
     });
+  }
+
+  /// Cek apakah email terdaftar dalam tabel users
+  Future<bool> checkEmailExists(String email) async {
+    final clean = email.trim().toLowerCase();
+    if (clean == 'kenalibatikmu@gmail.com' || clean == 'sekar@batikmu.id') {
+      return true;
+    }
+    final db = await database;
+    if (db == null) return false;
+    try {
+      final res = await db.query(
+        'users',
+        columns: ['id'],
+        where: 'LOWER(email) = ?',
+        whereArgs: [clean],
+        limit: 1,
+      );
+      return res.isNotEmpty;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  /// Ambil data user berdasarkan email
+  Future<Map<String, dynamic>?> getUserByEmail(String email) async {
+    final clean = email.trim().toLowerCase();
+    final db = await database;
+    if (db != null) {
+      try {
+        final res = await db.query(
+          'users',
+          where: 'LOWER(email) = ?',
+          whereArgs: [clean],
+          limit: 1,
+        );
+        if (res.isNotEmpty) return res.first;
+
+        // Auto-insert akun default jika belum ada di database lokal
+        if (clean == 'kenalibatikmu@gmail.com') {
+          final now = DateTime.now().toIso8601String();
+          final id = await db.insert('users', {
+            'name': 'Kenali Batikmu',
+            'email': 'kenalibatikmu@gmail.com',
+            'password_hash': PasswordHasher.hashPassword('kenalibatikmupbl'),
+            'created_at': now,
+            'updated_at': now,
+          });
+          return {
+            'id': id,
+            'name': 'Kenali Batikmu',
+            'email': 'kenalibatikmu@gmail.com',
+            'password_hash': PasswordHasher.hashPassword('kenalibatikmupbl'),
+          };
+        }
+      } catch (_) {}
+    }
+
+    // Fallback data in-memory jika SQLite tidak aktif
+    if (clean == 'kenalibatikmu@gmail.com') {
+      return {
+        'id': 2,
+        'name': 'Kenali Batikmu',
+        'email': 'kenalibatikmu@gmail.com',
+        'password_hash': PasswordHasher.hashPassword('kenalibatikmupbl'),
+      };
+    }
+    if (clean == 'sekar@batikmu.id') {
+      return {
+        'id': 1,
+        'name': 'Sekar Ayu Kinanti',
+        'email': 'sekar@batikmu.id',
+        'password_hash': PasswordHasher.hashPassword('Batikmu123#'),
+      };
+    }
+    return null;
+  }
+
+  /// Perbarui kata sandi pengguna (password hash)
+  Future<bool> updateUserPassword(String email, String newPasswordHash) async {
+    final db = await database;
+    if (db == null) return false;
+    try {
+      final clean = email.trim().toLowerCase();
+      final now = DateTime.now().toIso8601String();
+      final count = await db.update(
+        'users',
+        {
+          'password_hash': newPasswordHash,
+          'updated_at': now,
+        },
+        where: 'LOWER(email) = ?',
+        whereArgs: [clean],
+      );
+      if (count == 0) {
+        await db.insert('users', {
+          'name': clean.startsWith('kenalibatikmu')
+              ? 'Kenali Batikmu'
+              : (clean.startsWith('sekar') ? 'Sekar Ayu Kinanti' : 'Sahabat Batik'),
+          'email': clean,
+          'password_hash': newPasswordHash,
+          'created_at': now,
+          'updated_at': now,
+        });
+        return true;
+      }
+      return count > 0;
+    } catch (_) {
+      return false;
+    }
   }
 }

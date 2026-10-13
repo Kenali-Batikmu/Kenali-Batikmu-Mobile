@@ -48,7 +48,7 @@ class _PracticeQuizScreenState extends State<PracticeQuizScreen>
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
-    if (state == AppLifecycleState.inactive) {
+    if (state == AppLifecycleState.inactive || state == AppLifecycleState.paused) {
       final c = _cam;
       _cam = null;
       if (mounted) setState(() {});
