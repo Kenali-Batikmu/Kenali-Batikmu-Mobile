@@ -6,7 +6,6 @@ import 'package:provider/provider.dart';
 import '../../core/theme/app_theme.dart';
 import '../../models/app_models.dart';
 import '../../providers/app_provider.dart';
-import '../../widgets/kb_module_card.dart';
 import '../profile/profile_screen.dart';
 import 'module_detail_screen.dart';
 
@@ -800,9 +799,9 @@ class KbModuleCard extends StatelessWidget {
 class _KawungPainter extends CustomPainter {
   final Color color;
   final double opacity;
-  final double cell;
+  static const double cell = 26;
 
-  const _KawungPainter({required this.color, this.opacity = 1, this.cell = 26});
+  const _KawungPainter({required this.color, this.opacity = 1});
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -833,7 +832,7 @@ class _KawungPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(covariant _KawungPainter old) =>
-      old.color != color || old.opacity != opacity || old.cell != cell;
+      old.color != color || old.opacity != opacity;
 }
 
 // Tepi bawah header yang bergelombang, berwarna sama dengan badan kartu + garis emas tipis

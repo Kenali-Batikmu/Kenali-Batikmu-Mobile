@@ -662,9 +662,9 @@ class _KawungPainter extends CustomPainter {
 // -----------------------------------------------------------------------------
 class _BgBatikPainter extends CustomPainter {
   final Color color;
-  final double cell;
+  static const double cell = 52;
 
-  const _BgBatikPainter({required this.color, this.cell = 52});
+  const _BgBatikPainter({required this.color});
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -692,5 +692,5 @@ class _BgBatikPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(covariant _BgBatikPainter old) =>
-      old.color != color || old.cell != cell;
+      old.color != color;
 }
