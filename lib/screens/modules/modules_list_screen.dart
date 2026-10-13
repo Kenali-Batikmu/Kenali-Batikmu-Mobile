@@ -6,6 +6,7 @@ import 'package:provider/provider.dart';
 import '../../core/theme/app_theme.dart';
 import '../../models/app_models.dart';
 import '../../providers/app_provider.dart';
+import '../../widgets/kb_module_card.dart';
 import '../profile/profile_screen.dart';
 import 'module_detail_screen.dart';
 
