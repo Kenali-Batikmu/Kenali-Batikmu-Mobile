@@ -42,18 +42,21 @@ class _ModuleDetailScreenState extends State<ModuleDetailScreen> {
 
   void _initYoutubePlayer() {
     final youtubeUrl = widget.module.content?.sejarahDanFilosofi.youtubeUrl;
-    // Menggunakan video Dokumenter Batik Indonesia (UNESCO) yang diizinkan untuk di-embed
-    String videoId = 'd5X1d-rX2D8'; 
 
-    if (youtubeUrl != null && youtubeUrl.isNotEmpty) {
-      final parsedId = YoutubePlayerController.convertUrlToId(youtubeUrl);
-      if (parsedId != null && parsedId.isNotEmpty) {
-        videoId = parsedId;
-      }
+    // Jika tidak disetting / kosong / hanya whitespace, biarkan controller null (tidak ada border video)
+    if (youtubeUrl == null || youtubeUrl.trim().isEmpty) {
+      _youtubeController = null;
+      return;
+    }
+
+    final parsedId = YoutubePlayerController.convertUrlToId(youtubeUrl.trim());
+    if (parsedId == null || parsedId.trim().isEmpty) {
+      _youtubeController = null;
+      return;
     }
 
     _youtubeController = YoutubePlayerController.fromVideoId(
-      videoId: videoId,
+      videoId: parsedId.trim(),
       params: const YoutubePlayerParams(
         showControls: true,
         showFullscreenButton: true,
