@@ -114,7 +114,7 @@ class DashboardScreen extends StatelessWidget {
                   final provider = Provider.of<AppProvider>(context, listen: false);
                   final target = provider.modules.firstWhere(
                     (m) => m.title.toLowerCase().contains(title.toLowerCase().split(' ').first),
-                    orElse: () => provider.modules[2],
+                    orElse: () => provider.modules.first,
                   );
                   Navigator.push(
                     context,
