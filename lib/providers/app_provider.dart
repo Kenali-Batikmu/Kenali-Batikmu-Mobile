@@ -150,9 +150,9 @@ class AppProvider with ChangeNotifier {
         practiceDone: false,
         content: ModuleContentModel(
           origin: 'Batik Klasik Surakarta & Yogyakarta',
-          estimatedTime: '8 Menit',
+          // estimatedTime: otomatis dihitung dinamis dari total kata materi
           sejarahDanFilosofi: SejarahFilosofiModel(
-            youtubeUrl: 'https://www.youtube.com/watch?v=fq4N0hgOWzU', // Ganti dengan link video dokumenter Batik aslimu nanti
+            youtubeUrl: 'https://www.youtube.com/watch?v=iulhQDSIVMQ', // Video Edukasi Motif Batik Parang (Javanologi UNS)
             deskripsiUtama: 'Motif Parang Kusumo memancarkan ritme visual diagonal yang merepresentasikan deburan ombak Samudra Hindia yang tiada henti menghantam tebing karang terjal. Garis meliuk tanpa putus mencerminkan laku prihatin, kesinambungan budi pekerti luhur, dan ketabahan batin manusia Jawa dalam mengarungi pasang surut gelombang kehidupan tanpa pernah kehilangan kehormatan martabatnya.',
             asalDaerah: 'Diciptakan pada era Panembahan Senopati (pendiri Kesultanan Mataram Islam) saat melakukan semedi meditasi di pesisir tebing Parangtritis. Gerak dinamis air laut yang tak kenal menyerah mengilhami terciptanya garis diagonal sakral ini.',
             maknaFilosofis: 'Berasal dari kata Parang (batu karang/lereng terjal) dan Kusumo (bunga bangsawan). Motif ini memuat amanah luhur bahwa keturunan ningrat sejati wajib mengharumkan nama bangsa laksana bunga mekar dengan ketegaran jiwa sekeras batu karang.',
@@ -207,9 +207,9 @@ class AppProvider with ChangeNotifier {
         practiceDone: false,
         content: ModuleContentModel(
           origin: 'Batik Khas Pesisir Cirebon',
-          estimatedTime: '10 Menit',
+          // estimatedTime: otomatis dihitung dinamis dari total kata materi
           sejarahDanFilosofi: SejarahFilosofiModel(
-            youtubeUrl: 'https://www.youtube.com/watch?v=fq4N0hgOWzU', // Ganti dengan link video dokumenter Batik aslimu nanti
+            youtubeUrl: 'https://www.youtube.com/watch?v=wylWYSHkzoQ', // Video Dokumenter Seni & Filosofi Batik (UNESCO)
             deskripsiUtama: 'Motif Megamendung melambangkan awan pembawa hujan sebagai simbol kesuburan dan pemberi kehidupan. Tarikan garis awannya yang tegas mencerminkan maskulinitas, namun tetap luwes membawa kesejukan.',
             asalDaerah: 'Diciptakan di wilayah pesisir utara Jawa, tepatnya Cirebon. Terinspirasi dari kedatangan bangsa Tiongkok ke wilayah keraton Cirebon pada masa lampau.',
             maknaFilosofis: 'Mega berarti awan, dan Mendung berarti cuaca sejuk/menahan amarah. Filosofinya adalah manusia harus bisa meredam amarah (teduh) dalam situasi apa pun.',
@@ -245,6 +245,116 @@ class AppProvider with ChangeNotifier {
             GaleriModel(imageUrl: '', caption: 'Proses Pembuatan Pola'),
             GaleriModel(imageUrl: '', caption: 'Gradasi Warna Biru'),
             GaleriModel(imageUrl: '', caption: 'Hasil Akhir Khas Cirebon'),
+          ],
+        ),
+      ),
+      ModuleModel(
+        id: 3,
+        motifId: 5,
+        title: 'Batik Kawung',
+        description: 'Struktur empat lingkaran elips lambang kiblat papat limo pancer Mataram.',
+        orderNo: 3,
+        progressPercent: 0,
+        historyDone: false,
+        characterDone: false,
+        galleryDone: false,
+        quizDone: false,
+        practiceDone: false,
+        content: ModuleContentModel(
+          origin: 'Batik Klasik Kesultanan Yogyakarta',
+          // estimatedTime: otomatis dihitung dinamis dari total kata materi
+          sejarahDanFilosofi: SejarahFilosofiModel(
+            youtubeUrl: '', // Tidak ada link YouTube (opsional) untuk pengujian UI tanpa video
+            deskripsiUtama: 'Motif Kawung tersusun dari empat elips geometris simetris yang menyerupai belahan buah kolang-kaling atau kuncup teratai yang merekah. Motif ini mencerminkan pengendalian diri yang teguh, kemurnian hati nurani, dan keadilan pemimpin dalam menaungi rakyatnya.',
+            asalDaerah: 'Diciptakan dan berkembang pesat di lingkungan Keraton Kesultanan Ngayogyakarta Hadiningrat sejak era Mataram Islam pada abad ke-13.',
+            maknaFilosofis: 'Filosofi empat elips merujuk pada konsep Kiblat Papat Limo Pancer: empat penjuru mata angin dengan satu pusat batin yang menuntun manusia senantiasa eling lan waspada terhadap godaan duniawi.',
+            penggunaan: 'Termasuk salah satu batik larangan (awisan dalem) yang dahulu hanya boleh dikenakan oleh para pembesar dan abdi dalem keraton sebagai lambang integritas moral.',
+          ),
+          karakteristik: KarakteristikModel(
+            deskripsi: 'Pola geometris simetris empat lingkaran lonjong dengan isen titik cecek di poros tengah.',
+            strukturUtama: KarakteristikDetailModel(
+              title: 'Simetri 4 Elips (Kiblat Papat)',
+              desc: 'Empat bidang lonjong yang berpotongan secara presisi membentuk lingkaran bunga.',
+              badge: 'Struktur Utama',
+              image: '',
+            ),
+            ornamen: KarakteristikDetailModel(
+              title: 'Poros Tengah (Pancer)',
+              desc: 'Titik pusat perpotongan kelopak yang dihiasi isen cecek mikro halus.',
+              badge: 'Titik Poros',
+              image: '',
+            ),
+            warna: KarakteristikDetailModel(
+              title: 'Sogan Klasik & Putih Mori',
+              desc: 'Warna cokelat alami kulit kayu soga berpadu kontras dengan putih mori lembut.',
+              badge: 'Pewarna Alami',
+              image: '',
+            ),
+            pakemList: [
+              PakemModel(title: '1. Proporsi Elips Presisi', desc: 'Ukuran keempat bidang kelopak harus proporsional dan membentuk sudut 90 derajat yang teratur.'),
+              PakemModel(title: '2. Isen Poros Pancer', desc: 'Pusat silang harus memiliki titik temu atau cecek penyeimbang ritme ornamen.'),
+              PakemModel(title: '3. Garis Kontur Mulus', desc: 'Tarikan canting melingkar tanpa patahan tajam untuk menjaga keharmonisan bentuk.'),
+            ],
+          ),
+          galeri: [
+            GaleriModel(imageUrl: '', caption: 'Sketsa Geometris Kawung'),
+            GaleriModel(imageUrl: '', caption: 'Pencantingan Mori Putih'),
+            GaleriModel(imageUrl: '', caption: 'Kain Kawung Mataram Sogan'),
+          ],
+        ),
+      ),
+      ModuleModel(
+        id: 4,
+        motifId: 3,
+        title: 'Batik Truntum',
+        description: 'Pola gemintang cinta kasih tulus yang senantiasa bersemi di keheningan malam.',
+        orderNo: 4,
+        progressPercent: 0,
+        historyDone: false,
+        characterDone: false,
+        galleryDone: false,
+        quizDone: false,
+        practiceDone: false,
+        content: ModuleContentModel(
+          origin: 'Batik Keraton Kasunanan Surakarta',
+          // estimatedTime: otomatis dihitung dinamis dari total kata materi
+          sejarahDanFilosofi: SejarahFilosofiModel(
+            youtubeUrl: '', // Tidak ada link YouTube (opsional) untuk pengujian UI tanpa video
+            deskripsiUtama: 'Motif Truntum menampilkan tebaran kuntum bunga melati mikro menyerupai gemintang di langit malam. Diciptakan oleh Kanjeng Ratu Kencana (Permaisuri Pakubuwono III) saat merenung menatap bintang di keheningan malam sembari mencanting untuk menumbuhkan kembali cinta kasih sang Raja.',
+            asalDaerah: 'Diciptakan di lingkungan Keraton Kasunanan Surakarta Hadiningrat pada pertengahan abad ke-18.',
+            maknaFilosofis: 'Truntum berasal dari kata taruntum yang berarti bersemi atau tumbuh kembali. Mengandung filosofi cinta kasih yang tulus, tanpa pamrih, dan senantiasa mekar abadi sepanjang masa.',
+            penggunaan: 'Wajib dikenakan oleh orang tua pengantin pada upacara pernikahan adat Jawa, menyimbolkan doa restu agar cinta kedua mempelai selalu bersemi dan mampu menjadi panutan hidup.',
+          ),
+          karakteristik: KarakteristikModel(
+            deskripsi: 'Pola repetisi kuntum bunga melati mikro yang tertata rapi di atas latar hitam pekat.',
+            strukturUtama: KarakteristikDetailModel(
+              title: 'Kuntum Bintang Melati',
+              desc: 'Motif bunga kecil berbentuk bintang berkelopak mekar teratur di seluruh kain.',
+              badge: 'Struktur Utama',
+              image: '',
+            ),
+            ornamen: KarakteristikDetailModel(
+              title: 'Cecek Isen Melati',
+              desc: 'Titik-titik mikro lilin malam yang mengisi bagian dalam kelopak bintang.',
+              badge: 'Isen Canting Halus',
+              image: '',
+            ),
+            warna: KarakteristikDetailModel(
+              title: 'Latar Hitam & Emas Cokelat',
+              desc: 'Latar hitam pekat menyerupai langit malam berpadu cokelat soga keemasan.',
+              badge: 'Warna Tradisi',
+              image: '',
+            ),
+            pakemList: [
+              PakemModel(title: '1. Kerapatan Kuntum Seragam', desc: 'Jarak antar kuntum bunga terjaga secara konsisten di seluruh bidang kain mori.'),
+              PakemModel(title: '2. Latar Gelap Pekat', desc: 'Warna dasar harus hitam atau cokelat pekat tanpa corak latar tambahan.'),
+              PakemModel(title: '3. Canting Cecek Halus', desc: 'Bintik cecek mikro pada mahkota melambangkan ketulusan dan kehalusan budi pekerti.'),
+            ],
+          ),
+          galeri: [
+            GaleriModel(imageUrl: '', caption: 'Pola Kuntum Bintang'),
+            GaleriModel(imageUrl: '', caption: 'Pencelupan Warna Gelap'),
+            GaleriModel(imageUrl: '', caption: 'Kain Truntum Pengantin'),
           ],
         ),
       ),
@@ -311,29 +421,6 @@ class AppProvider with ChangeNotifier {
       final prefs = await SharedPreferences.getInstance();
       _isDarkMode = prefs.getBool('is_dark_mode') ?? false;
 
-      // Load progress
-      for (int i = 0; i < _modules.length; i++) {
-        final mId = _modules[i].id;
-        final h = prefs.getBool('module_${mId}_history') ?? false;
-        final c = prefs.getBool('module_${mId}_character') ?? false;
-        final g = prefs.getBool('module_${mId}_gallery') ?? false;
-        final q = prefs.getBool('module_${mId}_quiz') ?? false;
-        final p = prefs.getBool('module_${mId}_practice') ?? false;
-        final qS = prefs.getInt('module_${mId}_quizScore');
-        final pS = prefs.getInt('module_${mId}_practiceScore');
-        final percent = prefs.getInt('module_${mId}_progress') ?? 0;
-
-        _modules[i] = _modules[i].copyWith(
-          historyDone: h,
-          characterDone: c,
-          galleryDone: g,
-          quizDone: q,
-          practiceDone: p,
-          quizScore: qS,
-          practiceScore: pS,
-          progressPercent: percent,
-        );
-      }
       // Muat foto profil tersimpan (hanya jika filenya masih ada)
       final savedPhoto = prefs.getString(_photoPrefKey);
       if (!kIsWeb && savedPhoto != null && File(savedPhoto).existsSync()) {
@@ -360,9 +447,12 @@ class AppProvider with ChangeNotifier {
               createdAt: '2026-03-01T08:00:00Z',
             );
           }
+          // Muat progres modul khusus milik user yang tersimpan
+          await _loadUserModuleProgress(savedEmail);
         }
       } else {
         _currentUser = null;
+        _resetModuleProgressInMemory();
       }
     } catch (e) {
       debugPrint('Info sync SQLite: $e (Aplikasi berjalan dalam Interactive Prototype Mode)');
@@ -370,6 +460,102 @@ class AppProvider with ChangeNotifier {
       _applySavedPhoto();
       notifyListeners();
     }
+  }
+
+  /// Reset progres seluruh modul di memori ke kondisi awal (0%)
+  void _resetModuleProgressInMemory() {
+    for (int i = 0; i < _modules.length; i++) {
+      _modules[i] = _modules[i].copyWith(
+        historyDone: false,
+        characterDone: false,
+        galleryDone: false,
+        quizDone: false,
+        practiceDone: false,
+        quizScore: null,
+        practiceScore: null,
+        progressPercent: 0,
+      );
+    }
+  }
+
+  /// Memuat progres modul khusus untuk user tertentu (berdasarkan email & SQLite)
+  Future<void> _loadUserModuleProgress(String email) async {
+    try {
+      final cleanEmail = email.trim().toLowerCase();
+      final dbUser = await DatabaseHelper.instance.getUserByEmail(cleanEmail);
+      final userId = dbUser != null ? dbUser['id'] as int? : null;
+
+      // 1. Ambil data dari tabel relasional SQLite jika user terdaftar
+      Map<int, Map<String, dynamic>> sqliteProgressMap = {};
+      if (userId != null) {
+        final list = await DatabaseHelper.instance.getUserModuleProgressList(userId);
+        for (final row in list) {
+          final mId = row['module_id'] as int;
+          sqliteProgressMap[mId] = row;
+        }
+      }
+
+      final prefs = await SharedPreferences.getInstance();
+
+      for (int i = 0; i < _modules.length; i++) {
+        final mId = _modules[i].id;
+        final sqlRow = sqliteProgressMap[mId];
+
+        bool? h;
+        bool? c;
+        bool? g;
+        bool? q;
+        bool? p;
+        int? qS;
+        int? pS;
+        int? percent;
+
+        if (sqlRow != null) {
+          h = (sqlRow['history_done'] as int? ?? 0) == 1;
+          c = (sqlRow['character_done'] as int? ?? 0) == 1;
+          g = (sqlRow['gallery_done'] as int? ?? 0) == 1;
+          q = (sqlRow['quiz_done'] as int? ?? 0) == 1;
+          p = (sqlRow['practice_done'] as int? ?? 0) == 1;
+          percent = sqlRow['progress_percent'] as int? ?? 0;
+        } else {
+          // Fallback ke SharedPreferences cache
+          final userKeyPrefix = 'user_${cleanEmail}_module_$mId';
+          h = prefs.getBool('${userKeyPrefix}_history');
+          c = prefs.getBool('${userKeyPrefix}_character');
+          g = prefs.getBool('${userKeyPrefix}_gallery');
+          q = prefs.getBool('${userKeyPrefix}_quiz');
+          p = prefs.getBool('${userKeyPrefix}_practice');
+          percent = prefs.getInt('${userKeyPrefix}_progress');
+        }
+
+        final userKeyPrefix = 'user_${cleanEmail}_module_$mId';
+        qS = prefs.getInt('${userKeyPrefix}_quizScore');
+        pS = prefs.getInt('${userKeyPrefix}_practiceScore');
+
+        // Fallback backward compatibility untuk akun default 'sekar' jika belum ada key baru
+        if (h == null && cleanEmail.startsWith('sekar')) {
+          h = prefs.getBool('module_${mId}_history');
+          c = prefs.getBool('module_${mId}_character');
+          g = prefs.getBool('module_${mId}_gallery');
+          q = prefs.getBool('module_${mId}_quiz');
+          p = prefs.getBool('module_${mId}_practice');
+          qS = prefs.getInt('module_${mId}_quizScore');
+          pS = prefs.getInt('module_${mId}_practiceScore');
+          percent = prefs.getInt('module_${mId}_progress');
+        }
+
+        _modules[i] = _modules[i].copyWith(
+          historyDone: h ?? false,
+          characterDone: c ?? false,
+          galleryDone: g ?? false,
+          quizDone: q ?? false,
+          practiceDone: p ?? false,
+          quizScore: qS,
+          practiceScore: pS,
+          progressPercent: percent ?? 0,
+        );
+      }
+    } catch (_) {}
   }
 
   // Tempelkan foto tersimpan ke pengguna aktif (dipakai setelah data pengguna dimuat dari DB)
@@ -440,6 +626,9 @@ class AppProvider with ChangeNotifier {
       profileImagePath: _savedPhotoPath,
       createdAt: DateTime.now().toIso8601String(),
     );
+
+    // Muat progres modul khusus milik user yang berhasil login
+    await _loadUserModuleProgress(cleanEmail);
 
     _isLoading = false;
     notifyListeners();
@@ -634,6 +823,9 @@ class AppProvider with ChangeNotifier {
       createdAt: DateTime.now().toIso8601String(),
     );
 
+    // Akun baru: pastikan progres modul di memori bersih (0%)
+    _resetModuleProgressInMemory();
+
     try {
       final prefs = await SharedPreferences.getInstance();
       await prefs.setBool('has_seen_onboarding', true);
@@ -654,6 +846,8 @@ class AppProvider with ChangeNotifier {
       await prefs.remove('logged_user_email');
     } catch (_) {}
     _currentUser = null;
+    // Reset progres modul di memori saat logout agar tidak bocor ke akun berikutnya
+    _resetModuleProgressInMemory();
     notifyListeners();
   }
 
@@ -694,15 +888,31 @@ class AppProvider with ChangeNotifier {
       );
       notifyListeners();
 
-      // Simpan progres ke SharedPreferences
+      // Simpan progres ke SharedPreferences (cache cepat) & SQLite (relational)
       try {
         final prefs = await SharedPreferences.getInstance();
-        await prefs.setInt('module_${moduleId}_progress', percent);
-        await prefs.setBool('module_${moduleId}_history', h);
-        await prefs.setBool('module_${moduleId}_character', c);
-        await prefs.setBool('module_${moduleId}_gallery', g);
-        await prefs.setBool('module_${moduleId}_quiz', q);
-        await prefs.setBool('module_${moduleId}_practice', p);
+        final userKey = _currentUser?.email.trim().toLowerCase() ?? 'guest';
+        final userKeyPrefix = 'user_${userKey}_module_$moduleId';
+        await prefs.setInt('${userKeyPrefix}_progress', percent);
+        await prefs.setBool('${userKeyPrefix}_history', h);
+        await prefs.setBool('${userKeyPrefix}_character', c);
+        await prefs.setBool('${userKeyPrefix}_gallery', g);
+        await prefs.setBool('${userKeyPrefix}_quiz', q);
+        await prefs.setBool('${userKeyPrefix}_practice', p);
+
+        final userId = _currentUser?.id;
+        if (userId != null) {
+          await DatabaseHelper.instance.upsertUserModuleProgress(
+            userId: userId,
+            moduleId: moduleId,
+            progressPercent: percent,
+            historyDone: h,
+            characterDone: c,
+            galleryDone: g,
+            quizDone: q,
+            practiceDone: p,
+          );
+        }
       } catch (_) {}
     }
   }
@@ -728,9 +938,25 @@ class AppProvider with ChangeNotifier {
 
       try {
         final prefs = await SharedPreferences.getInstance();
-        await prefs.setInt('module_${moduleId}_progress', percent);
-        await prefs.setBool('module_${moduleId}_quiz', passed);
-        await prefs.setInt('module_${moduleId}_quizScore', score);
+        final userKey = _currentUser?.email.trim().toLowerCase() ?? 'guest';
+        final userKeyPrefix = 'user_${userKey}_module_$moduleId';
+        await prefs.setInt('${userKeyPrefix}_progress', percent);
+        await prefs.setBool('${userKeyPrefix}_quiz', passed);
+        await prefs.setInt('${userKeyPrefix}_quizScore', score);
+
+        final userId = _currentUser?.id;
+        if (userId != null) {
+          await DatabaseHelper.instance.upsertUserModuleProgress(
+            userId: userId,
+            moduleId: moduleId,
+            progressPercent: percent,
+            historyDone: h,
+            characterDone: c,
+            galleryDone: g,
+            quizDone: passed,
+            practiceDone: p,
+          );
+        }
       } catch (_) {}
     }
   }
@@ -756,9 +982,25 @@ class AppProvider with ChangeNotifier {
 
       try {
         final prefs = await SharedPreferences.getInstance();
-        await prefs.setInt('module_${moduleId}_progress', percent);
-        await prefs.setBool('module_${moduleId}_practice', passed);
-        await prefs.setInt('module_${moduleId}_practiceScore', (fitScore * 100).toInt());
+        final userKey = _currentUser?.email.trim().toLowerCase() ?? 'guest';
+        final userKeyPrefix = 'user_${userKey}_module_$moduleId';
+        await prefs.setInt('${userKeyPrefix}_progress', percent);
+        await prefs.setBool('${userKeyPrefix}_practice', passed);
+        await prefs.setInt('${userKeyPrefix}_practiceScore', (fitScore * 100).toInt());
+
+        final userId = _currentUser?.id;
+        if (userId != null) {
+          await DatabaseHelper.instance.upsertUserModuleProgress(
+            userId: userId,
+            moduleId: moduleId,
+            progressPercent: percent,
+            historyDone: h,
+            characterDone: c,
+            galleryDone: g,
+            quizDone: q,
+            practiceDone: passed,
+          );
+        }
       } catch (_) {}
 
       // Tambahkan ke riwayat scan
