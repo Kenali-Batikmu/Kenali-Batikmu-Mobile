@@ -569,4 +569,86 @@ class DatabaseHelper {
       return false;
     }
   }
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // MANAJEMEN PROGRES MODUL PENGGUNA (Tabel: user_module_progress)
+  // Sesuai standar SQLite Relasional & Siap Integrasi Backend Python
+  // ─────────────────────────────────────────────────────────────────────────
+
+  /// Ambil seluruh progres modul untuk satu pengguna tertentu
+  Future<List<Map<String, dynamic>>> getUserModuleProgressList(int userId) async {
+    final db = await database;
+    if (db == null) return [];
+    try {
+      return await db.query(
+        'user_module_progress',
+        where: 'user_id = ?',
+        whereArgs: [userId],
+      );
+    } catch (e) {
+      debugPrint('Info query user_module_progress: $e');
+      return [];
+    }
+  }
+
+  /// Ambil progres satu modul spesifik untuk pengguna
+  Future<Map<String, dynamic>?> getUserModuleProgress(int userId, int moduleId) async {
+    final db = await database;
+    if (db == null) return null;
+    try {
+      final res = await db.query(
+        'user_module_progress',
+        where: 'user_id = ? AND module_id = ?',
+        whereArgs: [userId, moduleId],
+        limit: 1,
+      );
+      if (res.isNotEmpty) return res.first;
+    } catch (e) {
+      debugPrint('Info query single user_module_progress: $e');
+    }
+    return null;
+  }
+
+  /// Simpan atau perbarui progres modul pengguna ke SQLite (UPSERT)
+  Future<bool> upsertUserModuleProgress({
+    required int userId,
+    required int moduleId,
+    required int progressPercent,
+    required bool historyDone,
+    required bool characterDone,
+    required bool galleryDone,
+    required bool quizDone,
+    required bool practiceDone,
+  }) async {
+    final db = await database;
+    if (db == null) return false;
+    try {
+      final now = DateTime.now().toIso8601String();
+      final status = progressPercent >= 100
+          ? 'completed'
+          : (progressPercent > 0 ? 'in_progress' : 'not_started');
+
+      await db.insert(
+        'user_module_progress',
+        {
+          'user_id': userId,
+          'module_id': moduleId,
+          'status': status,
+          'progress_percent': progressPercent,
+          'history_done': historyDone ? 1 : 0,
+          'character_done': characterDone ? 1 : 0,
+          'gallery_done': galleryDone ? 1 : 0,
+          'quiz_done': quizDone ? 1 : 0,
+          'practice_done': practiceDone ? 1 : 0,
+          'completed_at': progressPercent >= 100 ? now : null,
+          'last_accessed_at': now,
+        },
+        conflictAlgorithm: ConflictAlgorithm.replace,
+      );
+      return true;
+    } catch (e) {
+      debugPrint('Info upsert user_module_progress: $e');
+      return false;
+    }
+  }
 }
