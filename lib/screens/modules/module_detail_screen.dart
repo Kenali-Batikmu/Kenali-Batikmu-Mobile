@@ -9,6 +9,7 @@ import '../../models/app_models.dart';
 import '../../providers/app_provider.dart';
 import 'theory_quiz_screen.dart';
 import 'practice_quiz_screen.dart';
+import '../../widgets/leaf_decor.dart';
 
 class ModuleDetailScreen extends StatefulWidget {
   final ModuleModel module;
@@ -20,14 +21,14 @@ class ModuleDetailScreen extends StatefulWidget {
 }
 
 class _ModuleDetailScreenState extends State<ModuleDetailScreen> {
-  late int _activeStep; 
+  late int _activeStep;
   late PageController _pageController;
   YoutubePlayerController? _youtubeController;
 
   @override
   void initState() {
     super.initState();
-    
+
     // Tentukan halaman awal (Lanjutkan Belajar) berdasarkan komponen yang belum diselesaikan
     if (!widget.module.historyDone) {
       _activeStep = 0;
@@ -38,7 +39,7 @@ class _ModuleDetailScreenState extends State<ModuleDetailScreen> {
     } else {
       _activeStep = 3; // Kuis
     }
-    
+
     _pageController = PageController(initialPage: _activeStep);
     _initYoutubePlayer();
   }
@@ -450,6 +451,7 @@ class _ModuleDetailScreenState extends State<ModuleDetailScreen> {
           Expanded(
             child: PageView(
               controller: _pageController,
+              clipBehavior: Clip.none,
               onPageChanged: (index) {
                 final provider = context.read<AppProvider>();
                 if (_activeStep == 0 && index > 0) provider.updatePillarProgress(widget.module.id, 'history');
@@ -471,7 +473,7 @@ class _ModuleDetailScreenState extends State<ModuleDetailScreen> {
               ],
             ),
           ),
-          // Bottom Navigation Stepper Sesuai PDF (Tombol Panah Kiri, Dots Indikator, Tombol Panah Kanan)
+          // Bottom Navigation Stepper (Tombol Panah Kiri, Dots Indikator, Tombol Panah Kanan)
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
             child: Row(
@@ -521,7 +523,7 @@ class _ModuleDetailScreenState extends State<ModuleDetailScreen> {
                   }),
                 ),
 
-                // Tombol Kanan (Panah Lanjut di Halaman 0,1,2 | Sembunyi jika Kuis belum tuntas | Centang jika Kuis sudah tuntas)
+                // Tombol Kanan
                 if (_activeStep < 3)
                   Container(
                     width: 50,
@@ -579,7 +581,7 @@ class _ModuleDetailScreenState extends State<ModuleDetailScreen> {
     );
   }
 
-  // Halaman 1: Teori & Filosofi Sesuai PDF Page 4
+  // Halaman 1: Teori & Filosofi
   Widget _buildPage4TeoriFilosofi(BuildContext context, bool isDark) {
     final content = widget.module.content;
     if (content == null) return const Center(child: CircularProgressIndicator());
@@ -766,7 +768,7 @@ class _ModuleDetailScreenState extends State<ModuleDetailScreen> {
             const SizedBox(height: 20),
           ],
 
-          // Section Hakikat & Simbol Ombak Laut Selatan
+          // Section Hakikat & Simbol
           Text(
             'Hakikat & Simbol',
             style: AppTheme.satoshi(fontSize: 18, fontWeight: FontWeight.bold),
@@ -812,7 +814,7 @@ class _ModuleDetailScreenState extends State<ModuleDetailScreen> {
     );
   }
 
-  // Halaman 2: Karakteristik Sesuai PDF Page 5
+  // Halaman 2: Karakteristik
   Widget _buildPage5Karakteristik(BuildContext context, bool isDark) {
     final content = widget.module.content;
     if (content == null) return const Center(child: CircularProgressIndicator());
@@ -839,7 +841,7 @@ class _ModuleDetailScreenState extends State<ModuleDetailScreen> {
             style: AppTheme.satoshi(fontSize: 18, fontWeight: FontWeight.bold),
           ),
           const SizedBox(height: 12),
-          
+
           // Text-only List: Struktur Utama
           Container(
             padding: const EdgeInsets.all(16),
@@ -941,7 +943,7 @@ class _ModuleDetailScreenState extends State<ModuleDetailScreen> {
     );
   }
 
-  // Halaman 3: Galeri Motif Sesuai PDF Page 6
+  // Halaman 3: Galeri Motif
   Widget _buildPage6Galeri(BuildContext context, bool isDark) {
     final content = widget.module.content;
     if (content == null) return const Center(child: CircularProgressIndicator());
@@ -1022,7 +1024,7 @@ class _ModuleDetailScreenState extends State<ModuleDetailScreen> {
     );
   }
 
-  // Halaman 4: Kuis Modul Sesuai PDF Page 7
+  // Halaman 4: Kuis Modul
   Widget _buildPage7KuisModul(BuildContext context, bool isDark, ModuleModel module) {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
@@ -1036,393 +1038,409 @@ class _ModuleDetailScreenState extends State<ModuleDetailScreen> {
           const SizedBox(height: 14),
 
           // Hero Banner: Selamat mengerjakan!
-          Container(
-            width: double.infinity,
-            padding: const EdgeInsets.all(22),
-            decoration: BoxDecoration(
-              gradient: const LinearGradient(
-                colors: [Color(0xFF5B341B), Color(0xFF7E4A25)],
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-              ),
-              borderRadius: BorderRadius.circular(24),
-              boxShadow: [
-                BoxShadow(
-                  color: AppTheme.primary.withValues(alpha: 0.25),
-                  blurRadius: 16,
-                  offset: const Offset(0, 6),
-                ),
-              ],
-            ),
-            child: Stack(
-              children: [
-                Positioned(
-                  right: -10,
-                  bottom: -15,
-                  child: Icon(
-                    Icons.auto_stories_rounded,
-                    size: 96,
-                    color: Colors.white.withValues(alpha: 0.08),
+          Stack(
+            clipBehavior: Clip.none,
+            children: [
+              Container(
+                width: double.infinity,
+                clipBehavior: Clip.antiAlias,
+                decoration: BoxDecoration(
+                  gradient: const LinearGradient(
+                    colors: [Color(0xFF5B341B), Color(0xFF7E4A25)],
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
                   ),
-                ),
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                      decoration: BoxDecoration(
-                        color: Colors.white.withValues(alpha: 0.15),
-                        borderRadius: BorderRadius.circular(20),
-                      ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          const Icon(Icons.verified_outlined, size: 12, color: Colors.white),
-                          const SizedBox(width: 5),
-                          Text(
-                            'Evaluasi Modul',
-                            style: AppTheme.satoshi(
-                              fontSize: 11,
-                              fontWeight: FontWeight.bold,
-                              color: Colors.white,
-                              letterSpacing: 0.5,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(height: 10),
-                    Text(
-                      'Selamat\nmengerjakan!',
-                      style: AppTheme.satoshi(
-                        fontSize: 22,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.white,
-                        height: 1.2,
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    Text(
-                      'Uji pemahaman dan hasil karyamu di sini untuk menyelesaikan modul dan melihat sejauh mana kamu mengenali motif batik ini.',
-                      style: AppTheme.inter(
-                        fontSize: 13,
-                        color: Colors.white.withValues(alpha: 0.9),
-                        height: 1.45,
-                      ),
+                  borderRadius: BorderRadius.circular(24),
+                  boxShadow: [
+                    BoxShadow(
+                      color: AppTheme.primary.withValues(alpha: 0.25),
+                      blurRadius: 16,
+                      offset: const Offset(0, 6),
                     ),
                   ],
                 ),
-              ],
-            ),
+                child: Padding(
+                  padding: const EdgeInsets.all(22),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Selamat\nmengerjakan!',
+                        style: AppTheme.satoshi(
+                          fontSize: 22,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.white,
+                          height: 1.2,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        'Uji pemahaman dan hasil karyamu di sini untuk menyelesaikan modul dan melihat sejauh mana kamu mengenali motif batik ini.',
+                        style: AppTheme.inter(
+                          fontSize: 13,
+                          color: Colors.white.withValues(alpha: 0.9),
+                          height: 1.45,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              const Positioned(
+                top: -22,
+                right: -22,
+                child: LeafDecor(
+                  asset: 'assets/images/leaf/onboarding_utama_3.png',
+                  size: 90,
+                  angle: -0.15,
+                ),
+              ),
+            ],
           ),
           const SizedBox(height: 20),
 
           // Card 1: Kuis Teori
-          Container(
-            padding: const EdgeInsets.all(20),
-            decoration: BoxDecoration(
-              color: isDark ? AppTheme.darkSurface : Colors.white,
-              borderRadius: BorderRadius.circular(24),
-              border: Border.all(
-                color: module.quizDone
-                    ? AppTheme.primary.withValues(alpha: 0.4)
-                    : (isDark ? AppTheme.darkBorder : const Color(0xFFF0EAE1)),
-                width: 1.5,
-              ),
-              boxShadow: [
-                BoxShadow(
-                  color: module.quizDone
-                      ? AppTheme.primary.withValues(alpha: 0.05)
-                      : AppTheme.primary.withValues(alpha: 0.04),
-                  blurRadius: 20,
-                  offset: const Offset(0, 6),
-                )
-              ],
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  crossAxisAlignment: CrossAxisAlignment.center,
-                  children: [
-                    Container(
-                      width: 46,
-                      height: 46,
-                      decoration: BoxDecoration(
-                        color: module.quizDone
-                            ? AppTheme.primary.withValues(alpha: 0.12)
-                            : (isDark ? AppTheme.primary.withValues(alpha: 0.3) : AppTheme.accentGold.withValues(alpha: 0.2)),
-                        borderRadius: BorderRadius.circular(14),
-                      ),
-                      child: const Icon(
-                        Icons.school_rounded,
-                        size: 24,
-                        color: AppTheme.primary,
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        crossAxisAlignment: CrossAxisAlignment.center,
-                        children: [
-                          Expanded(
-                            child: Text(
-                              'Kuis Teori',
-                              style: AppTheme.satoshi(
-                                fontSize: 17.5,
-                                fontWeight: FontWeight.w800,
-                                color: isDark ? Colors.white : const Color(0xFF2C1810),
-                              ),
-                              maxLines: 2,
-                            ),
-                          ),
-                          if (module.quizDone) ...[
-                            const SizedBox(width: 8),
-                            Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4.5),
-                              decoration: BoxDecoration(
-                                color: AppTheme.primary.withValues(alpha: 0.12),
-                                borderRadius: BorderRadius.circular(20),
-                                border: Border.all(
-                                  color: AppTheme.primary.withValues(alpha: 0.35),
-                                  width: 1,
-                                ),
-                              ),
-                              child: Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  const Icon(Icons.check_circle_rounded, size: 13, color: AppTheme.primary),
-                                  const SizedBox(width: 4),
-                                  Text(
-                                    'Nilai: ${module.quizScore ?? 100}',
-                                    style: AppTheme.satoshi(
-                                      fontSize: 12,
-                                      fontWeight: FontWeight.bold,
-                                      color: isDark ? AppTheme.secondaryLight : AppTheme.primaryDark,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ],
-                        ],
-                      ),
+          Stack(
+            clipBehavior: Clip.none,
+            children: [
+              Container(
+                clipBehavior: Clip.antiAlias,
+                decoration: BoxDecoration(
+                  color: isDark ? AppTheme.darkSurface : Colors.white,
+                  borderRadius: BorderRadius.circular(24),
+                  border: Border.all(
+                    color: module.quizDone
+                        ? AppTheme.primary.withValues(alpha: 0.4)
+                        : (isDark ? AppTheme.darkBorder : const Color(0xFFF0EAE1)),
+                    width: 1.5,
+                  ),
+                  boxShadow: [
+                    BoxShadow(
+                      color: module.quizDone
+                          ? AppTheme.primary.withValues(alpha: 0.05)
+                          : AppTheme.primary.withValues(alpha: 0.04),
+                      blurRadius: 20,
+                      offset: const Offset(0, 6),
                     ),
                   ],
                 ),
-                const SizedBox(height: 12),
-                Text(
-                  'Uji wawasan mendalam mengenai pakem, sejarah, dan makna ornamen.',
-                  style: AppTheme.inter(
-                    fontSize: 13,
-                    color: isDark ? Colors.white70 : AppTheme.textSecondary,
-                    height: 1.45,
-                  ),
-                ),
-                const SizedBox(height: 18),
-                ElevatedButton(
-                  onPressed: () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(builder: (_) => TheoryQuizScreen(module: module)),
-                    );
-                  },
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: module.quizDone ? Colors.transparent : AppTheme.primary,
-                    foregroundColor: module.quizDone ? AppTheme.primary : Colors.white,
-                    minimumSize: const Size.fromHeight(50),
-                    elevation: 0,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(16),
-                      side: BorderSide(
-                        color: module.quizDone ? AppTheme.primary : Colors.transparent,
-                        width: 1.5,
-                      ),
-                    ),
-                  ),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
+                child: Padding(
+                  padding: const EdgeInsets.all(20),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Icon(
-                        module.quizDone ? Icons.refresh_rounded : Icons.play_arrow_rounded,
-                        size: 18,
-                        color: module.quizDone
-                            ? (isDark ? AppTheme.secondaryLight : AppTheme.primary)
-                            : Colors.white,
+                      Row(
+                        crossAxisAlignment: CrossAxisAlignment.center,
+                        children: [
+                          Container(
+                            width: 46,
+                            height: 46,
+                            decoration: BoxDecoration(
+                              color: module.quizDone
+                                  ? AppTheme.primary.withValues(alpha: 0.12)
+                                  : (isDark ? AppTheme.primary.withValues(alpha: 0.3) : AppTheme.accentGold.withValues(alpha: 0.2)),
+                              borderRadius: BorderRadius.circular(14),
+                            ),
+                            child: const Icon(
+                              Icons.school_rounded,
+                              size: 24,
+                              color: AppTheme.primary,
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              crossAxisAlignment: CrossAxisAlignment.center,
+                              children: [
+                                Expanded(
+                                  child: Text(
+                                    'Kuis Teori',
+                                    style: AppTheme.satoshi(
+                                      fontSize: 17.5,
+                                      fontWeight: FontWeight.w800,
+                                      color: isDark ? Colors.white : const Color(0xFF2C1810),
+                                    ),
+                                    maxLines: 2,
+                                  ),
+                                ),
+                                if (module.quizDone) ...[
+                                  const SizedBox(width: 8),
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4.5),
+                                    decoration: BoxDecoration(
+                                      color: AppTheme.primary.withValues(alpha: 0.12),
+                                      borderRadius: BorderRadius.circular(20),
+                                      border: Border.all(
+                                        color: AppTheme.primary.withValues(alpha: 0.35),
+                                        width: 1,
+                                      ),
+                                    ),
+                                    child: Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        const Icon(Icons.check_circle_rounded, size: 13, color: AppTheme.primary),
+                                        const SizedBox(width: 4),
+                                        Text(
+                                          'Nilai: ${module.quizScore ?? 100}',
+                                          style: AppTheme.satoshi(
+                                            fontSize: 12,
+                                            fontWeight: FontWeight.bold,
+                                            color: isDark ? AppTheme.secondaryLight : AppTheme.primaryDark,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ],
+                              ],
+                            ),
+                          ),
+                        ],
                       ),
-                      const SizedBox(width: 6),
+                      const SizedBox(height: 12),
                       Text(
-                        module.quizDone ? 'Kerjakan Ulang' : 'Mulai Kuis',
-                        style: AppTheme.satoshi(
-                          fontSize: 15,
-                          fontWeight: FontWeight.bold,
-                          letterSpacing: 0.3,
-                          color: module.quizDone
-                              ? (isDark ? AppTheme.secondaryLight : AppTheme.primary)
-                              : Colors.white,
+                        'Uji wawasan mendalam mengenai pakem, sejarah, dan makna ornamen.',
+                        style: AppTheme.inter(
+                          fontSize: 13,
+                          color: isDark ? Colors.white70 : AppTheme.textSecondary,
+                          height: 1.45,
+                        ),
+                      ),
+                      const SizedBox(height: 18),
+                      ElevatedButton(
+                        onPressed: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(builder: (_) => TheoryQuizScreen(module: module)),
+                          );
+                        },
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: module.quizDone ? Colors.transparent : AppTheme.primary,
+                          foregroundColor: module.quizDone ? AppTheme.primary : Colors.white,
+                          minimumSize: const Size.fromHeight(50),
+                          elevation: 0,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(16),
+                            side: BorderSide(
+                              color: module.quizDone ? AppTheme.primary : Colors.transparent,
+                              width: 1.5,
+                            ),
+                          ),
+                        ),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(
+                              module.quizDone ? Icons.refresh_rounded : Icons.play_arrow_rounded,
+                              size: 18,
+                              color: module.quizDone
+                                  ? (isDark ? AppTheme.secondaryLight : AppTheme.primary)
+                                  : Colors.white,
+                            ),
+                            const SizedBox(width: 6),
+                            Text(
+                              module.quizDone ? 'Kerjakan Ulang' : 'Mulai Kuis',
+                              style: AppTheme.satoshi(
+                                fontSize: 15,
+                                fontWeight: FontWeight.bold,
+                                letterSpacing: 0.3,
+                                color: module.quizDone
+                                    ? (isDark ? AppTheme.secondaryLight : AppTheme.primary)
+                                    : Colors.white,
+                              ),
+                            ),
+                          ],
                         ),
                       ),
                     ],
                   ),
                 ),
-              ],
-            ),
+              ),
+              const Positioned(
+                bottom: -26,
+                right: -22,
+                child: LeafDecor(
+                  asset: 'assets/images/leaf/onboarding_leaf_04_sulur_kiri.png',
+                  size: 72,
+                  angle: 0.4,
+                ),
+              ),
+            ],
           ),
-          const SizedBox(height: 20),
+          const SizedBox(height: 28),
 
           // Card 2: Kuis Praktik
-          Container(
-            padding: const EdgeInsets.all(20),
-            decoration: BoxDecoration(
-              color: isDark ? AppTheme.darkSurface : Colors.white,
-              borderRadius: BorderRadius.circular(24),
-              border: Border.all(
-                color: module.practiceDone
-                    ? const Color(0xFFF57C00).withValues(alpha: 0.4)
-                    : (isDark ? AppTheme.darkBorder : const Color(0xFFF0EAE1)),
-                width: 1.5,
-              ),
-              boxShadow: [
-                BoxShadow(
-                  color: module.practiceDone
-                      ? const Color(0xFFF57C00).withValues(alpha: 0.05)
-                      : AppTheme.primary.withValues(alpha: 0.04),
-                  blurRadius: 20,
-                  offset: const Offset(0, 6),
-                )
-              ],
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  crossAxisAlignment: CrossAxisAlignment.center,
-                  children: [
-                    Container(
-                      width: 46,
-                      height: 46,
-                      decoration: BoxDecoration(
-                        color: module.practiceDone
-                            ? const Color(0xFFF57C00).withValues(alpha: 0.12)
-                            : (isDark ? AppTheme.primary.withValues(alpha: 0.3) : AppTheme.accentGold.withValues(alpha: 0.2)),
-                        borderRadius: BorderRadius.circular(14),
-                      ),
-                      child: Icon(
-                        Icons.brush_rounded,
-                        size: 24,
-                        color: module.practiceDone ? const Color(0xFFF57C00) : AppTheme.primary,
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        crossAxisAlignment: CrossAxisAlignment.center,
-                        children: [
-                          Expanded(
-                            child: Text(
-                              'Kuis Praktik',
-                              style: AppTheme.satoshi(
-                                fontSize: 17.5,
-                                fontWeight: FontWeight.w800,
-                                color: isDark ? Colors.white : const Color(0xFF2C1810),
-                              ),
-                              maxLines: 2,
-                            ),
-                          ),
-                          if (module.practiceDone) ...[
-                            const SizedBox(width: 8),
-                            Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4.5),
-                              decoration: BoxDecoration(
-                                color: const Color(0xFFF57C00).withValues(alpha: 0.12),
-                                borderRadius: BorderRadius.circular(20),
-                                border: Border.all(
-                                  color: const Color(0xFFF57C00).withValues(alpha: 0.35),
-                                  width: 1,
-                                ),
-                              ),
-                              child: Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  const Icon(Icons.auto_awesome, size: 13, color: Color(0xFFF57C00)),
-                                  const SizedBox(width: 4),
-                                  Text(
-                                    'Akurasi: ${module.practiceScore ?? 100}%',
-                                    style: AppTheme.satoshi(
-                                      fontSize: 12,
-                                      fontWeight: FontWeight.bold,
-                                      color: const Color(0xFFE65100),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ],
-                        ],
-                      ),
+          Stack(
+            clipBehavior: Clip.none,
+            children: [
+              Container(
+                clipBehavior: Clip.antiAlias,
+                decoration: BoxDecoration(
+                  color: isDark ? AppTheme.darkSurface : Colors.white,
+                  borderRadius: BorderRadius.circular(24),
+                  border: Border.all(
+                    color: module.practiceDone
+                        ? const Color(0xFFF57C00).withValues(alpha: 0.4)
+                        : (isDark ? AppTheme.darkBorder : const Color(0xFFF0EAE1)),
+                    width: 1.5,
+                  ),
+                  boxShadow: [
+                    BoxShadow(
+                      color: module.practiceDone
+                          ? const Color(0xFFF57C00).withValues(alpha: 0.05)
+                          : AppTheme.primary.withValues(alpha: 0.04),
+                      blurRadius: 20,
+                      offset: const Offset(0, 6),
                     ),
                   ],
                 ),
-                const SizedBox(height: 12),
-                Text(
-                  'Gambarlah motif batik ini, lalu pindai hasil karyamu untuk melihat seberapa mirip dengan aslinya.',
-                  style: AppTheme.inter(
-                    fontSize: 13,
-                    color: isDark ? Colors.white70 : AppTheme.textSecondary,
-                    height: 1.45,
-                  ),
-                ),
-                const SizedBox(height: 18),
-                ElevatedButton(
-                  onPressed: () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(builder: (_) => PracticeQuizScreen(module: module)),
-                    );
-                  },
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: module.practiceDone ? Colors.transparent : AppTheme.primary,
-                    foregroundColor: module.practiceDone ? const Color(0xFFF57C00) : Colors.white,
-                    minimumSize: const Size.fromHeight(50),
-                    elevation: 0,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(16),
-                      side: BorderSide(
-                        color: module.practiceDone ? const Color(0xFFF57C00) : Colors.transparent,
-                        width: 1.5,
-                      ),
-                    ),
-                  ),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
+                child: Padding(
+                  padding: const EdgeInsets.all(20),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Icon(
-                        module.practiceDone ? Icons.refresh_rounded : Icons.camera_alt_outlined,
-                        size: 18,
-                        color: module.practiceDone
-                            ? (isDark ? const Color(0xFFFFB74D) : const Color(0xFFE65100))
-                            : Colors.white,
+                      Row(
+                        crossAxisAlignment: CrossAxisAlignment.center,
+                        children: [
+                          Container(
+                            width: 46,
+                            height: 46,
+                            decoration: BoxDecoration(
+                              color: module.practiceDone
+                                  ? const Color(0xFFF57C00).withValues(alpha: 0.12)
+                                  : (isDark ? AppTheme.primary.withValues(alpha: 0.3) : AppTheme.accentGold.withValues(alpha: 0.2)),
+                              borderRadius: BorderRadius.circular(14),
+                            ),
+                            child: Icon(
+                              Icons.brush_rounded,
+                              size: 24,
+                              color: module.practiceDone ? const Color(0xFFF57C00) : AppTheme.primary,
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              crossAxisAlignment: CrossAxisAlignment.center,
+                              children: [
+                                Expanded(
+                                  child: Text(
+                                    'Kuis Praktik',
+                                    style: AppTheme.satoshi(
+                                      fontSize: 17.5,
+                                      fontWeight: FontWeight.w800,
+                                      color: isDark ? Colors.white : const Color(0xFF2C1810),
+                                    ),
+                                    maxLines: 2,
+                                  ),
+                                ),
+                                if (module.practiceDone) ...[
+                                  const SizedBox(width: 8),
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4.5),
+                                    decoration: BoxDecoration(
+                                      color: const Color(0xFFF57C00).withValues(alpha: 0.12),
+                                      borderRadius: BorderRadius.circular(20),
+                                      border: Border.all(
+                                        color: const Color(0xFFF57C00).withValues(alpha: 0.35),
+                                        width: 1,
+                                      ),
+                                    ),
+                                    child: Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        const Icon(Icons.auto_awesome, size: 13, color: Color(0xFFF57C00)),
+                                        const SizedBox(width: 4),
+                                        Text(
+                                          'Akurasi: ${module.practiceScore ?? 100}%',
+                                          style: AppTheme.satoshi(
+                                            fontSize: 12,
+                                            fontWeight: FontWeight.bold,
+                                            color: const Color(0xFFE65100),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ],
+                              ],
+                            ),
+                          ),
+                        ],
                       ),
-                      const SizedBox(width: 6),
+                      const SizedBox(height: 12),
                       Text(
-                        module.practiceDone ? 'Pindai Ulang' : 'Mulai Praktik',
-                        style: AppTheme.satoshi(
-                          fontSize: 15,
-                          fontWeight: FontWeight.bold,
-                          letterSpacing: 0.3,
-                          color: module.practiceDone
-                              ? (isDark ? const Color(0xFFFFB74D) : const Color(0xFFE65100))
-                              : Colors.white,
+                        'Gambarlah motif batik ini, lalu pindai hasil karyamu untuk melihat seberapa mirip dengan aslinya.',
+                        style: AppTheme.inter(
+                          fontSize: 13,
+                          color: isDark ? Colors.white70 : AppTheme.textSecondary,
+                          height: 1.45,
+                        ),
+                      ),
+                      const SizedBox(height: 18),
+                      ElevatedButton(
+                        onPressed: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(builder: (_) => PracticeQuizScreen(module: module)),
+                          );
+                        },
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: module.practiceDone ? Colors.transparent : AppTheme.primary,
+                          foregroundColor: module.practiceDone ? const Color(0xFFF57C00) : Colors.white,
+                          minimumSize: const Size.fromHeight(50),
+                          elevation: 0,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(16),
+                            side: BorderSide(
+                              color: module.practiceDone ? const Color(0xFFF57C00) : Colors.transparent,
+                              width: 1.5,
+                            ),
+                          ),
+                        ),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(
+                              module.practiceDone ? Icons.refresh_rounded : Icons.camera_alt_outlined,
+                              size: 18,
+                              color: module.practiceDone
+                                  ? (isDark ? const Color(0xFFFFB74D) : const Color(0xFFE65100))
+                                  : Colors.white,
+                            ),
+                            const SizedBox(width: 6),
+                            Text(
+                              module.practiceDone ? 'Pindai Ulang' : 'Mulai Praktik',
+                              style: AppTheme.satoshi(
+                                fontSize: 15,
+                                fontWeight: FontWeight.bold,
+                                letterSpacing: 0.3,
+                                color: module.practiceDone
+                                    ? (isDark ? const Color(0xFFFFB74D) : const Color(0xFFE65100))
+                                    : Colors.white,
+                              ),
+                            ),
+                          ],
                         ),
                       ),
                     ],
                   ),
                 ),
-              ],
-            ),
+              ),
+              // Posisi sama persis dengan bunga di Kuis Teori
+              const Positioned(
+                bottom: -26,
+                right: -22,
+                child: LeafDecor(
+                  asset: 'assets/images/leaf/onboarding_leaf_04_sulur_kiri.png',
+                  size: 72,
+                  angle: 0.4,
+                ),
+              ),
+            ],
           ),
+          const SizedBox(height: 28),
         ],
       ),
     );
@@ -1468,9 +1486,11 @@ class _ModuleDetailScreenState extends State<ModuleDetailScreen> {
         color: isDark ? AppTheme.darkSurface : Colors.white,
         borderRadius: BorderRadius.circular(16),
         border: Border.all(color: isDark ? AppTheme.darkBorder : Colors.transparent),
-        boxShadow: isDark ? [] : [
-          BoxShadow(color: Colors.black.withValues(alpha: 0.03), blurRadius: 8, offset: const Offset(0, 3)),
-        ],
+        boxShadow: isDark
+            ? []
+            : [
+                BoxShadow(color: Colors.black.withValues(alpha: 0.03), blurRadius: 8, offset: const Offset(0, 3)),
+              ],
       ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,

@@ -725,7 +725,7 @@ class _PracticeQuizScreenState extends State<PracticeQuizScreen>
             ),
             const SizedBox(height: 18),
 
-            // Card Kecocokan Asal Daerah
+                       // Card Kecocokan Asal Daerah
             Container(
               padding: const EdgeInsets.all(20),
               decoration: BoxDecoration(
@@ -759,10 +759,6 @@ class _PracticeQuizScreenState extends State<PracticeQuizScreen>
                   const SizedBox(height: 18),
 
                   _buildDaerahItem('S', 'Sumatra', 70, isTop: true, badge: 'Paling Cocok'),
-                  const SizedBox(height: 14),
-                  _buildDaerahItem('J', 'Jawa', 60),
-                  const SizedBox(height: 14),
-                  _buildDaerahItem('M', 'Malang', 40),
                   const SizedBox(height: 18),
 
                   Text(

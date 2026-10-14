@@ -34,15 +34,25 @@ class _DashboardScreenState extends State<DashboardScreen> {
   int _currentHeroPage = _initialPage;
   bool _isScrolledPast = false;
 
-  // Foto untuk kartu modul. Ganti dengan nama file fotomu.
+  // Foto untuk kartu modul.
   static const List<String> _motifPhotos = [
-    'assets/images/motif_1.jpg',
-    'assets/images/motif_2.jpg',
-    'assets/images/motif_3.jpg',
-    'assets/images/motif_4.jpg',
-    'assets/images/motif_5.jpg',
-    'assets/images/motif_6.jpg',
+    'assets/images/batik_parang_kusumo.jpg',
+    'assets/images/batik_mega.jpg',
+    'assets/images/batik_parang.jpg',
+    'assets/images/batik_kawung.jpg',
+    'assets/images/batik_indo.jpg',
+    'assets/images/hero_sekar.png',
   ];
+
+  String _getPhotoForModule(String title, int idx) {
+    final lower = title.toLowerCase();
+    if (lower.contains('parang kusumo') || lower.contains('kusumo')) {
+      return 'assets/images/batik_parang_kusumo.jpg';
+    } else if (lower.contains('mega') || lower.contains('mendung')) {
+      return 'assets/images/batik_mega.jpg';
+    }
+    return _motifPhotos[idx % _motifPhotos.length];
+  }
 
   @override
   void initState() {
@@ -143,6 +153,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                         'Batik Indonesia diakui UNESCO sebagai Warisan Budaya Takbenda sejak 2009.',
                     tag: 'WARISAN BUDAYA',
                     icon: Icons.public_rounded,
+                    imagePath: 'assets/images/batik_indo.jpg',
                   );
                 case 2:
                   return _buildBatikSlide(
@@ -151,6 +162,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                         'Motif tertua yang melambangkan kekuatan dan keteguhan hati.',
                     tag: 'MOTIF BATIK',
                     icon: Icons.waves_rounded,
+                    imagePath: 'assets/images/batik_parang.jpg',
                   );
                 case 3:
                 default:
@@ -160,6 +172,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                         'Pola lingkaran yang melambangkan kesucian dan keadilan.',
                     tag: 'MOTIF BATIK',
                     icon: Icons.grain_rounded,
+                    imagePath: 'assets/images/batik_kawung.jpg',
                   );
               }
             },
@@ -304,18 +317,29 @@ class _DashboardScreenState extends State<DashboardScreen> {
     required String description,
     String? tag,
     IconData? icon,
+    String? imagePath,
   }) {
+    const fallback = CustomPaint(
+      painter: _KawungHeroPainter(
+        color: Color(0xFFE8C98A),
+        opacity: 0.18,
+      ),
+    );
+
     return Stack(
       fit: StackFit.expand,
       children: [
         Container(
           color: const Color(0xFF2E1911),
-          child: const CustomPaint(
-            painter: _KawungHeroPainter(
-              color: Color(0xFFE8C98A),
-              opacity: 0.18,
-            ),
-          ),
+          child: imagePath == null
+              ? fallback
+              : Image.asset(
+                  imagePath,
+                  fit: BoxFit.cover,
+                  width: double.infinity,
+                  height: double.infinity,
+                  errorBuilder: (context, error, stackTrace) => fallback,
+                ),
         ),
         Positioned.fill(
           child: Container(
@@ -324,16 +348,16 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 begin: Alignment.topCenter,
                 end: Alignment.bottomCenter,
                 colors: [
-                  Colors.black.withValues(alpha: 0.08),
-                  Colors.black.withValues(alpha: 0.45),
-                  Colors.black.withValues(alpha: 0.88),
+                  Colors.black.withValues(alpha: 0.15),
+                  Colors.black.withValues(alpha: 0.40),
+                  Colors.black.withValues(alpha: 0.85),
                 ],
                 stops: const [0.15, 0.55, 1.0],
               ),
             ),
           ),
         ),
-        if (icon != null)
+        if (icon != null && imagePath == null)
           Positioned(
             top: 75,
             right: 24,
@@ -684,8 +708,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
                                   itemBuilder: (ctx, idx) {
                                     final m = provider.modules[idx];
                                     return _buildPhotoCard(
-                                      imagePath: _motifPhotos[
-                                          idx % _motifPhotos.length],
+                                      imagePath:
+                                          _getPhotoForModule(m.title, idx),
                                       title: m.title.split('\n').first,
                                       subtitle: 'Modul ${m.orderNo}',
                                       onTap: () {
