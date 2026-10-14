@@ -1,5 +1,8 @@
+import 'package:flutter/foundation.dart';
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:url_launcher/url_launcher.dart';
 import 'package:youtube_player_iframe/youtube_player_iframe.dart';
 import '../../core/theme/app_theme.dart';
 import '../../models/app_models.dart';
@@ -42,23 +45,28 @@ class _ModuleDetailScreenState extends State<ModuleDetailScreen> {
 
   void _initYoutubePlayer() {
     final youtubeUrl = widget.module.content?.sejarahDanFilosofi.youtubeUrl;
-    // Menggunakan video Dokumenter Batik Indonesia (UNESCO) yang diizinkan untuk di-embed
-    String videoId = 'd5X1d-rX2D8'; 
 
-    if (youtubeUrl != null && youtubeUrl.isNotEmpty) {
-      final parsedId = YoutubePlayerController.convertUrlToId(youtubeUrl);
-      if (parsedId != null && parsedId.isNotEmpty) {
-        videoId = parsedId;
-      }
+    // Jika tidak disetting / kosong / hanya whitespace, biarkan controller null (tidak ada border video)
+    if (youtubeUrl == null || youtubeUrl.trim().isEmpty) {
+      _youtubeController = null;
+      return;
+    }
+
+    final parsedId = YoutubePlayerController.convertUrlToId(youtubeUrl.trim());
+    if (parsedId == null || parsedId.trim().isEmpty) {
+      _youtubeController = null;
+      return;
     }
 
     _youtubeController = YoutubePlayerController.fromVideoId(
-      videoId: videoId,
+      videoId: parsedId.trim(),
       params: const YoutubePlayerParams(
         showControls: true,
         showFullscreenButton: true,
         mute: false,
         loop: false,
+        enableJavaScript: true,
+        origin: 'https://www.youtube-nocookie.com',
       ),
     );
   }
@@ -448,13 +456,18 @@ class _ModuleDetailScreenState extends State<ModuleDetailScreen> {
                 if (_activeStep == 1 && index > 1) provider.updatePillarProgress(widget.module.id, 'character');
                 if (_activeStep == 2 && index > 2) provider.updatePillarProgress(widget.module.id, 'gallery');
                 
+                // Jeda video secara otomatis saat user geser ke tab lain
+                if (index != 0) {
+                  _youtubeController?.pauseVideo();
+                }
+
                 setState(() => _activeStep = index);
               },
               children: [
-                SingleChildScrollView(child: _buildPage4TeoriFilosofi(context, isDark)),
-                SingleChildScrollView(child: _buildPage5Karakteristik(context, isDark)),
-                SingleChildScrollView(child: _buildPage6Galeri(context, isDark)),
-                SingleChildScrollView(child: _buildPage7KuisModul(context, isDark, module)),
+                _KeepAlivePage(child: SingleChildScrollView(child: _buildPage4TeoriFilosofi(context, isDark))),
+                _KeepAlivePage(child: SingleChildScrollView(child: _buildPage5Karakteristik(context, isDark))),
+                _KeepAlivePage(child: SingleChildScrollView(child: _buildPage6Galeri(context, isDark))),
+                _KeepAlivePage(child: SingleChildScrollView(child: _buildPage7KuisModul(context, isDark, module))),
               ],
             ),
           ),
@@ -675,8 +688,81 @@ class _ModuleDetailScreenState extends State<ModuleDetailScreen> {
               borderRadius: BorderRadius.circular(16),
               child: YoutubePlayer(
                 controller: _youtubeController!,
+                keepAlive: true,
+                gestureRecognizers: const <Factory<OneSequenceGestureRecognizer>>{
+                  Factory<OneSequenceGestureRecognizer>(EagerGestureRecognizer.new),
+                },
               ),
             ),
+            const SizedBox(height: 10),
+            if (sejarah.youtubeUrl.isNotEmpty)
+              Material(
+                color: isDark ? AppTheme.darkSurface : const Color(0xFFFBF7F2),
+                borderRadius: BorderRadius.circular(14),
+                child: InkWell(
+                  borderRadius: BorderRadius.circular(14),
+                  onTap: () async {
+                    final uri = Uri.tryParse(sejarah.youtubeUrl);
+                    if (uri != null) {
+                      await launchUrl(uri, mode: LaunchMode.externalApplication);
+                    }
+                  },
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(14),
+                      border: Border.all(
+                        color: isDark ? AppTheme.darkBorder : AppTheme.border,
+                      ),
+                    ),
+                    child: Row(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.all(6),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFFF0000).withValues(alpha: 0.12),
+                            shape: BoxShape.circle,
+                          ),
+                          child: const Icon(
+                            Icons.play_circle_filled_rounded,
+                            color: Color(0xFFFF0000),
+                            size: 20,
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                'Buka di Aplikasi YouTube',
+                                style: AppTheme.satoshi(
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.bold,
+                                  color: isDark ? Colors.white : AppTheme.textPrimary,
+                                ),
+                              ),
+                              const SizedBox(height: 2),
+                              Text(
+                                'Tonton langsung di YouTube jika terkendala di dalam aplikasi',
+                                style: AppTheme.inter(
+                                  fontSize: 11,
+                                  color: AppTheme.textSecondary,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        Icon(
+                          Icons.open_in_new_rounded,
+                          size: 16,
+                          color: isDark ? Colors.white70 : AppTheme.textSecondary,
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
             const SizedBox(height: 20),
           ],
 
@@ -1442,5 +1528,26 @@ class _ModuleDetailScreenState extends State<ModuleDetailScreen> {
         ),
       ),
     );
+  }
+}
+
+/// Widget pembungkus untuk mempertahankan state halaman PageView saat di-swipe,
+/// sehingga WebView / YoutubePlayer tidak di-destroy oleh Flutter dan Android Surface tetap utuh.
+class _KeepAlivePage extends StatefulWidget {
+  final Widget child;
+  const _KeepAlivePage({required this.child});
+
+  @override
+  State<_KeepAlivePage> createState() => _KeepAlivePageState();
+}
+
+class _KeepAlivePageState extends State<_KeepAlivePage> with AutomaticKeepAliveClientMixin {
+  @override
+  bool get wantKeepAlive => true;
+
+  @override
+  Widget build(BuildContext context) {
+    super.build(context);
+    return widget.child;
   }
 }
