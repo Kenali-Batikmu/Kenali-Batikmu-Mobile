@@ -85,7 +85,7 @@ class SejarahFilosofiModel {
   final String penggunaan;
 
   SejarahFilosofiModel({
-    required this.youtubeUrl,
+    this.youtubeUrl = '',
     required this.deskripsiUtama,
     required this.asalDaerah,
     required this.maknaFilosofis,
@@ -183,24 +183,75 @@ class GaleriModel {
 
 class ModuleContentModel {
   final String origin;
-  final String estimatedTime;
+  final String? _customEstimatedTime;
   final SejarahFilosofiModel sejarahDanFilosofi;
   final KarakteristikModel karakteristik;
   final List<GaleriModel> galeri;
 
   ModuleContentModel({
     required this.origin,
-    required this.estimatedTime,
+    String? estimatedTime,
     required this.sejarahDanFilosofi,
     required this.karakteristik,
     required this.galeri,
-  });
+  }) : _customEstimatedTime = estimatedTime;
+
+  /// Menghitung total kata dari seluruh teks materi di modul (Sejarah, Filosofi, Karakteristik, Pakem, & Galeri)
+  int get totalWords {
+    int count = 0;
+    count += _countWords(sejarahDanFilosofi.deskripsiUtama);
+    count += _countWords(sejarahDanFilosofi.asalDaerah);
+    count += _countWords(sejarahDanFilosofi.maknaFilosofis);
+    count += _countWords(sejarahDanFilosofi.penggunaan);
+    count += _countWords(karakteristik.deskripsi);
+    count += _countWords(karakteristik.strukturUtama.title);
+    count += _countWords(karakteristik.strukturUtama.desc);
+    count += _countWords(karakteristik.ornamen.title);
+    count += _countWords(karakteristik.ornamen.desc);
+    count += _countWords(karakteristik.warna.title);
+    count += _countWords(karakteristik.warna.desc);
+    for (final pakem in karakteristik.pakemList) {
+      count += _countWords(pakem.title);
+      count += _countWords(pakem.desc);
+    }
+    for (final g in galeri) {
+      count += _countWords(g.caption);
+    }
+    return count;
+  }
+
+  /// Menghitung estimasi menit membaca secara dinamis:
+  /// Menggunakan standar kecepatan baca edukasi budaya (~90 kata/menit)
+  /// ditambah 1 menit untuk waktu pengamatan visual struktur & ornamen motif.
+  int get dynamicReadingMinutes {
+    final words = totalWords;
+    if (words == 0) return 3;
+    final readingTime = (words / 90).ceil();
+    final total = readingTime + 1;
+    return total < 3 ? 3 : total;
+  }
+
+  /// Mengembalikan estimasi waktu baca:
+  /// Prioritas menggunakan custom jika diisi spesifik, atau otomatis terhitung dinamis dari panjang materi.
+  String get estimatedTime {
+    final customTime = _customEstimatedTime;
+    if (customTime != null && customTime.trim().isNotEmpty) {
+      final custom = customTime.trim();
+      return custom.toLowerCase().contains('menit') ? custom : '$custom Menit';
+    }
+    return '$dynamicReadingMinutes Menit';
+  }
+
+  static int _countWords(String text) {
+    if (text.trim().isEmpty) return 0;
+    return text.trim().split(RegExp(r'\s+')).where((w) => w.isNotEmpty).length;
+  }
 
   factory ModuleContentModel.fromMap(Map<String, dynamic> map) {
     var galeriData = map['galeri'] as List? ?? [];
     return ModuleContentModel(
       origin: map['origin'] ?? '',
-      estimatedTime: map['estimatedTime'] ?? '',
+      estimatedTime: map['estimatedTime'] as String?,
       sejarahDanFilosofi: SejarahFilosofiModel.fromMap(map['sejarahDanFilosofi'] ?? {}),
       karakteristik: KarakteristikModel.fromMap(map['karakteristik'] ?? {}),
       galeri: galeriData.map((e) => GaleriModel.fromMap(e)).toList(),
