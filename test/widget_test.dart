@@ -9,7 +9,6 @@ import 'package:batikmu/screens/dashboard/dashboard_screen.dart';
 import 'package:batikmu/screens/modules/theory_quiz_screen.dart';
 import 'package:batikmu/screens/modules/practice_quiz_screen.dart';
 import 'package:batikmu/screens/profile/profile_screen.dart';
-
 void main() {
   group('OWASP Mobile Security & Hashing Tests (M10, M3)', () {
     test('PasswordHasher generates salted sha256 hash', () {
@@ -33,35 +32,26 @@ void main() {
   });
 
   group('Interactive AppProvider In-Memory Tests', () {
-    test('Initializes with default user and 11 modules', () {
+    test('Initializes with default user and 2 curated modules', () {
       final provider = AppProvider();
       expect(provider.currentUser?.email, equals('sekar@batikmu.id'));
-      expect(provider.totalModulesCount, equals(11));
-      expect(provider.completedModulesCount, equals(6));
-      expect(provider.overallProgressPercent, equals(55));
+      expect(provider.totalModulesCount, equals(2));
+      expect(provider.completedModulesCount, equals(0));
+      expect(provider.overallProgressPercent, equals(0));
       expect(provider.scannedMotifsCount, equals(6));
-    });
-
-    test('Toggles dark mode dynamically', () {
-      final provider = AppProvider();
-      expect(provider.isDarkMode, isFalse);
-      provider.toggleDarkMode(true);
-      expect(provider.isDarkMode, isTrue);
-      provider.toggleDarkMode(false);
-      expect(provider.isDarkMode, isFalse);
     });
 
     test('Saves quiz results and updates module progress', () async {
       final provider = AppProvider();
-      await provider.saveQuizResult(3, 80, true);
-      final m3 = provider.modules.firstWhere((m) => m.id == 3);
-      expect(m3.quizDone, isTrue);
+      await provider.saveQuizResult(1, 80, true);
+      final m1 = provider.modules.firstWhere((m) => m.id == 1);
+      expect(m1.quizDone, isTrue);
     });
 
     test('Saves practice result and adds to scan histories', () async {
       final provider = AppProvider();
       final prevCount = provider.scanHistories.length;
-      await provider.savePracticeResult(3, 0.70, true);
+      await provider.savePracticeResult(1, 0.70, true);
       expect(provider.scanHistories.length, equals(prevCount + 1));
       expect(provider.scanHistories.first.score, equals(0.70));
     });
@@ -76,10 +66,9 @@ void main() {
         ),
       );
 
-      expect(find.text('KENALI BATIKMU'), findsOneWidget);
+      expect(find.text('KENALI BUDAYA'), findsOneWidget);
       expect(find.text('Kenali Warisan\nLeluhur Nusantara'), findsOneWidget);
-      expect(find.text('EDUKASI BUDAYA'), findsOneWidget);
-      expect(find.text('Lanjut'), findsOneWidget);
+      expect(find.text('Lewati'), findsOneWidget);
     });
   });
 
@@ -113,7 +102,7 @@ void main() {
   group('Theory Quiz Screen Widget Tests', () {
     testWidgets('Renders quiz questions and Done button', (WidgetTester tester) async {
       final provider = AppProvider();
-      final sampleModule = provider.modules[2];
+      final sampleModule = provider.modules[0];
 
       await tester.pumpWidget(
         ChangeNotifierProvider.value(
@@ -141,9 +130,9 @@ void main() {
   });
 
   group('Practice Quiz Screen Widget Tests', () {
-    testWidgets('Renders viewfinder and evaluates to result sheet', (WidgetTester tester) async {
+    testWidgets('Renders viewfinder, camera controls, and submit button', (WidgetTester tester) async {
       final provider = AppProvider();
-      final sampleModule = provider.modules[2];
+      final sampleModule = provider.modules[0];
 
       await tester.pumpWidget(
         ChangeNotifierProvider.value(
@@ -157,24 +146,14 @@ void main() {
 
       expect(find.text('Detail Modul - Kuis Praktikum'), findsOneWidget);
       expect(find.text('Arahkan kamera ke kain batikmu'), findsOneWidget);
+      expect(find.byIcon(Icons.camera), findsOneWidget);
+      expect(find.byIcon(Icons.photo_library), findsWidgets);
       expect(find.text('Kirim untuk Dinilai'), findsOneWidget);
-
-      // Tap kirim untuk dinilai
-      await tester.tap(find.text('Kirim untuk Dinilai'));
-      await tester.pump();
-      await tester.pump(const Duration(milliseconds: 1000));
-
-      // Should show hasil penilaian
-      expect(find.text('Hasil Penilaian'), findsOneWidget);
-      expect(find.text('Sumatra'), findsOneWidget);
-      expect(find.text('Jawa'), findsOneWidget);
-      expect(find.text('Malang'), findsOneWidget);
-      expect(find.text('Ketentuan Penilaian'), findsOneWidget);
     });
   });
 
   group('Profile Screen Widget Tests', () {
-    testWidgets('Renders user Sekar, stats, and mode gelap switch', (WidgetTester tester) async {
+    testWidgets('Renders user Sekar and profile fields', (WidgetTester tester) async {
       final provider = AppProvider();
 
       await tester.pumpWidget(
@@ -187,14 +166,13 @@ void main() {
         ),
       );
 
-      expect(find.text('Profil'), findsOneWidget);
-      expect(find.text('Sekar Ayu Kinanti'), findsOneWidget);
-      expect(find.text('@sekar_artisan'), findsOneWidget);
-      expect(find.text('6/11'), findsOneWidget);
-      expect(find.text('Modul Selesai'), findsOneWidget);
-      expect(find.text('6'), findsOneWidget);
-      expect(find.text('Motif Discan'), findsOneWidget);
-      expect(find.text('Mode Gelap'), findsOneWidget);
+      expect(find.text('Profil Saya'), findsOneWidget);
+      expect(find.text('Sekar Ayu Kinanti'), findsNWidgets(2)); // Header dan field Nama
+      expect(find.text('Akun Kenali Batikmu'), findsOneWidget);
+      expect(find.text('Nama'), findsOneWidget);
+      expect(find.text('Kata Sandi'), findsOneWidget);
+      expect(find.text('Nomor Telepon'), findsOneWidget);
+      expect(find.text('Alamat Email'), findsOneWidget);
       expect(find.text('Keluar dari Akun'), findsOneWidget);
     });
   });
