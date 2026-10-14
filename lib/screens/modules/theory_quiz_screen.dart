@@ -272,11 +272,17 @@ class _TheoryQuizScreenState extends State<TheoryQuizScreen> {
                   backgroundColor: const Color(0xFF5A3416),
                   foregroundColor: Colors.white,
                   minimumSize: const Size.fromHeight(50),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(14),
+                  ),
                 ),
                 child: Text(
                   'Done',
-                  style: AppTheme.satoshi(fontSize: 15, fontWeight: FontWeight.bold),
+                  style: AppTheme.satoshi(
+                    fontSize: 15,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.white,
+                  ),
                 ),
               )
             else ...[
@@ -286,11 +292,17 @@ class _TheoryQuizScreenState extends State<TheoryQuizScreen> {
                   backgroundColor: const Color(0xFF5A3416),
                   foregroundColor: Colors.white,
                   minimumSize: const Size.fromHeight(50),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(14),
+                  ),
                 ),
                 child: Text(
                   'Selesai & Simpan Nilai',
-                  style: AppTheme.satoshi(fontSize: 15, fontWeight: FontWeight.bold),
+                  style: AppTheme.satoshi(
+                    fontSize: 15,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.white,
+                  ),
                 ),
               ),
               const SizedBox(height: 10),
