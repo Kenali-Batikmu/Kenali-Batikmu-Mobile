@@ -18,14 +18,14 @@ class ModuleDetailScreen extends StatefulWidget {
 }
 
 class _ModuleDetailScreenState extends State<ModuleDetailScreen> {
-  late int _activeStep; 
+  late int _activeStep;
   late PageController _pageController;
   YoutubePlayerController? _youtubeController;
 
   @override
   void initState() {
     super.initState();
-    
+
     // Tentukan halaman awal (Lanjutkan Belajar) berdasarkan komponen yang belum diselesaikan
     if (!widget.module.historyDone) {
       _activeStep = 0;
@@ -36,7 +36,7 @@ class _ModuleDetailScreenState extends State<ModuleDetailScreen> {
     } else {
       _activeStep = 3; // Kuis
     }
-    
+
     _pageController = PageController(initialPage: _activeStep);
     _initYoutubePlayer();
   }
@@ -44,7 +44,7 @@ class _ModuleDetailScreenState extends State<ModuleDetailScreen> {
   void _initYoutubePlayer() {
     final youtubeUrl = widget.module.content?.sejarahDanFilosofi.youtubeUrl;
     // Menggunakan video Dokumenter Batik Indonesia (UNESCO) yang diizinkan untuk di-embed
-    String videoId = 'd5X1d-rX2D8'; 
+    String videoId = 'd5X1d-rX2D8';
 
     if (youtubeUrl != null && youtubeUrl.isNotEmpty) {
       final parsedId = YoutubePlayerController.convertUrlToId(youtubeUrl);
@@ -449,7 +449,7 @@ class _ModuleDetailScreenState extends State<ModuleDetailScreen> {
                 if (_activeStep == 0 && index > 0) provider.updatePillarProgress(widget.module.id, 'history');
                 if (_activeStep == 1 && index > 1) provider.updatePillarProgress(widget.module.id, 'character');
                 if (_activeStep == 2 && index > 2) provider.updatePillarProgress(widget.module.id, 'gallery');
-                
+
                 setState(() => _activeStep = index);
               },
               children: [
@@ -463,7 +463,7 @@ class _ModuleDetailScreenState extends State<ModuleDetailScreen> {
               ],
             ),
           ),
-          // Bottom Navigation Stepper Sesuai PDF (Tombol Panah Kiri, Dots Indikator, Tombol Panah Kanan)
+          // Bottom Navigation Stepper (Tombol Panah Kiri, Dots Indikator, Tombol Panah Kanan)
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
             child: Row(
@@ -513,7 +513,7 @@ class _ModuleDetailScreenState extends State<ModuleDetailScreen> {
                   }),
                 ),
 
-                // Tombol Kanan (Panah Lanjut di Halaman 0,1,2 | Sembunyi jika Kuis belum tuntas | Centang jika Kuis sudah tuntas)
+                // Tombol Kanan
                 if (_activeStep < 3)
                   Container(
                     width: 50,
@@ -571,7 +571,7 @@ class _ModuleDetailScreenState extends State<ModuleDetailScreen> {
     );
   }
 
-  // Halaman 1: Teori & Filosofi Sesuai PDF Page 4
+  // Halaman 1: Teori & Filosofi
   Widget _buildPage4TeoriFilosofi(BuildContext context, bool isDark) {
     final content = widget.module.content;
     if (content == null) return const Center(child: CircularProgressIndicator());
@@ -685,7 +685,7 @@ class _ModuleDetailScreenState extends State<ModuleDetailScreen> {
             const SizedBox(height: 20),
           ],
 
-          // Section Hakikat & Simbol Ombak Laut Selatan
+          // Section Hakikat & Simbol
           Text(
             'Hakikat & Simbol',
             style: AppTheme.satoshi(fontSize: 18, fontWeight: FontWeight.bold),
@@ -731,7 +731,7 @@ class _ModuleDetailScreenState extends State<ModuleDetailScreen> {
     );
   }
 
-  // Halaman 2: Karakteristik Sesuai PDF Page 5
+  // Halaman 2: Karakteristik
   Widget _buildPage5Karakteristik(BuildContext context, bool isDark) {
     final content = widget.module.content;
     if (content == null) return const Center(child: CircularProgressIndicator());
@@ -758,7 +758,7 @@ class _ModuleDetailScreenState extends State<ModuleDetailScreen> {
             style: AppTheme.satoshi(fontSize: 18, fontWeight: FontWeight.bold),
           ),
           const SizedBox(height: 12),
-          
+
           // Text-only List: Struktur Utama
           Container(
             padding: const EdgeInsets.all(16),
@@ -860,7 +860,7 @@ class _ModuleDetailScreenState extends State<ModuleDetailScreen> {
     );
   }
 
-  // Halaman 3: Galeri Motif Sesuai PDF Page 6
+  // Halaman 3: Galeri Motif
   Widget _buildPage6Galeri(BuildContext context, bool isDark) {
     final content = widget.module.content;
     if (content == null) return const Center(child: CircularProgressIndicator());
@@ -941,7 +941,7 @@ class _ModuleDetailScreenState extends State<ModuleDetailScreen> {
     );
   }
 
-  // Halaman 4: Kuis Modul Sesuai PDF Page 7
+  // Halaman 4: Kuis Modul
   Widget _buildPage7KuisModul(BuildContext context, bool isDark, ModuleModel module) {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
@@ -976,54 +976,36 @@ class _ModuleDetailScreenState extends State<ModuleDetailScreen> {
                     ),
                   ],
                 ),
-                child: Stack(
-                  children: [
-                    Positioned(
-                      right: -20,
-                      bottom: -20,
-                      child: IgnorePointer(
-                        child: Opacity(
-                          opacity: 0.16,
-                          child: Image.asset(
-                            'assets/images/leaf/onboarding_utama_3.png',
-                            width: 140,
-                            fit: BoxFit.contain,
-                          ),
+                child: Padding(
+                  padding: const EdgeInsets.all(22),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Selamat\nmengerjakan!',
+                        style: AppTheme.satoshi(
+                          fontSize: 22,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.white,
+                          height: 1.2,
                         ),
                       ),
-                    ),
-                    Padding(
-                      padding: const EdgeInsets.all(22),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            'Selamat\nmengerjakan!',
-                            style: AppTheme.satoshi(
-                              fontSize: 22,
-                              fontWeight: FontWeight.bold,
-                              color: Colors.white,
-                              height: 1.2,
-                            ),
-                          ),
-                          const SizedBox(height: 8),
-                          Text(
-                            'Uji pemahaman dan hasil karyamu di sini untuk menyelesaikan modul dan melihat sejauh mana kamu mengenali motif batik ini.',
-                            style: AppTheme.inter(
-                              fontSize: 13,
-                              color: Colors.white.withValues(alpha: 0.9),
-                              height: 1.45,
-                            ),
-                          ),
-                        ],
+                      const SizedBox(height: 8),
+                      Text(
+                        'Uji pemahaman dan hasil karyamu di sini untuk menyelesaikan modul dan melihat sejauh mana kamu mengenali motif batik ini.',
+                        style: AppTheme.inter(
+                          fontSize: 13,
+                          color: Colors.white.withValues(alpha: 0.9),
+                          height: 1.45,
+                        ),
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
               ),
               const Positioned(
-                top: -18,
-                right: -14,
+                top: -22,
+                right: -22,
                 child: LeafDecor(
                   asset: 'assets/images/leaf/onboarding_utama_3.png',
                   size: 90,
@@ -1040,42 +1022,26 @@ class _ModuleDetailScreenState extends State<ModuleDetailScreen> {
             children: [
               Container(
                 clipBehavior: Clip.antiAlias,
-            decoration: BoxDecoration(
-              color: isDark ? AppTheme.darkSurface : Colors.white,
-              borderRadius: BorderRadius.circular(24),
-              border: Border.all(
-                color: module.quizDone
-                    ? AppTheme.primary.withValues(alpha: 0.4)
-                    : (isDark ? AppTheme.darkBorder : const Color(0xFFF0EAE1)),
-                width: 1.5,
-              ),
-              boxShadow: [
-                BoxShadow(
-                  color: module.quizDone
-                      ? AppTheme.primary.withValues(alpha: 0.05)
-                      : AppTheme.primary.withValues(alpha: 0.04),
-                  blurRadius: 20,
-                  offset: const Offset(0, 6),
-                )
-              ],
-            ),
-            child: Stack(
-              children: [
-                Positioned(
-                  top: -10,
-                  right: -10,
-                  child: IgnorePointer(
-                    child: Opacity(
-                      opacity: 0.08,
-                      child: Image.asset(
-                        'assets/images/leaf/onboarding_leaf_03_bunga_roset.png',
-                        width: 85,
-                        fit: BoxFit.contain,
-                      ),
-                    ),
+                decoration: BoxDecoration(
+                  color: isDark ? AppTheme.darkSurface : Colors.white,
+                  borderRadius: BorderRadius.circular(24),
+                  border: Border.all(
+                    color: module.quizDone
+                        ? AppTheme.primary.withValues(alpha: 0.4)
+                        : (isDark ? AppTheme.darkBorder : const Color(0xFFF0EAE1)),
+                    width: 1.5,
                   ),
+                  boxShadow: [
+                    BoxShadow(
+                      color: module.quizDone
+                          ? AppTheme.primary.withValues(alpha: 0.05)
+                          : AppTheme.primary.withValues(alpha: 0.04),
+                      blurRadius: 20,
+                      offset: const Offset(0, 6),
+                    ),
+                  ],
                 ),
-                Padding(
+                child: Padding(
                   padding: const EdgeInsets.all(20),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -1207,21 +1173,19 @@ class _ModuleDetailScreenState extends State<ModuleDetailScreen> {
                     ],
                   ),
                 ),
-              ],
-            ),
-          ),
+              ),
               const Positioned(
-                top: -18,
-                left: -14,
+                bottom: -26,
+                right: -22,
                 child: LeafDecor(
-                  asset: 'assets/images/leaf/onboarding_leaf_01_ranting_amber.png',
-                  size: 85,
-                  angle: -0.25,
+                  asset: 'assets/images/leaf/onboarding_leaf_04_sulur_kiri.png',
+                  size: 72,
+                  angle: 0.4,
                 ),
               ),
             ],
           ),
-          const SizedBox(height: 20),
+          const SizedBox(height: 28),
 
           // Card 2: Kuis Praktik
           Stack(
@@ -1229,48 +1193,26 @@ class _ModuleDetailScreenState extends State<ModuleDetailScreen> {
             children: [
               Container(
                 clipBehavior: Clip.antiAlias,
-            decoration: BoxDecoration(
-              color: isDark ? AppTheme.darkSurface : Colors.white,
-              borderRadius: BorderRadius.circular(24),
-              border: Border.all(
-                color: module.practiceDone
-                    ? const Color(0xFFF57C00).withValues(alpha: 0.4)
-                    : (isDark ? AppTheme.darkBorder : const Color(0xFFF0EAE1)),
-                width: 1.5,
-              ),
-              boxShadow: [
-                BoxShadow(
-                  color: module.practiceDone
-                      ? const Color(0xFFF57C00).withValues(alpha: 0.05)
-                      : AppTheme.primary.withValues(alpha: 0.04),
-                  blurRadius: 20,
-                  offset: const Offset(0, 6),
-                )
-              ],
-            ),
-            child: Stack(
-              children: [
-                Positioned(
-                  top: -10,
-                  right: -10,
-                  child: IgnorePointer(
-                    child: Transform.flip(
-                      flipX: true,
-                      child: Transform.rotate(
-                        angle: 0.4,
-                        child: Opacity(
-                          opacity: 0.08,
-                          child: Image.asset(
-                            'assets/images/leaf/onboarding_leaf_03_bunga_roset.png',
-                            width: 85,
-                            fit: BoxFit.contain,
-                          ),
-                        ),
-                      ),
-                    ),
+                decoration: BoxDecoration(
+                  color: isDark ? AppTheme.darkSurface : Colors.white,
+                  borderRadius: BorderRadius.circular(24),
+                  border: Border.all(
+                    color: module.practiceDone
+                        ? const Color(0xFFF57C00).withValues(alpha: 0.4)
+                        : (isDark ? AppTheme.darkBorder : const Color(0xFFF0EAE1)),
+                    width: 1.5,
                   ),
+                  boxShadow: [
+                    BoxShadow(
+                      color: module.practiceDone
+                          ? const Color(0xFFF57C00).withValues(alpha: 0.05)
+                          : AppTheme.primary.withValues(alpha: 0.04),
+                      blurRadius: 20,
+                      offset: const Offset(0, 6),
+                    ),
+                  ],
                 ),
-                Padding(
+                child: Padding(
                   padding: const EdgeInsets.all(20),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -1402,20 +1344,20 @@ class _ModuleDetailScreenState extends State<ModuleDetailScreen> {
                     ],
                   ),
                 ),
-              ],
-            ),
-          ),
+              ),
+              // Posisi sama persis dengan bunga di Kuis Teori
               const Positioned(
-                top: -16,
-                right: -12,
+                bottom: -26,
+                right: -22,
                 child: LeafDecor(
                   asset: 'assets/images/leaf/onboarding_leaf_04_sulur_kiri.png',
-                  size: 80,
-                  angle: 0.35,
+                  size: 72,
+                  angle: 0.4,
                 ),
               ),
             ],
           ),
+          const SizedBox(height: 28),
         ],
       ),
     );
@@ -1461,9 +1403,11 @@ class _ModuleDetailScreenState extends State<ModuleDetailScreen> {
         color: isDark ? AppTheme.darkSurface : Colors.white,
         borderRadius: BorderRadius.circular(16),
         border: Border.all(color: isDark ? AppTheme.darkBorder : Colors.transparent),
-        boxShadow: isDark ? [] : [
-          BoxShadow(color: Colors.black.withValues(alpha: 0.03), blurRadius: 8, offset: const Offset(0, 3)),
-        ],
+        boxShadow: isDark
+            ? []
+            : [
+                BoxShadow(color: Colors.black.withValues(alpha: 0.03), blurRadius: 8, offset: const Offset(0, 3)),
+              ],
       ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
