@@ -7,7 +7,6 @@ import '../../core/theme/app_theme.dart';
 import '../../providers/app_provider.dart';
 import '../../widgets/kb_module_card.dart';
 import '../modules/module_detail_screen.dart';
-import '../../services/search_history_service.dart';
 
 class DashboardScreen extends StatefulWidget {
   final VoidCallback onOpenModules;
@@ -91,32 +90,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
     _pageController.dispose();
     _scrollController.dispose();
     super.dispose();
-  }
-
-  // ── Modal pencarian ──────────────────────────────────────────────────────
-  void _showSearchSheet(BuildContext context, bool isDark) {
-    showGeneralDialog(
-      context: context,
-      barrierDismissible: true,
-      barrierLabel: 'Tutup pencarian',
-      barrierColor: Colors.black54,
-      transitionDuration: const Duration(milliseconds: 280),
-      transitionBuilder: (ctx, anim, secondAnim, child) {
-        return SlideTransition(
-          position: Tween<Offset>(
-            begin: const Offset(0, -1),
-            end: Offset.zero,
-          ).animate(CurvedAnimation(parent: anim, curve: Curves.easeOut)),
-          child: child,
-        );
-      },
-      pageBuilder: (ctx, anim, secondAnim) {
-        return _SearchModalContent(
-          isDark: isDark,
-          onOpenModules: widget.onOpenModules,
-        );
-      },
-    );
   }
 
   // ── Kartu Hero PageView Full-Bleed ───────────────────────────────────────
@@ -757,7 +730,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                       ]
                     : null,
               ),
-              child: _buildTopBar(context, isDark),
+              child: _buildTopBar(context),
             ),
           ),
         ],
@@ -773,15 +746,15 @@ class _DashboardScreenState extends State<DashboardScreen> {
         ),
       ];
 
-  Widget _buildTopBar(BuildContext context, bool isDark) {
-    final surface = isDark ? AppTheme.darkSurface : Colors.white;
-    const iconColor = Color(0xFF8A6D56);
+  // ── Top bar: logo di kiri, avatar profil di kanan ──
+  Widget _buildTopBar(BuildContext context) {
     final provider = context.read<AppProvider>();
     final user = provider.currentUser;
 
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16),
       child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
           Container(
             width: 44,
@@ -798,38 +771,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
               ),
             ),
           ),
-          const SizedBox(width: 10),
-          Expanded(
-            child: GestureDetector(
-              onTap: () => _showSearchSheet(context, isDark),
-              child: Container(
-                height: 44,
-                padding: const EdgeInsets.symmetric(horizontal: 14),
-                decoration: BoxDecoration(
-                  color: surface,
-                  borderRadius: BorderRadius.circular(22),
-                  boxShadow: _softShadow,
-                ),
-                child: Row(
-                  children: [
-                    const Icon(Icons.search_rounded,
-                        color: iconColor, size: 20),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: Text(
-                        'Cari motif atau modul batik...',
-                        style: AppTheme.inter(
-                          fontSize: 13,
-                          color: const Color(0xFFA59284),
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ),
-          const SizedBox(width: 10),
           GestureDetector(
             onTap: widget.onOpenProfile,
             child: Container(
@@ -861,377 +802,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
               ),
             ),
           ),
-        ],
-      ),
-    );
-  }
-}
-
-// ── Modal pencarian ───────────────────────────────────────────────────────────
-class _SearchModalContent extends StatefulWidget {
-  final bool isDark;
-  final VoidCallback onOpenModules;
-
-  const _SearchModalContent({
-    required this.isDark,
-    required this.onOpenModules,
-  });
-
-  @override
-  State<_SearchModalContent> createState() => _SearchModalContentState();
-}
-
-class _SearchModalContentState extends State<_SearchModalContent> {
-  final TextEditingController _searchCtrl = TextEditingController();
-  String _query = '';
-  List<int> _historyIds = [];
-
-  static const Color _iconNormal = AppTheme.primaryDark;
-  static const Color _iconPressed = Color(0xFF3E2418);
-
-  @override
-  void initState() {
-    super.initState();
-    _loadHistory();
-  }
-
-  Future<void> _loadHistory() async {
-    final history = await SearchHistoryService.getHistory();
-    if (mounted) {
-      setState(() {
-        _historyIds = history;
-      });
-    }
-  }
-
-  void _onModuleTapped(dynamic module) {
-    SearchHistoryService.addToHistory(module.id);
-    Navigator.pop(context);
-    Navigator.push(
-      context,
-      MaterialPageRoute(builder: (_) => ModuleDetailScreen(module: module)),
-    );
-  }
-
-  void _removeFromHistory(int moduleId) {
-    SearchHistoryService.removeFromHistory(moduleId);
-    setState(() {
-      _historyIds.remove(moduleId);
-    });
-  }
-
-  void _clearHistory() {
-    SearchHistoryService.clearHistory();
-    setState(() {
-      _historyIds.clear();
-    });
-  }
-
-  @override
-  void dispose() {
-    _searchCtrl.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final provider = context.watch<AppProvider>();
-    final filteredModules = provider.modules.where((m) {
-      if (_query.isEmpty) return true;
-      return m.title.toLowerCase().contains(_query.toLowerCase()) ||
-          m.description.toLowerCase().contains(_query.toLowerCase());
-    }).toList();
-
-    final historyModules = <dynamic>[];
-    for (final id in _historyIds) {
-      final matches = provider.modules.where((m) => m.id == id);
-      if (matches.isNotEmpty) {
-        historyModules.add(matches.first);
-      }
-    }
-
-    final safeTop = MediaQuery.of(context).padding.top;
-    final viewInsetsBottom = MediaQuery.of(context).viewInsets.bottom;
-
-    return Align(
-      alignment: Alignment.topCenter,
-      child: Material(
-        color: Colors.transparent,
-        child: Container(
-          width: double.infinity,
-          constraints: BoxConstraints(
-            maxHeight: MediaQuery.of(context).size.height * 0.65,
-          ),
-          margin: EdgeInsets.only(bottom: viewInsetsBottom),
-          padding: EdgeInsets.only(
-            top: safeTop + 16,
-            left: 20,
-            right: 20,
-            bottom: 20,
-          ),
-          decoration: BoxDecoration(
-            color: widget.isDark ? AppTheme.darkSurface : Colors.white,
-            borderRadius:
-                const BorderRadius.vertical(bottom: Radius.circular(24)),
-          ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              TextField(
-                controller: _searchCtrl,
-                autofocus: true,
-                onChanged: (val) => setState(() => _query = val),
-                style: AppTheme.inter(
-                  color: widget.isDark ? Colors.white : AppTheme.textPrimary,
-                ),
-                decoration: InputDecoration(
-                  hintText: 'Cari motif atau modul batik...',
-                  hintStyle: AppTheme.inter(
-                    fontSize: 13,
-                    color: const Color(0xFFA59284),
-                  ),
-                  prefixIcon:
-                      const Icon(Icons.search, color: Color(0xFF8A6D56)),
-                  suffixIcon: _query.isNotEmpty
-                      ? IconButton(
-                          icon: const Icon(Icons.clear, size: 18),
-                          onPressed: () {
-                            _searchCtrl.clear();
-                            setState(() => _query = '');
-                          },
-                        )
-                      : null,
-                  filled: true,
-                  fillColor:
-                      widget.isDark ? AppTheme.darkSurface : Colors.white,
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(23),
-                    borderSide: BorderSide(
-                      color:
-                          widget.isDark ? AppTheme.darkBorder : AppTheme.border,
-                    ),
-                  ),
-                  enabledBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(23),
-                    borderSide: BorderSide(
-                      color:
-                          widget.isDark ? AppTheme.darkBorder : AppTheme.border,
-                    ),
-                  ),
-                  focusedBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(23),
-                    borderSide:
-                        const BorderSide(color: AppTheme.primary, width: 2),
-                  ),
-                  contentPadding:
-                      const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                ),
-              ),
-              if (_query.isNotEmpty) ...[
-                const SizedBox(height: 14),
-                Text(
-                  'Hasil Pencarian (${filteredModules.length}):',
-                  style: AppTheme.satoshi(
-                    fontSize: 13,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-                const SizedBox(height: 8),
-                Flexible(
-                  child: filteredModules.isEmpty
-                      ? Padding(
-                          padding: const EdgeInsets.symmetric(vertical: 24),
-                          child: Center(
-                            child: Text(
-                              'Modul tidak ditemukan',
-                              style: AppTheme.inter(
-                                fontSize: 13,
-                                color: AppTheme.textMuted,
-                              ),
-                            ),
-                          ),
-                        )
-                      : ListView.builder(
-                          shrinkWrap: true,
-                          padding: EdgeInsets.zero,
-                          itemCount: filteredModules.length,
-                          itemBuilder: (ctx, idx) {
-                            final m = filteredModules[idx];
-                            return _SearchResultTile(
-                              module: m,
-                              isDark: widget.isDark,
-                              iconNormal: _iconNormal,
-                              iconPressed: _iconPressed,
-                              onTap: () => _onModuleTapped(m),
-                            );
-                          },
-                        ),
-                ),
-              ] else if (historyModules.isNotEmpty) ...[
-                const SizedBox(height: 14),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Text(
-                      'Riwayat Pencarian',
-                      style: AppTheme.satoshi(
-                        fontSize: 13,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                    GestureDetector(
-                      onTap: _clearHistory,
-                      behavior: HitTestBehavior.opaque,
-                      child: Text(
-                        'Hapus semua',
-                        style: AppTheme.inter(
-                          fontSize: 12,
-                          color: widget.isDark
-                              ? AppTheme.secondaryLight
-                              : AppTheme.primary,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 8),
-                Flexible(
-                  child: ListView.builder(
-                    shrinkWrap: true,
-                    padding: EdgeInsets.zero,
-                    itemCount: historyModules.length,
-                    itemBuilder: (ctx, idx) {
-                      final m = historyModules[idx];
-                      return _SearchResultTile(
-                        module: m,
-                        isDark: widget.isDark,
-                        iconNormal: _iconNormal,
-                        iconPressed: _iconPressed,
-                        onTap: () => _onModuleTapped(m),
-                        onDelete: () => _removeFromHistory(m.id),
-                      );
-                    },
-                  ),
-                ),
-              ],
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-/// Item hasil pencarian dengan efek pressed (ikon menggelap).
-class _SearchResultTile extends StatefulWidget {
-  final dynamic module;
-  final bool isDark;
-  final Color iconNormal;
-  final Color iconPressed;
-  final VoidCallback onTap;
-  final VoidCallback? onDelete;
-
-  const _SearchResultTile({
-    required this.module,
-    required this.isDark,
-    required this.iconNormal,
-    required this.iconPressed,
-    required this.onTap,
-    this.onDelete,
-  });
-
-  @override
-  State<_SearchResultTile> createState() => _SearchResultTileState();
-}
-
-class _SearchResultTileState extends State<_SearchResultTile> {
-  bool _pressed = false;
-
-  @override
-  Widget build(BuildContext context) {
-    final m = widget.module;
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 6),
-      child: Row(
-        children: [
-          Expanded(
-            child: GestureDetector(
-              onTapDown: (_) => setState(() => _pressed = true),
-              onTapUp: (_) {
-                setState(() => _pressed = false);
-                widget.onTap();
-              },
-              onTapCancel: () => setState(() => _pressed = false),
-              behavior: HitTestBehavior.opaque,
-              child: Row(
-                children: [
-                  AnimatedContainer(
-                    duration: const Duration(milliseconds: 150),
-                    width: 38,
-                    height: 38,
-                    decoration: BoxDecoration(
-                      color: _pressed ? widget.iconPressed : widget.iconNormal,
-                      borderRadius: BorderRadius.circular(10),
-                    ),
-                    child: const Center(
-                      child:
-                          Icon(Icons.menu_book, color: Colors.white, size: 18),
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          m.title.replaceAll('\n', ' '),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: AppTheme.satoshi(
-                            fontSize: 13,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                        const SizedBox(height: 2),
-                        Text(
-                          'Kemajuan: ${m.progressPercent}% Selesai',
-                          style: AppTheme.inter(
-                            fontSize: 11,
-                            color: AppTheme.textMuted,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-          if (widget.onDelete != null)
-            GestureDetector(
-              behavior: HitTestBehavior.opaque,
-              onTap: widget.onDelete,
-              child: const Padding(
-                padding: EdgeInsets.symmetric(horizontal: 6, vertical: 8),
-                child: Icon(Icons.close, size: 18, color: AppTheme.textMuted),
-              ),
-            )
-          else
-            GestureDetector(
-              onTapDown: (_) => setState(() => _pressed = true),
-              onTapUp: (_) {
-                setState(() => _pressed = false);
-                widget.onTap();
-              },
-              onTapCancel: () => setState(() => _pressed = false),
-              behavior: HitTestBehavior.opaque,
-              child: const Padding(
-                padding: EdgeInsets.only(left: 4),
-                child: Icon(Icons.chevron_right, size: 20),
-              ),
-            ),
         ],
       ),
     );
