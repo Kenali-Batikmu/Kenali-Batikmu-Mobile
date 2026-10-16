@@ -5,7 +5,7 @@
 [![Platform](https://img.shields.io/badge/Platform-Android%20(minSdk%2026)-3DDC84?logo=android&logoColor=white)](https://android.com)
 [![Status](https://img.shields.io/badge/Status-UI%20Design%20Mockup-blueviolet)](#-catatan-penting-status-purwarupa-desain-antarmuka-ui-design)
 [![Tests](https://img.shields.io/badge/Tests-10%20Passed%20(100%25)-success)](file:///test/widget_test.dart)
-[![Release APK](https://img.shields.io/badge/Download-APK%20Relay%20(124.2%20MB)-orange?logo=android)](https://github.com/Kenali-Batikmu/Kenali-Batikmu-Mobile/releases/download/v1.0.0/app-debug.apk)
+[![Release APK](https://img.shields.io/badge/Download-APK%20Relay%20(176%20MB)-orange?logo=android)](https://github.com/Kenali-Batikmu/Kenali-Batikmu-Mobile/releases/download/v1.0.0/app-debug.apk)
 
 Aplikasi mobile edukasi pelestarian budaya dan pengenalan motif batik nusantara berbasis Flutter. Dokumen ini disusun sebagai **Proposal Proyek PBL (Project-Based Learning)** sekaligus **Panduan Pengenalan Aplikasi** yang mencerminkan kondisi kode sumber nyata secara transparan, formal, dan mudah dipahami oleh pembaca dari berbagai latar belakang.
 
