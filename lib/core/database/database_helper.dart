@@ -5,7 +5,7 @@ import 'package:flutter/services.dart';
 import 'package:path/path.dart';
 import 'package:sqflite/sqflite.dart';
 import '../../models/app_models.dart';
-import '../utils/password_hasher.dart';
+import '../services/supabase_service.dart';
 
 class DatabaseHelper {
   static final DatabaseHelper instance = DatabaseHelper._init();
@@ -36,6 +36,33 @@ class DatabaseHelper {
     }
   }
 
+  /// Melakukan reset total database lokal SQLite dan menyalin ulang segar (fresh) dari assets
+  Future<Database?> migrateFresh() async {
+    if (kIsWeb) return null;
+    try {
+      final dbPath = await getDatabasesPath();
+      final path = join(dbPath, 'kenali_batikmu.db');
+
+      if (_database != null && _database!.isOpen) {
+        await _database!.close();
+        _database = null;
+      }
+      _initCompleter = null;
+
+      final file = File(path);
+      if (await file.exists()) {
+        await file.delete();
+        debugPrint('DatabaseHelper: Database lokal lama dihapus untuk migrate fresh.');
+      }
+
+      // Inisialisasi ulang bersih dari asset
+      return await database;
+    } catch (e) {
+      debugPrint('DatabaseHelper migrateFresh error: $e');
+      return null;
+    }
+  }
+
   Future<Database> _initDB(String filePath) async {
     final dbPath = await getDatabasesPath();
     final path = join(dbPath, filePath);
@@ -61,7 +88,7 @@ class DatabaseHelper {
 
     return await openDatabase(
       path,
-      version: 3,
+      version: 4,
       onCreate: _createDB,
       onUpgrade: (db, oldVersion, newVersion) async {
         if (oldVersion < 3) {
@@ -76,62 +103,80 @@ class DatabaseHelper {
           } catch (_) {}
         }
         await _ensureSeedData(db);
+        await _ensureQuizQuestionsSeeded(db);
       },
       onOpen: (db) async {
         await db.execute('PRAGMA foreign_keys = ON');
         await _ensureSeedData(db);
+        await _ensureQuizQuestionsSeeded(db);
       },
     );
   }
 
-  Future<void> _ensureSeedData(Database db) async {
+  /// Memastikan seluruh 500 butir soal kuis (25 butir x 20 modul) tersimpan di SQLite lokal
+  Future<void> _ensureQuizQuestionsSeeded(Database db) async {
     try {
-      final now = DateTime.now().toIso8601String();
-      // 1. Akun Default Pengguna (Sekar Ayu Kinanti)
-      final users = await db.query('users', where: 'LOWER(email) = ?', whereArgs: ['sekar@batikmu.id']);
-      if (users.isEmpty) {
-        await db.insert('users', {
-          'name': 'Sekar Ayu Kinanti',
-          'email': 'sekar@batikmu.id',
-          'phone': '081234567890',
-          'password_hash': PasswordHasher.hashPassword('Batikmu123#'),
-          'created_at': now,
-          'updated_at': now,
-        });
-      }
+      final count = Sqflite.firstIntValue(await db.rawQuery('SELECT COUNT(*) FROM quiz_questions')) ?? 0;
+      if (count < 500) {
+        debugPrint('DatabaseHelper: quiz_questions hanya $count butir, menyinkronkan 500 butir dari asset...');
+        final dbPath = await getDatabasesPath();
+        final tempPath = join(dbPath, 'kenali_batikmu_seed_temp.db');
+        final ByteData data = await rootBundle.load('assets/database/kenali_batikmu.db');
+        final List<int> bytes = data.buffer.asUint8List(data.offsetInBytes, data.lengthInBytes);
+        final tempFile = File(tempPath);
+        await tempFile.writeAsBytes(bytes, flush: true);
 
-      // 2. Akun Demo / Kenali Batikmu
-      final demoUsers = await db.query('users', where: 'LOWER(email) = ?', whereArgs: ['kenalibatikmu@gmail.com']);
-      if (demoUsers.isEmpty) {
-        await db.insert('users', {
-          'name': 'Kenali Batikmu',
-          'email': 'kenalibatikmu@gmail.com',
-          'phone': '081987654321',
-          'password_hash': PasswordHasher.hashPassword('kenalibatikmupbl'),
-          'created_at': now,
-          'updated_at': now,
-        });
-      }
-
-      // 3. Progres Modul 1 Awal jika belum ada
-      final progress = await db.query('user_module_progress', where: 'user_id = ? AND module_id = ?', whereArgs: [1, 1]);
-      if (progress.isEmpty) {
-        await db.insert('user_module_progress', {
-          'user_id': 1,
-          'module_id': 1,
-          'status': 'in_progress',
-          'progress_percent': 60,
-          'history_done': 1,
-          'character_done': 1,
-          'gallery_done': 1,
-          'quiz_done': 0,
-          'practice_done': 0,
-          'last_accessed_at': now,
-        });
+        final seedDb = await openReadOnlyDatabase(tempPath);
+        final questions = await seedDb.query('quiz_questions');
+        if (questions.isNotEmpty) {
+          final batch = db.batch();
+          for (final q in questions) {
+            batch.insert(
+              'quiz_questions',
+              q,
+              conflictAlgorithm: ConflictAlgorithm.replace,
+            );
+          }
+          await batch.commit(noResult: true);
+          debugPrint('DatabaseHelper: Berhasil memasukkan ${questions.length} butir soal kuis ke database lokal.');
+        }
+        await seedDb.close();
+        if (tempFile.existsSync()) {
+          tempFile.deleteSync();
+        }
       }
     } catch (e) {
-      debugPrint('DatabaseHelper _ensureSeedData error: $e');
+      debugPrint('DatabaseHelper notice _ensureQuizQuestionsSeeded: $e');
     }
+  }
+
+  Future<void> _ensureSeedData(Database db) async {
+    // Pastikan kolom is_synced tersedia di tabel transaksi lokal untuk antrean offline
+    for (var table in ['quiz_attempts', 'scans', 'user_module_progress']) {
+      try {
+        await db.execute('ALTER TABLE $table ADD COLUMN is_synced INTEGER NOT NULL DEFAULT 0');
+      } catch (_) {
+        // Kolom sudah ada
+      }
+    }
+
+    // Pastikan kolom skor dan kelulusan tersedia di user_module_progress
+    final progressColumns = [
+      'ALTER TABLE user_module_progress ADD COLUMN quiz_score INTEGER',
+      'ALTER TABLE user_module_progress ADD COLUMN practice_score INTEGER',
+      'ALTER TABLE user_module_progress ADD COLUMN passing_score INTEGER NOT NULL DEFAULT 70',
+      'ALTER TABLE user_module_progress ADD COLUMN is_passed INTEGER NOT NULL DEFAULT 0',
+    ];
+    for (var colSql in progressColumns) {
+      try {
+        await db.execute(colSql);
+      } catch (_) {}
+    }
+
+    // Pastikan hanya ada 1 baris rekaman kuis praktikum per modul per user (Storage Hygiene)
+    try {
+      await db.execute('CREATE UNIQUE INDEX IF NOT EXISTS idx_scans_user_module_kuismu ON scans(user_id, module_id) WHERE scan_type = \'kuismu\'');
+    } catch (_) {}
   }
 
   Future<void> _createDB(Database db, int version) async {
@@ -227,8 +272,13 @@ class DatabaseHelper {
         gallery_done INTEGER NOT NULL DEFAULT 0,
         quiz_done INTEGER NOT NULL DEFAULT 0,
         practice_done INTEGER NOT NULL DEFAULT 0,
+        quiz_score INTEGER,
+        practice_score INTEGER,
+        passing_score INTEGER NOT NULL DEFAULT 70,
+        is_passed INTEGER NOT NULL DEFAULT 0,
         completed_at TEXT,
         last_accessed_at TEXT NOT NULL,
+        is_synced INTEGER NOT NULL DEFAULT 0,
         UNIQUE(user_id, module_id),
         FOREIGN KEY (user_id) REFERENCES users (id),
         FOREIGN KEY (module_id) REFERENCES modules (id)
@@ -244,6 +294,7 @@ class DatabaseHelper {
         passed INTEGER NOT NULL,
         total_questions INTEGER DEFAULT 10,
         attempted_at TEXT NOT NULL,
+        is_synced INTEGER NOT NULL DEFAULT 0,
         FOREIGN KEY (user_id) REFERENCES users (id),
         FOREIGN KEY (module_id) REFERENCES modules (id)
       )
@@ -262,6 +313,7 @@ class DatabaseHelper {
         passed INTEGER,
         inference_time_ms INTEGER,
         created_at TEXT NOT NULL,
+        is_synced INTEGER NOT NULL DEFAULT 0,
         FOREIGN KEY (user_id) REFERENCES users (id),
         FOREIGN KEY (module_id) REFERENCES modules (id),
         FOREIGN KEY (top_motif_id) REFERENCES batik_motifs (id)
@@ -285,29 +337,135 @@ class DatabaseHelper {
     }
   }
 
-  Future<List<ModuleModel>> getAllModules({int userId = 1}) async {
+  /// Sinkronisasi daftar motif dari cloud ke SQLite lokal (UPSERT)
+  Future<int> upsertMotifs(List<Map<String, dynamic>> motifs) async {
+    final db = await database;
+    if (db == null || motifs.isEmpty) return 0;
+    try {
+      final batch = db.batch();
+      for (var m in motifs) {
+        batch.insert(
+          'batik_motifs',
+          {
+            'id': m['id'],
+            'name': m['name'],
+            'slug': m['slug'],
+            'origin_region': m['origin_region'] ?? 'Nusantara',
+            'short_description': m['short_description'] ?? '',
+            'thumbnail_url': m['thumbnail_url'],
+            'ml_class_index': m['ml_class_index'] ?? 0,
+          },
+          conflictAlgorithm: ConflictAlgorithm.replace,
+        );
+      }
+      await batch.commit(noResult: true);
+      return motifs.length;
+    } catch (e) {
+      debugPrint('DatabaseHelper upsertMotifs error: $e');
+      return 0;
+    }
+  }
+
+  /// Sinkronisasi daftar modul dari cloud ke SQLite lokal (UPSERT)
+  Future<int> upsertModules(List<Map<String, dynamic>> modules) async {
+    final db = await database;
+    if (db == null || modules.isEmpty) return 0;
+    try {
+      final batch = db.batch();
+      for (var m in modules) {
+        batch.insert(
+          'modules',
+          {
+            'id': m['id'],
+            'motif_id': m['motif_id'],
+            'title': m['title'],
+            'description': m['description'],
+            'cover_image': m['cover_image'],
+            'video_url': m['video_url'],
+            'passing_score': m['passing_score'] ?? 70,
+            'order_no': m['order_no'],
+          },
+          conflictAlgorithm: ConflictAlgorithm.replace,
+        );
+      }
+      await batch.commit(noResult: true);
+      return modules.length;
+    } catch (e) {
+      debugPrint('DatabaseHelper upsertModules error: $e');
+      return 0;
+    }
+  }
+
+  /// Hapus satu motif spesifik (berguna untuk pembersihan uji coba atau sinkronisasi)
+  Future<int> deleteMotifById(int id) async {
+    final db = await database;
+    if (db == null) return 0;
+    try {
+      return await db.delete('batik_motifs', where: 'id = ?', whereArgs: [id]);
+    } catch (e) {
+      debugPrint('DatabaseHelper deleteMotifById error: $e');
+      return 0;
+    }
+  }
+
+  Future<List<ModuleModel>> getAllModules({int? userId, String? userEmail}) async {
     final db = await database;
     if (db == null) return [];
     try {
-      final rows = await db.rawQuery('''
-        SELECT 
-          m.id, m.motif_id, m.title, m.description, m.cover_image, m.passing_score, m.order_no,
-          COALESCE(p.progress_percent, 0) as progress_percent,
-          COALESCE(p.history_done, 0) as history_done,
-          COALESCE(p.character_done, 0) as character_done,
-          COALESCE(p.gallery_done, 0) as gallery_done,
-          COALESCE(p.quiz_done, 0) as quiz_done,
-          COALESCE(p.practice_done, 0) as practice_done
-        FROM modules m
-        LEFT JOIN user_module_progress p ON m.id = p.module_id AND p.user_id = ?
-        ORDER BY m.order_no ASC
-      ''', [userId]);
+      int? effectiveUserId = userId;
+      if (userEmail != null && userEmail.trim().isNotEmpty) {
+        final u = await db.query(
+          'users',
+          columns: ['id'],
+          where: 'LOWER(email) = ?',
+          whereArgs: [userEmail.trim().toLowerCase()],
+          limit: 1,
+        );
+        if (u.isNotEmpty) {
+          effectiveUserId = u.first['id'] as int;
+        }
+      }
+
+      final List<Map<String, dynamic>> rows;
+      if (effectiveUserId != null) {
+        rows = await db.rawQuery('''
+          SELECT 
+            m.id, m.motif_id, m.title, m.description, m.cover_image, m.passing_score, m.order_no,
+            COALESCE(p.progress_percent, 0) as progress_percent,
+            COALESCE(p.history_done, 0) as history_done,
+            COALESCE(p.character_done, 0) as character_done,
+            COALESCE(p.gallery_done, 0) as gallery_done,
+            COALESCE(p.quiz_done, 0) as quiz_done,
+            COALESCE(p.practice_done, 0) as practice_done,
+            p.quiz_score,
+            p.practice_score
+          FROM modules m
+          LEFT JOIN user_module_progress p 
+            ON m.id = p.module_id AND p.user_id = ?
+          ORDER BY m.order_no ASC
+        ''', [effectiveUserId]);
+      } else {
+        rows = await db.rawQuery('''
+          SELECT 
+            m.id, m.motif_id, m.title, m.description, m.cover_image, m.passing_score, m.order_no,
+            0 as progress_percent,
+            0 as history_done,
+            0 as character_done,
+            0 as gallery_done,
+            0 as quiz_done,
+            0 as practice_done,
+            NULL as quiz_score,
+            NULL as practice_score
+          FROM modules m
+          ORDER BY m.order_no ASC
+        ''');
+      }
 
       List<ModuleModel> list = [];
       for (var r in rows) {
         final mId = r['id'] as int;
         final content = await getModuleContent(mId);
-        list.add(ModuleModel(
+        final tempMod = ModuleModel(
           id: mId,
           motifId: r['motif_id'] as int,
           title: r['title'] as String,
@@ -315,13 +473,17 @@ class DatabaseHelper {
           coverImage: r['cover_image'] as String?,
           passingScore: r['passing_score'] as int? ?? 70,
           orderNo: r['order_no'] as int,
-          progressPercent: r['progress_percent'] as int? ?? 0,
           historyDone: (r['history_done'] as int? ?? 0) == 1,
           characterDone: (r['character_done'] as int? ?? 0) == 1,
           galleryDone: (r['gallery_done'] as int? ?? 0) == 1,
           quizDone: (r['quiz_done'] as int? ?? 0) == 1,
           practiceDone: (r['practice_done'] as int? ?? 0) == 1,
+          quizScore: r['quiz_score'] as int?,
+          practiceScore: r['practice_score'] as int?,
           content: content,
+        );
+        list.add(tempMod.copyWith(
+          progressPercent: tempMod.calculateProgressPercent(),
         ));
       }
       return list;
@@ -451,21 +613,48 @@ class DatabaseHelper {
 
   Future<List<QuizQuestionModel>> getQuizQuestions(int moduleId, {int limit = 10, bool shuffle = true}) async {
     final db = await database;
-    if (db == null) return [];
-    try {
-      final rows = await db.query(
-        'quiz_questions',
-        where: 'module_id = ?',
-        whereArgs: [moduleId],
-        orderBy: shuffle ? 'RANDOM()' : 'id ASC',
-        limit: limit,
-      );
+    if (db != null) {
+      try {
+        final rows = await db.query(
+          'quiz_questions',
+          where: 'module_id = ?',
+          whereArgs: [moduleId],
+          orderBy: shuffle ? 'RANDOM()' : 'id ASC',
+          limit: limit,
+        );
 
-      return rows.map((r) => QuizQuestionModel.fromMap(r)).toList();
-    } catch (e) {
-      debugPrint('Error getQuizQuestions: $e');
-      return [];
+        if (rows.isNotEmpty) {
+          return rows.map((r) => QuizQuestionModel.fromMap(r)).toList();
+        }
+      } catch (e) {
+        debugPrint('Error getQuizQuestions SQLite: $e');
+      }
     }
+
+    // Fallback ke Cloud Supabase jika SQLite kosong atau di web
+    if (SupabaseService.instance.isReady) {
+      try {
+        final cloudRows = await SupabaseService.instance.fetchQuizQuestions(moduleId);
+        if (cloudRows.isNotEmpty) {
+          if (db != null) {
+            final batch = db.batch();
+            for (final r in cloudRows) {
+              batch.insert('quiz_questions', r, conflictAlgorithm: ConflictAlgorithm.replace);
+            }
+            await batch.commit(noResult: true);
+          }
+
+          var list = cloudRows.map((r) => QuizQuestionModel.fromMap(r)).toList();
+          if (shuffle) list.shuffle();
+          if (list.length > limit) list = list.sublist(0, limit);
+          return list;
+        }
+      } catch (e) {
+        debugPrint('Error getQuizQuestions Supabase fallback: $e');
+      }
+    }
+
+    return [];
   }
 
   Future<void> updatePillarProgress(int userId, int moduleId, String pillar) async {
@@ -480,21 +669,32 @@ class DatabaseHelper {
       );
 
       int h = 0, c = 0, g = 0, q = 0, p = 0;
+      int? qS, pS;
+      int passScore = 70;
       if (rows.isNotEmpty) {
         h = rows.first['history_done'] as int? ?? 0;
         c = rows.first['character_done'] as int? ?? 0;
         g = rows.first['gallery_done'] as int? ?? 0;
         q = rows.first['quiz_done'] as int? ?? 0;
         p = rows.first['practice_done'] as int? ?? 0;
+        qS = rows.first['quiz_score'] as int?;
+        pS = rows.first['practice_score'] as int?;
+        passScore = rows.first['passing_score'] as int? ?? 70;
       }
 
       if (pillar == 'history') h = 1;
       if (pillar == 'character') c = 1;
       if (pillar == 'gallery') g = 1;
 
-      // Hitung persentase: 5 pilar masing-masing 20%
-      int percent = ((h + c + g + q + p) * 20).clamp(0, 100);
-      String status = percent >= 100 ? 'completed' : 'in_progress';
+      // 5 komponen masing-masing 20%: Kuis hanya menyumbang 20% jika lulus KKM (>= 70)
+      int completedComponents = (h == 1 ? 1 : 0) +
+          (c == 1 ? 1 : 0) +
+          (g == 1 ? 1 : 0) +
+          (q == 1 && (qS ?? 0) >= passScore ? 1 : 0) +
+          (p == 1 && (pS ?? 0) >= passScore ? 1 : 0);
+      int percent = (completedComponents * 20).clamp(0, 100);
+      String status = percent >= 100 ? 'completed' : (percent > 0 ? 'in_progress' : 'not_started');
+      int isPassed = percent >= 100 ? 1 : 0;
 
       if (rows.isEmpty) {
         await db.insert('user_module_progress', {
@@ -507,7 +707,12 @@ class DatabaseHelper {
           'gallery_done': g,
           'quiz_done': q,
           'practice_done': p,
+          'quiz_score': qS,
+          'practice_score': pS,
+          'passing_score': passScore,
+          'is_passed': isPassed,
           'last_accessed_at': now,
+          'is_synced': 0,
         });
       } else {
         await db.update(
@@ -520,8 +725,13 @@ class DatabaseHelper {
             'gallery_done': g,
             'quiz_done': q,
             'practice_done': p,
+            'quiz_score': qS,
+            'practice_score': pS,
+            'passing_score': passScore,
+            'is_passed': isPassed,
             'last_accessed_at': now,
             if (percent >= 100) 'completed_at': now,
+            'is_synced': 0,
           },
           where: 'user_id = ? AND module_id = ?',
           whereArgs: [userId, moduleId],
@@ -538,6 +748,7 @@ class DatabaseHelper {
     required int score,
     required bool passed,
     int totalQuestions = 10,
+    bool isSynced = false,
   }) async {
     final db = await database;
     if (db == null) return;
@@ -549,53 +760,71 @@ class DatabaseHelper {
         'score': score,
         'passed': passed ? 1 : 0,
         'attempted_at': now,
+        'is_synced': isSynced ? 1 : 0,
       });
 
-      if (passed) {
-        final rows = await db.query(
+      final rows = await db.query(
+        'user_module_progress',
+        where: 'user_id = ? AND module_id = ?',
+        whereArgs: [userId, moduleId],
+      );
+
+      int h = 0, c = 0, g = 0, p = 0;
+      int? pS;
+      int passScore = 70;
+      if (rows.isNotEmpty) {
+        h = rows.first['history_done'] as int? ?? 0;
+        c = rows.first['character_done'] as int? ?? 0;
+        g = rows.first['gallery_done'] as int? ?? 0;
+        p = rows.first['practice_done'] as int? ?? 0;
+        pS = rows.first['practice_score'] as int?;
+        passScore = rows.first['passing_score'] as int? ?? 70;
+      }
+
+      int q = passed ? 1 : 0;
+      int completedComponents = (h == 1 ? 1 : 0) +
+          (c == 1 ? 1 : 0) +
+          (g == 1 ? 1 : 0) +
+          (q == 1 && score >= passScore ? 1 : 0) +
+          (p == 1 && (pS ?? 0) >= passScore ? 1 : 0);
+      int percent = (completedComponents * 20).clamp(0, 100);
+      String status = percent >= 100 ? 'completed' : (percent > 0 ? 'in_progress' : 'not_started');
+      int isPassed = percent >= 100 ? 1 : 0;
+
+      if (rows.isEmpty) {
+        await db.insert('user_module_progress', {
+          'user_id': userId,
+          'module_id': moduleId,
+          'status': status,
+          'progress_percent': percent,
+          'history_done': h,
+          'character_done': c,
+          'gallery_done': g,
+          'quiz_done': q,
+          'practice_done': p,
+          'quiz_score': score,
+          'practice_score': pS,
+          'passing_score': passScore,
+          'is_passed': isPassed,
+          'last_accessed_at': now,
+          'is_synced': isSynced ? 1 : 0,
+        });
+      } else {
+        await db.update(
           'user_module_progress',
+          {
+            'status': status,
+            'progress_percent': percent,
+            'quiz_done': q,
+            'quiz_score': score,
+            'is_passed': isPassed,
+            'last_accessed_at': now,
+            if (percent >= 100) 'completed_at': now,
+            'is_synced': isSynced ? 1 : 0,
+          },
           where: 'user_id = ? AND module_id = ?',
           whereArgs: [userId, moduleId],
         );
-
-        int h = 1, c = 1, g = 1, q = 1, p = 0;
-        if (rows.isNotEmpty) {
-          h = rows.first['history_done'] as int? ?? 1;
-          c = rows.first['character_done'] as int? ?? 1;
-          g = rows.first['gallery_done'] as int? ?? 1;
-          p = rows.first['practice_done'] as int? ?? 0;
-        }
-
-        int percent = ((h + c + g + q + p) * 20).clamp(0, 100);
-        String status = percent >= 100 ? 'completed' : 'in_progress';
-
-        if (rows.isEmpty) {
-          await db.insert('user_module_progress', {
-            'user_id': userId,
-            'module_id': moduleId,
-            'status': status,
-            'progress_percent': percent,
-            'history_done': h,
-            'character_done': c,
-            'gallery_done': g,
-            'quiz_done': 1,
-            'practice_done': p,
-            'last_accessed_at': now,
-          });
-        } else {
-          await db.update(
-            'user_module_progress',
-            {
-              'status': status,
-              'progress_percent': percent,
-              'quiz_done': 1,
-              'last_accessed_at': now,
-              if (percent >= 100) 'completed_at': now,
-            },
-            where: 'user_id = ? AND module_id = ?',
-            whereArgs: [userId, moduleId],
-          );
-        }
       }
     } catch (e) {
       debugPrint('Error saveQuizAttempt: $e');
@@ -605,97 +834,175 @@ class DatabaseHelper {
   Future<void> savePracticeAttempt({
     required int userId,
     required int moduleId,
+    int? topMotifId,
     required double confidence,
     required bool passed,
     String? imagePath,
+    bool isSynced = false,
   }) async {
     final db = await database;
     if (db == null) return;
     try {
       final now = DateTime.now().toIso8601String();
+      int? effectiveMotifId = topMotifId;
+      if (effectiveMotifId == null) {
+        final modRows = await db.query('modules', columns: ['motif_id'], where: 'id = ?', whereArgs: [moduleId]);
+        if (modRows.isNotEmpty) {
+          effectiveMotifId = modRows.first['motif_id'] as int?;
+        }
+      }
+
+      // Bersihkan scan praktikum lama modul ini dan hapus file foto lama jika beda (1 rekaman per modul)
+      final oldScans = await db.query(
+        'scans',
+        columns: ['id', 'image_path'],
+        where: 'user_id = ? AND module_id = ? AND scan_type = ?',
+        whereArgs: [userId, moduleId, 'kuismu'],
+      );
+
+      for (var old in oldScans) {
+        final oldImg = old['image_path'] as String?;
+        if (oldImg != null && oldImg.isNotEmpty && oldImg != imagePath && !kIsWeb && !oldImg.startsWith('http')) {
+          try {
+            final f = File(oldImg);
+            if (f.existsSync()) {
+              f.deleteSync();
+            }
+          } catch (_) {}
+        }
+      }
+
+      await db.delete(
+        'scans',
+        where: 'user_id = ? AND module_id = ? AND scan_type = ?',
+        whereArgs: [userId, moduleId, 'kuismu'],
+      );
+
       await db.insert('scans', {
         'user_id': userId,
         'scan_type': 'kuismu',
         'module_id': moduleId,
+        'top_motif_id': effectiveMotifId,
         'image_path': imagePath,
         'confidence': confidence,
         'fit_score': confidence,
         'passed': passed ? 1 : 0,
         'inference_time_ms': 120,
         'created_at': now,
+        'is_synced': isSynced ? 1 : 0,
       });
 
-      if (passed) {
-        final rows = await db.query(
+      final intScore = (confidence > 1.0 ? confidence : confidence * 100).round().clamp(0, 100);
+
+      final rows = await db.query(
+        'user_module_progress',
+        where: 'user_id = ? AND module_id = ?',
+        whereArgs: [userId, moduleId],
+      );
+
+      int h = 0, c = 0, g = 0, q = 0;
+      int? qS;
+      int passScore = 70;
+      if (rows.isNotEmpty) {
+        h = rows.first['history_done'] as int? ?? 0;
+        c = rows.first['character_done'] as int? ?? 0;
+        g = rows.first['gallery_done'] as int? ?? 0;
+        q = rows.first['quiz_done'] as int? ?? 0;
+        qS = rows.first['quiz_score'] as int?;
+        passScore = rows.first['passing_score'] as int? ?? 70;
+      }
+
+      int p = passed ? 1 : 0;
+      int completedComponents = (h == 1 ? 1 : 0) +
+          (c == 1 ? 1 : 0) +
+          (g == 1 ? 1 : 0) +
+          (q == 1 && (qS ?? 0) >= passScore ? 1 : 0) +
+          (p == 1 && intScore >= passScore ? 1 : 0);
+      int percent = (completedComponents * 20).clamp(0, 100);
+      String status = percent >= 100 ? 'completed' : (percent > 0 ? 'in_progress' : 'not_started');
+      int isPassed = percent >= 100 ? 1 : 0;
+
+      if (rows.isEmpty) {
+        await db.insert('user_module_progress', {
+          'user_id': userId,
+          'module_id': moduleId,
+          'status': status,
+          'progress_percent': percent,
+          'history_done': h,
+          'character_done': c,
+          'gallery_done': g,
+          'quiz_done': q,
+          'practice_done': p,
+          'quiz_score': qS,
+          'practice_score': intScore,
+          'passing_score': passScore,
+          'is_passed': isPassed,
+          'last_accessed_at': now,
+          'is_synced': isSynced ? 1 : 0,
+        });
+      } else {
+        await db.update(
           'user_module_progress',
+          {
+            'status': status,
+            'progress_percent': percent,
+            'practice_done': p,
+            'practice_score': intScore,
+            'is_passed': isPassed,
+            'last_accessed_at': now,
+            if (percent >= 100) 'completed_at': now,
+            'is_synced': isSynced ? 1 : 0,
+          },
           where: 'user_id = ? AND module_id = ?',
           whereArgs: [userId, moduleId],
         );
-
-        int h = 1, c = 1, g = 1, q = 0, p = 1;
-        if (rows.isNotEmpty) {
-          h = rows.first['history_done'] as int? ?? 1;
-          c = rows.first['character_done'] as int? ?? 1;
-          g = rows.first['gallery_done'] as int? ?? 1;
-          q = rows.first['quiz_done'] as int? ?? 0;
-        }
-
-        int percent = ((h + c + g + q + p) * 20).clamp(0, 100);
-        String status = percent >= 100 ? 'completed' : 'in_progress';
-
-        if (rows.isEmpty) {
-          await db.insert('user_module_progress', {
-            'user_id': userId,
-            'module_id': moduleId,
-            'status': status,
-            'progress_percent': percent,
-            'history_done': h,
-            'character_done': c,
-            'gallery_done': g,
-            'quiz_done': q,
-            'practice_done': 1,
-            'last_accessed_at': now,
-          });
-        } else {
-          await db.update(
-            'user_module_progress',
-            {
-              'status': status,
-              'progress_percent': percent,
-              'practice_done': 1,
-              'last_accessed_at': now,
-              if (percent >= 100) 'completed_at': now,
-            },
-            where: 'user_id = ? AND module_id = ?',
-            whereArgs: [userId, moduleId],
-          );
-        }
       }
     } catch (e) {
       debugPrint('Error savePracticeAttempt: $e');
     }
   }
 
-  Future<List<ScanHistoryModel>> getScanHistories(int userId) async {
+  Future<List<ScanHistoryModel>> getScanHistories(int? userId, {String? userEmail}) async {
     final db = await database;
     if (db == null) return [];
     try {
+      int? effectiveUserId = userId;
+      if (userEmail != null && userEmail.trim().isNotEmpty) {
+        final u = await db.query(
+          'users',
+          columns: ['id'],
+          where: 'LOWER(email) = ?',
+          whereArgs: [userEmail.trim().toLowerCase()],
+          limit: 1,
+        );
+        if (u.isNotEmpty) {
+          effectiveUserId = u.first['id'] as int;
+        }
+      }
+      if (effectiveUserId == null) return [];
+
       final rows = await db.rawQuery('''
-        SELECT s.id, s.scan_type, s.confidence, s.passed, s.created_at, b.name as motif_name
+        SELECT s.id, s.scan_type, s.confidence, s.fit_score, s.passed, s.created_at, s.image_path, s.module_id,
+               COALESCE(b.name, m_b.name, m.title, 'Motif Batik') as motif_name
         FROM scans s
         LEFT JOIN batik_motifs b ON s.top_motif_id = b.id
+        LEFT JOIN modules m ON s.module_id = m.id
+        LEFT JOIN batik_motifs m_b ON m.motif_id = m_b.id
         WHERE s.user_id = ?
         ORDER BY s.id DESC
-      ''', [userId]);
+      ''', [effectiveUserId]);
 
       return rows.map((r) {
+        final rawScore = (r['fit_score'] ?? r['confidence'] ?? 0.0) as num;
         return ScanHistoryModel(
           id: r['id'] as int,
           scanType: r['scan_type'] as String? ?? 'universal',
           motifName: r['motif_name'] as String?,
-          score: (r['confidence'] as num? ?? 0.0).toDouble(),
+          score: rawScore.toDouble(),
           passed: (r['passed'] as int? ?? 0) == 1,
           createdAt: r['created_at'] as String? ?? '',
+          imagePath: r['image_path'] as String?,
+          moduleId: r['module_id'] as int?,
         );
       }).toList();
     } catch (e) {
@@ -704,12 +1011,43 @@ class DatabaseHelper {
     }
   }
 
+  /// Ambil riwayat percobaan kuis praktikum dari SQLite lokal
+  Future<List<Map<String, dynamic>>> getPracticeAttempts({
+    required int userId,
+    int? moduleId,
+  }) async {
+    final db = await database;
+    if (db == null) return [];
+    try {
+      String query = '''
+        SELECT s.id, s.scan_type, s.module_id, s.confidence, s.fit_score, s.passed, 
+               s.created_at, s.image_path,
+               COALESCE(b.name, m_b.name, m.title, 'Batik Praktikum') as motif_name,
+               m.title as module_title
+        FROM scans s
+        LEFT JOIN modules m ON s.module_id = m.id
+        LEFT JOIN batik_motifs b ON s.top_motif_id = b.id
+        LEFT JOIN batik_motifs m_b ON m.motif_id = m_b.id
+        WHERE s.user_id = ? AND (s.scan_type = 'kuismu' OR s.module_id IS NOT NULL)
+      ''';
+      List<dynamic> args = [userId];
+      if (moduleId != null) {
+        query += ' AND s.module_id = ?';
+        args.add(moduleId);
+      }
+      query += ' ORDER BY s.id DESC';
+
+      final rows = await db.rawQuery(query, args);
+      return rows;
+    } catch (e) {
+      debugPrint('Error getPracticeAttempts: $e');
+      return [];
+    }
+  }
+
   /// Cek apakah email terdaftar dalam tabel users
   Future<bool> checkEmailExists(String email) async {
     final clean = email.trim().toLowerCase();
-    if (clean == 'kenalibatikmu@gmail.com' || clean == 'sekar@batikmu.id') {
-      return true;
-    }
     final db = await database;
     if (db == null) return false;
     try {
@@ -739,43 +1077,7 @@ class DatabaseHelper {
           limit: 1,
         );
         if (res.isNotEmpty) return res.first;
-
-        // Auto-insert akun default jika belum ada di database lokal
-        if (clean == 'kenalibatikmu@gmail.com') {
-          final now = DateTime.now().toIso8601String();
-          final id = await db.insert('users', {
-            'name': 'Kenali Batikmu',
-            'email': 'kenalibatikmu@gmail.com',
-            'password_hash': PasswordHasher.hashPassword('kenalibatikmupbl'),
-            'created_at': now,
-            'updated_at': now,
-          });
-          return {
-            'id': id,
-            'name': 'Kenali Batikmu',
-            'email': 'kenalibatikmu@gmail.com',
-            'password_hash': PasswordHasher.hashPassword('kenalibatikmupbl'),
-          };
-        }
       } catch (_) {}
-    }
-
-    // Fallback data in-memory jika SQLite tidak aktif
-    if (clean == 'kenalibatikmu@gmail.com') {
-      return {
-        'id': 2,
-        'name': 'Kenali Batikmu',
-        'email': 'kenalibatikmu@gmail.com',
-        'password_hash': PasswordHasher.hashPassword('kenalibatikmupbl'),
-      };
-    }
-    if (clean == 'sekar@batikmu.id') {
-      return {
-        'id': 1,
-        'name': 'Sekar Ayu Kinanti',
-        'email': 'sekar@batikmu.id',
-        'password_hash': PasswordHasher.hashPassword('Batikmu123#'),
-      };
     }
     return null;
   }
@@ -796,18 +1098,6 @@ class DatabaseHelper {
         where: 'LOWER(email) = ?',
         whereArgs: [clean],
       );
-      if (count == 0) {
-        await db.insert('users', {
-          'name': clean.startsWith('kenalibatikmu')
-              ? 'Kenali Batikmu'
-              : (clean.startsWith('sekar') ? 'Sekar Ayu Kinanti' : 'Sahabat Batik'),
-          'email': clean,
-          'password_hash': newPasswordHash,
-          'created_at': now,
-          'updated_at': now,
-        });
-        return true;
-      }
       return count > 0;
     } catch (_) {
       return false;
@@ -816,6 +1106,7 @@ class DatabaseHelper {
 
   /// Menambahkan akun pengguna baru ke SQLite lokal
   Future<int> insertUser({
+    int? id,
     required String name,
     required String email,
     required String passwordHash,
@@ -825,21 +1116,42 @@ class DatabaseHelper {
     final db = await database;
     if (db == null) return -1;
     try {
+      final cleanEmail = email.trim().toLowerCase();
       final now = DateTime.now().toIso8601String();
-      final id = await db.insert(
+      final data = <String, dynamic>{
+        'name': name.trim(),
+        'email': cleanEmail,
+        'phone': phone?.trim(),
+        'password_hash': passwordHash,
+        'profile_image_path': profileImagePath,
+        'created_at': now,
+        'updated_at': now,
+      };
+      if (id != null) {
+        data['id'] = id;
+      }
+
+      // Cek apakah user dengan email ini sudah ada di SQLite
+      final existing = await db.query(
         'users',
-        {
-          'name': name.trim(),
-          'email': email.trim().toLowerCase(),
-          'phone': phone?.trim(),
-          'password_hash': passwordHash,
-          'profile_image_path': profileImagePath,
-          'created_at': now,
-          'updated_at': now,
-        },
-        conflictAlgorithm: ConflictAlgorithm.replace,
+        columns: ['id'],
+        where: 'LOWER(email) = ?',
+        whereArgs: [cleanEmail],
+        limit: 1,
       );
-      return id;
+
+      if (existing.isNotEmpty) {
+        final existingId = existing.first['id'] as int;
+        await db.update('users', data, where: 'LOWER(email) = ?', whereArgs: [cleanEmail]);
+        return id ?? existingId;
+      } else {
+        final newId = await db.insert(
+          'users',
+          data,
+          conflictAlgorithm: ConflictAlgorithm.replace,
+        );
+        return newId;
+      }
     } catch (e) {
       debugPrint('DatabaseHelper insertUser error: $e');
       return -1;
@@ -885,14 +1197,29 @@ class DatabaseHelper {
   // ─────────────────────────────────────────────────────────────────────────
 
   /// Ambil seluruh progres modul untuk satu pengguna tertentu
-  Future<List<Map<String, dynamic>>> getUserModuleProgressList(int userId) async {
+  Future<List<Map<String, dynamic>>> getUserModuleProgressList(int userId, {String? userEmail}) async {
     final db = await database;
     if (db == null) return [];
     try {
+      int effectiveUserId = userId;
+      if (userEmail != null && userEmail.trim().isNotEmpty) {
+        final u = await db.query(
+          'users',
+          columns: ['id'],
+          where: 'LOWER(email) = ?',
+          whereArgs: [userEmail.trim().toLowerCase()],
+          limit: 1,
+        );
+        if (u.isNotEmpty) {
+          effectiveUserId = u.first['id'] as int;
+        }
+      }
+
       return await db.query(
         'user_module_progress',
         where: 'user_id = ?',
-        whereArgs: [userId],
+        whereArgs: [effectiveUserId],
+        orderBy: 'module_id ASC',
       );
     } catch (e) {
       debugPrint('Info query user_module_progress: $e');
@@ -928,6 +1255,11 @@ class DatabaseHelper {
     required bool galleryDone,
     required bool quizDone,
     required bool practiceDone,
+    int? quizScore,
+    int? practiceScore,
+    int passingScore = 70,
+    bool isPassed = false,
+    bool isSynced = false,
   }) async {
     final db = await database;
     if (db == null) return false;
@@ -949,8 +1281,13 @@ class DatabaseHelper {
           'gallery_done': galleryDone ? 1 : 0,
           'quiz_done': quizDone ? 1 : 0,
           'practice_done': practiceDone ? 1 : 0,
+          'quiz_score': quizScore,
+          'practice_score': practiceScore,
+          'passing_score': passingScore,
+          'is_passed': isPassed ? 1 : 0,
           'completed_at': progressPercent >= 100 ? now : null,
           'last_accessed_at': now,
+          'is_synced': isSynced ? 1 : 0,
         },
         conflictAlgorithm: ConflictAlgorithm.replace,
       );
@@ -958,6 +1295,109 @@ class DatabaseHelper {
     } catch (e) {
       debugPrint('Info upsert user_module_progress: $e');
       return false;
+    }
+  }
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // MANAJEMEN ANTREAN SINKRONISASI OFFLINE (OFFLINE QUEUE SYNC)
+  // Menjamin seluruh aktivitas offline disinkronkan saat online kembali
+  // ─────────────────────────────────────────────────────────────────────────
+
+  /// Ambil seluruh riwayat kuis teori yang belum tersinkronkan ke cloud
+  Future<List<Map<String, dynamic>>> getUnsyncedQuizAttempts(int userId) async {
+    final db = await database;
+    if (db == null) return [];
+    try {
+      return await db.query(
+        'quiz_attempts',
+        where: 'user_id = ? AND is_synced = 0',
+        whereArgs: [userId],
+        orderBy: 'id ASC',
+      );
+    } catch (e) {
+      debugPrint('Error getUnsyncedQuizAttempts: $e');
+      return [];
+    }
+  }
+
+  /// Tandai riwayat kuis teori sebagai sudah tersinkronkan
+  Future<void> markQuizAttemptSynced(int id) async {
+    final db = await database;
+    if (db == null) return;
+    try {
+      await db.update(
+        'quiz_attempts',
+        {'is_synced': 1},
+        where: 'id = ?',
+        whereArgs: [id],
+      );
+    } catch (e) {
+      debugPrint('Error markQuizAttemptSynced: $e');
+    }
+  }
+
+  /// Ambil seluruh pindaian/praktikum yang belum tersinkronkan ke cloud
+  Future<List<Map<String, dynamic>>> getUnsyncedScans(int userId) async {
+    final db = await database;
+    if (db == null) return [];
+    try {
+      return await db.query(
+        'scans',
+        where: 'user_id = ? AND is_synced = 0',
+        whereArgs: [userId],
+        orderBy: 'id ASC',
+      );
+    } catch (e) {
+      debugPrint('Error getUnsyncedScans: $e');
+      return [];
+    }
+  }
+
+  /// Tandai pindaian/praktikum sebagai sudah tersinkronkan
+  Future<void> markScanSynced(int id) async {
+    final db = await database;
+    if (db == null) return;
+    try {
+      await db.update(
+        'scans',
+        {'is_synced': 1},
+        where: 'id = ?',
+        whereArgs: [id],
+      );
+    } catch (e) {
+      debugPrint('Error markScanSynced: $e');
+    }
+  }
+
+  /// Ambil progres modul yang belum tersinkronkan ke cloud
+  Future<List<Map<String, dynamic>>> getUnsyncedUserModuleProgress(int userId) async {
+    final db = await database;
+    if (db == null) return [];
+    try {
+      return await db.query(
+        'user_module_progress',
+        where: 'user_id = ? AND is_synced = 0',
+        whereArgs: [userId],
+      );
+    } catch (e) {
+      debugPrint('Error getUnsyncedUserModuleProgress: $e');
+      return [];
+    }
+  }
+
+  /// Tandai progres modul sebagai sudah tersinkronkan
+  Future<void> markUserModuleProgressSynced(int userId, int moduleId) async {
+    final db = await database;
+    if (db == null) return;
+    try {
+      await db.update(
+        'user_module_progress',
+        {'is_synced': 1},
+        where: 'user_id = ? AND module_id = ?',
+        whereArgs: [userId, moduleId],
+      );
+    } catch (e) {
+      debugPrint('Error markUserModuleProgressSynced: $e');
     }
   }
 }

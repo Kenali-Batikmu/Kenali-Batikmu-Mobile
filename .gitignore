@@ -43,6 +43,9 @@ app.*.map.json
 /android/app/profile
 /android/app/release
 /android/local.properties
+.gradle/
+android/build/
+android/.gradle/
 
 # Android Keystore & Sensitive Signing Files
 *.jks

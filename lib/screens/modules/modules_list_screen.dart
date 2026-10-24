@@ -1,11 +1,10 @@
-import 'dart:io';
-import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import '../../core/theme/app_theme.dart';
 import '../../models/app_models.dart';
 import '../../providers/app_provider.dart';
+import '../../widgets/kb_header_bar.dart';
 import '../profile/profile_screen.dart';
 import 'module_detail_screen.dart';
 
@@ -46,13 +45,6 @@ class _ModulesListScreenState extends State<ModulesListScreen> {
     _searchFocus.dispose();
     _scrollController.dispose();
     super.dispose();
-  }
-
-  /// Foto profil: file lokal (Android/iOS) atau URL/blob (web)
-  ImageProvider? _avatarImage(String? path) {
-    if (path == null || path.isEmpty) return null;
-    if (kIsWeb || path.startsWith('http')) return NetworkImage(path);
-    return FileImage(File(path));
   }
 
   void _showSortModal(BuildContext context, bool isDark) {
@@ -283,142 +275,31 @@ class _ModulesListScreenState extends State<ModulesListScreen> {
     );
   }
 
-  // ── Top bar: logo, search, profil (semua tinggi 46, bayangan seragam) ──
-  List<BoxShadow> get _softShadow => [
-        BoxShadow(
-          color: Colors.black.withValues(alpha: 0.06),
-          blurRadius: 12,
-          offset: const Offset(0, 4),
-        ),
-      ];
-
+  // ── Top bar: logo, search, profil (menggunakan KbHeaderBar terpadu) ──
   Widget _buildTopBar(bool isDark, UserModel? user) {
-    final avatarImage = _avatarImage(user?.profileImagePath);
-    final initial = (user?.name.isNotEmpty ?? false) ? user!.name[0].toUpperCase() : 'S';
-
     return Container(
       height: _topBarHeight,
-      padding: const EdgeInsets.symmetric(horizontal: 16),
       alignment: Alignment.center,
-      child: Row(
-        children: [
-          // Logo KB
-          Container(
-            width: 46,
-            height: 46,
-            decoration: BoxDecoration(
-              color: Colors.white,
-              shape: BoxShape.circle,
-              boxShadow: _softShadow,
-            ),
-            child: ClipOval(
-              child: Image.asset('assets/images/kb_logo.jpeg', fit: BoxFit.cover),
-            ),
-          ),
-          const SizedBox(width: 10),
-
-          // Search bar
-          Expanded(
-            child: AnimatedContainer(
-              duration: const Duration(milliseconds: 200),
-              height: 46,
-              padding: const EdgeInsets.only(left: 6, right: 14),
-              decoration: BoxDecoration(
-                color: isDark ? AppTheme.darkSurface : const Color(0xFFFFFDF8),
-                borderRadius: BorderRadius.circular(23),
-                border: Border.all(
-                  color: _searchFocus.hasFocus ? AppTheme.accentGold : const Color(0xFFE5D3B8),
-                  width: _searchFocus.hasFocus ? 1.5 : 1,
-                ),
-                boxShadow: _softShadow,
-              ),
-              child: Row(
-                children: [
-                  // Ikon dalam lingkaran emas muda
-                  Container(
-                    width: 34,
-                    height: 34,
-                    decoration: const BoxDecoration(
-                      color: Color(0xFFF4E4C4),
-                      shape: BoxShape.circle,
-                    ),
-                    child: const Icon(Icons.search_rounded, color: Color(0xFF7B3A1A), size: 19),
-                  ),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: TextField(
-                      controller: _searchCtrl,
-                      focusNode: _searchFocus,
-                      cursorColor: const Color(0xFF7B3A1A),
-                      onChanged: (val) => setState(() => _searchQuery = val),
-                      textAlignVertical: TextAlignVertical.center,
-                      style: AppTheme.inter(fontSize: 13),
-                      decoration: InputDecoration(
-                        hintText: 'Cari modul batik...',
-                        hintStyle: AppTheme.inter(fontSize: 13, color: const Color(0xFFA59284)),
-                        border: InputBorder.none,
-                        isDense: true,
-                        contentPadding: EdgeInsets.zero,
-                      ),
-                    ),
-                  ),
-                  if (_searchQuery.isNotEmpty)
-                    GestureDetector(
-                      onTap: () {
-                        _searchCtrl.clear();
-                        setState(() => _searchQuery = '');
-                      },
-                      child: const Padding(
-                        padding: EdgeInsets.only(left: 6),
-                        child: Icon(Icons.close_rounded, size: 18, color: Color(0xFF8A6D56)),
-                      ),
-                    ),
-                ],
-              ),
-            ),
-          ),
-          const SizedBox(width: 10),
-
-          // Profil (di kanan paling ujung) -> membuka ProfileScreen
-          GestureDetector(
-            onTap: () {
-              final open = widget.onOpenProfile;
-              if (open != null) {
-                open(); // pindah tab Profil, footer tetap ada
-              } else {
-                // Cadangan bila layar ini dipakai tanpa MainNavigationScreen
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(builder: (_) => const ProfileScreen()),
-                );
-              }
-            },
-            child: Container(
-              width: 46,
-              height: 46,
-              alignment: Alignment.center,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                color: AppTheme.primary,
-                border: Border.all(color: AppTheme.accentGold, width: 2),
-                boxShadow: _softShadow,
-                image: avatarImage != null
-                    ? DecorationImage(image: avatarImage, fit: BoxFit.cover)
-                    : null,
-              ),
-              child: avatarImage == null
-                  ? Text(
-                      initial,
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 18,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    )
-                  : null,
-            ),
-          ),
-        ],
+      child: KbHeaderBar(
+        user: user,
+        onOpenProfile: () {
+          final open = widget.onOpenProfile;
+          if (open != null) {
+            open(); // pindah tab Profil, footer tetap ada
+          } else {
+            // Cadangan bila layar ini dipakai tanpa MainNavigationScreen
+            Navigator.push(
+              context,
+              MaterialPageRoute(builder: (_) => const ProfileScreen()),
+            );
+          }
+        },
+        showSearch: true,
+        searchController: _searchCtrl,
+        searchFocusNode: _searchFocus,
+        onSearchChanged: (val) => setState(() => _searchQuery = val),
+        onSearchClear: () => setState(() => _searchQuery = ''),
+        padding: const EdgeInsets.symmetric(horizontal: 16),
       ),
     );
   }
@@ -479,7 +360,7 @@ class _ModulesListScreenState extends State<ModulesListScreen> {
 }
 
 // ══════════════════════════════════════════════════════════════════════════
-//  KARTU MODUL — header coklat tua bermotif kawung + tepi bergelombang emas
+//  KARTU MODUL - header coklat tua bermotif kawung + tepi bergelombang emas
 // ══════════════════════════════════════════════════════════════════════════
 
 const Color _kBrown = Color(0xFF3E2418); // coklat tua header
@@ -635,12 +516,23 @@ class KbModuleCard extends StatelessWidget {
   Widget _buildBody(BuildContext context, bool isDone, bool isWorking, num progress) {
     final fraction = (progress / 100).clamp(0.0, 1.0).toDouble();
 
-    final theory = isDone
-        ? (module.id == 1 ? 'Nilai Teori: 80%' : 'Nilai Teori: 100%')
-        : (module.quizDone ? 'Nilai Teori: 80%' : 'Nilai Teori: 0%');
-    final practice = isDone
-        ? 'Nilai Praktikum: 100%'
-        : (module.practiceDone ? 'Nilai Praktikum: 70%' : 'Nilai Praktikum: 0%');
+    final String theory;
+    if (module.quizScore != null) {
+      theory = 'Nilai Teori: ${module.quizScore}%';
+    } else if (module.quizDone) {
+      theory = 'Nilai Teori: 100%';
+    } else {
+      theory = 'Nilai Teori: -';
+    }
+
+    final String practice;
+    if (module.practiceScore != null) {
+      practice = 'Nilai Praktikum: ${module.practiceScore}%';
+    } else if (module.practiceDone) {
+      practice = 'Nilai Praktikum: 100%';
+    } else {
+      practice = 'Nilai Praktikum: -';
+    }
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,

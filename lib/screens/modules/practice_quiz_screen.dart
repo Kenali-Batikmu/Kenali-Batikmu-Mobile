@@ -4,16 +4,25 @@ import 'package:camera/camera.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:path_provider/path_provider.dart';
 import 'package:provider/provider.dart';
 
 import '../../core/theme/app_theme.dart';
 import '../../models/app_models.dart';
 import '../../providers/app_provider.dart';
+import '../../core/services/classifier_service.dart';
 
 class PracticeQuizScreen extends StatefulWidget {
   final ModuleModel module;
+  final bool initialShowResult;
+  final ScanHistoryModel? historyData;
 
-  const PracticeQuizScreen({super.key, required this.module});
+  const PracticeQuizScreen({
+    super.key,
+    required this.module,
+    this.initialShowResult = false,
+    this.historyData,
+  });
 
   @override
   State<PracticeQuizScreen> createState() => _PracticeQuizScreenState();
@@ -25,6 +34,7 @@ class _PracticeQuizScreenState extends State<PracticeQuizScreen>
   List<CameraDescription> _cams = [];
   int _camIdx = 0;
   File? _photo;
+  Uint8List? _photoBytes;
   bool _flash = false;
   bool _grid = false;
   bool _isCamAvailable = true;
@@ -32,18 +42,82 @@ class _PracticeQuizScreenState extends State<PracticeQuizScreen>
   bool _hasResult = false;
   String? _camErr;
 
+  // Hasil evaluasi inferensi TFLite On-Device (1 Hasil Tunggal)
+  double _evaluatedScore = 0.70;
+  bool _evaluatedPassed = true;
+  String _evaluatedMotifName = '';
+  String? _historyImagePath;
+  String? _historyTime;
+
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
+
+    if (widget.initialShowResult) {
+      _hasResult = true;
+      final hist = widget.historyData;
+      if (hist != null) {
+        _evaluatedScore = hist.score;
+        _evaluatedPassed = hist.passed;
+        _evaluatedMotifName = hist.motifName ?? widget.module.title.replaceAll('\n', ' ');
+        _historyImagePath = hist.imagePath;
+        _historyTime = hist.createdAt;
+      } else {
+        final double score = widget.module.practiceScore != null
+            ? (widget.module.practiceScore! > 1.0
+                ? widget.module.practiceScore! / 100.0
+                : widget.module.practiceScore!.toDouble())
+            : 0.70;
+        _evaluatedScore = score;
+        _evaluatedPassed = widget.module.practiceDone || score >= 0.70;
+        _evaluatedMotifName = widget.module.title.replaceAll('\n', ' ');
+      }
+
+      // Jika riwayat path foto kosong, cek apakah file lokal tersimpan di direktori aplikasi
+      if ((_historyImagePath == null || _historyImagePath!.isEmpty) && !kIsWeb) {
+        getApplicationDocumentsDirectory().then((docsDir) {
+          final f = File('${docsDir.path}/practice_mod_${widget.module.id}.jpg');
+          if (f.existsSync() && mounted) {
+            setState(() {
+              _historyImagePath = f.path;
+            });
+          }
+        }).catchError((_) {});
+      }
+    }
+
     _initCam();
   }
 
   @override
   void dispose() {
+    _cleanTemporaryPhoto();
     WidgetsBinding.instance.removeObserver(this);
     _cam?.dispose();
     super.dispose();
+  }
+
+  /// Menghapus file foto sementara dari disk cache (Zero Storage Leak)
+  /// File permanen 'practice_mod_{moduleId}.jpg' TIDAK dihapus agar riwayat tetap terbaca
+  void _cleanTemporaryPhoto() {
+    _photoBytes = null;
+    if (_photo != null) {
+      final f = _photo;
+      try {
+        if (!kIsWeb && f != null && f.existsSync()) {
+          final isPermanent = f.path.contains('practice_mod_');
+          if (!isPermanent) {
+            f.deleteSync();
+          }
+        }
+      } catch (_) {}
+      if (mounted) {
+        setState(() => _photo = null);
+      } else {
+        _photo = null;
+      }
+    }
   }
 
   @override
@@ -168,7 +242,13 @@ class _PracticeQuizScreenState extends State<PracticeQuizScreen>
     if (c != null && c.value.isInitialized && !c.value.isTakingPicture) {
       try {
         final x = await c.takePicture();
-        if (mounted) setState(() => _photo = File(x.path));
+        final bytes = await x.readAsBytes();
+        if (mounted) {
+          setState(() {
+            _photoBytes = bytes;
+            if (!kIsWeb) _photo = File(x.path);
+          });
+        }
         return;
       } catch (e) {
         debugPrint('Error takePicture praktikum: $e');
@@ -183,7 +263,11 @@ class _PracticeQuizScreenState extends State<PracticeQuizScreen>
     try {
       final x = await ImagePicker().pickImage(source: ImageSource.gallery);
       if (x != null && mounted) {
-        setState(() => _photo = File(x.path));
+        final bytes = await x.readAsBytes();
+        setState(() {
+          _photoBytes = bytes;
+          if (!kIsWeb) _photo = File(x.path);
+        });
       }
     } catch (e) {
       _snack('Gagal memilih gambar dari galeri: $e');
@@ -192,32 +276,90 @@ class _PracticeQuizScreenState extends State<PracticeQuizScreen>
 
   Future<void> _submitAssessment() async {
     // Jika belum ada foto & kamera aktif, ambil foto otomatis
-    if (_photo == null && _cam != null && _cam!.value.isInitialized) {
+    if (_photo == null && _photoBytes == null && _cam != null && _cam!.value.isInitialized) {
       await _shootPhoto();
     }
 
     // Jika kamera tidak ada & foto belum dipilih, minta pilih dari galeri
-    if (_photo == null && (_cam == null || !_cam!.value.isInitialized)) {
+    if (_photo == null && _photoBytes == null && (_cam == null || !_cam!.value.isInitialized)) {
       await _pickFromGallery();
     }
 
-    if (_photo == null) {
+    if (_photo == null && _photoBytes == null) {
       _snack('Ambil foto karyamu atau unggah gambar dari galeri terlebih dahulu.');
       return;
     }
 
+    if (!mounted) return;
     setState(() => _isAnalyzing = true);
 
     try {
-      await Future.delayed(const Duration(milliseconds: 750));
+      if (!mounted) return;
+      final provider = Provider.of<AppProvider>(context, listen: false);
+      final motifs = provider.motifs;
+
+      // Ambil motif target dari modul
+      final targetMotif = motifs.firstWhere(
+        (m) => m.id == widget.module.motifId,
+        orElse: () => motifs.isNotEmpty
+            ? motifs.first
+            : BatikMotifModel(
+                id: widget.module.motifId,
+                name: widget.module.title,
+                slug: widget.module.title.toLowerCase().replaceAll(' ', '_'),
+                originRegion: 'Nusantara',
+                shortDescription: '',
+                mlClassIndex: 0,
+              ),
+      );
+
+      // Jalankan klasifikasi TFLite untuk 1 hasil kecocokan spesifik terhadap modul (raw bytes aman di Web & Android)
+      final evalResult = await BatikClassifierService.instance.classifyForModule(
+        _photoBytes ?? _photo!,
+        targetMotifId: widget.module.motifId,
+        targetMotifSlug: targetMotif.slug,
+        targetModuleTitle: widget.module.title,
+        availableMotifs: motifs,
+      );
+
+      final fitScore = evalResult?.confidence ?? 0.70;
+      final passingThreshold = (widget.module.passingScore) / 100.0;
+      final passed = fitScore >= (passingThreshold > 0 ? passingThreshold : 0.70);
+      final motifName = evalResult?.motifName ?? widget.module.title.replaceAll('\n', ' ');
+
+      String? savedPermanentPath;
+      if (!kIsWeb) {
+        try {
+          final docsDir = await getApplicationDocumentsDirectory();
+          final permanentFile = File('${docsDir.path}/practice_mod_${widget.module.id}.jpg');
+          if (_photoBytes != null) {
+            await permanentFile.writeAsBytes(_photoBytes!, flush: true);
+          } else if (_photo != null && _photo!.existsSync()) {
+            await _photo!.copy(permanentFile.path);
+          }
+          savedPermanentPath = permanentFile.path;
+          _historyImagePath = permanentFile.path;
+          _photo = permanentFile;
+        } catch (e) {
+          debugPrint('Gagal menyimpan file permanen praktikum: $e');
+        }
+      }
+
       if (!mounted) return;
 
-      final provider = Provider.of<AppProvider>(context, listen: false);
-      provider.savePracticeResult(widget.module.id, 0.70, true, imagePath: _photo?.path);
+      provider.savePracticeResult(
+        widget.module.id,
+        fitScore,
+        passed,
+        imagePath: savedPermanentPath ?? _photo?.path,
+      );
 
       setState(() {
         _isAnalyzing = false;
         _hasResult = true;
+        _evaluatedScore = fitScore;
+        _evaluatedPassed = passed;
+        _evaluatedMotifName = motifName;
       });
     } catch (e) {
       if (mounted) setState(() => _isAnalyzing = false);
@@ -226,16 +368,24 @@ class _PracticeQuizScreenState extends State<PracticeQuizScreen>
   }
 
   Widget _buildViewfinderContent(bool isDark) {
-    if (_photo != null) {
+    if (_photo != null || _photoBytes != null) {
       return Stack(
         fit: StackFit.expand,
         children: [
-          kIsWeb ? Image.network(_photo!.path, fit: BoxFit.cover) : Image.file(_photo!, fit: BoxFit.cover),
+          if (_photoBytes != null)
+            Image.memory(_photoBytes!, fit: BoxFit.cover)
+          else if (kIsWeb && _photo != null)
+            Image.network(_photo!.path, fit: BoxFit.cover)
+          else if (_photo != null)
+            Image.file(_photo!, fit: BoxFit.cover),
           Positioned(
             top: 12,
             right: 12,
             child: GestureDetector(
-              onTap: () => setState(() => _photo = null),
+              onTap: () => setState(() {
+                _photo = null;
+                _photoBytes = null;
+              }),
               child: Container(
                 padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                 decoration: BoxDecoration(
@@ -617,6 +767,47 @@ class _PracticeQuizScreenState extends State<PracticeQuizScreen>
     );
   }
 
+  Widget _buildPracticePhotoThumbnail() {
+    Widget? imageWidget;
+
+    if (_photoBytes != null) {
+      imageWidget = Image.memory(_photoBytes!, fit: BoxFit.cover);
+    } else if (_photo != null) {
+      if (kIsWeb) {
+        imageWidget = Image.network(_photo!.path, fit: BoxFit.cover);
+      } else if (_photo!.existsSync()) {
+        imageWidget = Image.file(_photo!, fit: BoxFit.cover);
+      }
+    } else if (_historyImagePath != null && _historyImagePath!.isNotEmpty) {
+      if (_historyImagePath!.startsWith('http://') || _historyImagePath!.startsWith('https://')) {
+        imageWidget = Image.network(_historyImagePath!, fit: BoxFit.cover);
+      } else if (!kIsWeb && File(_historyImagePath!).existsSync()) {
+        imageWidget = Image.file(File(_historyImagePath!), fit: BoxFit.cover);
+      }
+    }
+
+    if (imageWidget != null) {
+      return ClipRRect(
+        borderRadius: BorderRadius.circular(15),
+        child: imageWidget,
+      );
+    }
+
+    return const Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(Icons.check, color: Colors.white, size: 18),
+          Text(
+            'Foto\nKaryamu',
+            textAlign: TextAlign.center,
+            style: TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold),
+          ),
+        ],
+      ),
+    );
+  }
+
   // Layar Hasil Penilaian Praktikum
   Widget _buildHasilPenilaianView(BuildContext context, bool isDark) {
     return Scaffold(
@@ -627,7 +818,13 @@ class _PracticeQuizScreenState extends State<PracticeQuizScreen>
         leading: IconButton(
           icon: const Icon(Icons.arrow_back),
           color: isDark ? Colors.white : AppTheme.textPrimary,
-          onPressed: () => setState(() => _hasResult = false),
+          onPressed: () {
+            if (widget.initialShowResult && Navigator.canPop(context)) {
+              Navigator.pop(context);
+            } else {
+              setState(() => _hasResult = false);
+            }
+          },
         ),
         title: Column(
           children: [
@@ -670,24 +867,7 @@ class _PracticeQuizScreenState extends State<PracticeQuizScreen>
                       borderRadius: BorderRadius.circular(16),
                       border: Border.all(color: AppTheme.accentGold.withValues(alpha: 0.5)),
                     ),
-                    child: _photo != null
-                        ? ClipRRect(
-                            borderRadius: BorderRadius.circular(15),
-                            child: kIsWeb ? Image.network(_photo!.path, fit: BoxFit.cover) : Image.file(_photo!, fit: BoxFit.cover),
-                          )
-                        : const Center(
-                            child: Column(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                Icon(Icons.check, color: Colors.white, size: 18),
-                                Text(
-                                  'Foto\nKaryamu',
-                                  textAlign: TextAlign.center,
-                                  style: TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold),
-                                ),
-                              ],
-                            ),
-                          ),
+                    child: _buildPracticePhotoThumbnail(),
                   ),
                   const SizedBox(width: 14),
                   Expanded(
@@ -698,17 +878,31 @@ class _PracticeQuizScreenState extends State<PracticeQuizScreen>
                           children: [
                             const Icon(Icons.draw, size: 14, color: AppTheme.primary),
                             const SizedBox(width: 4),
-                            Text(
-                              'KUIS PRAKTIK MODUL ${widget.module.id}',
-                              style: AppTheme.satoshi(fontSize: 11, fontWeight: FontWeight.bold, color: AppTheme.primary),
+                            Expanded(
+                              child: Text(
+                                'KUIS PRAKTIK MODUL ${widget.module.id}',
+                                style: AppTheme.satoshi(fontSize: 11, fontWeight: FontWeight.bold, color: AppTheme.primary),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
                             ),
                           ],
                         ),
                         const SizedBox(height: 4),
-                        Text('Diambil pada baru saja', style: AppTheme.inter(fontSize: 12, color: AppTheme.textSecondary)),
+                        Text(
+                          _historyTime != null ? 'Diambil pada $_historyTime' : 'Diambil pada baru saja',
+                          style: AppTheme.inter(fontSize: 12, color: AppTheme.textSecondary),
+                        ),
                         const SizedBox(height: 4),
                         GestureDetector(
-                          onTap: () => setState(() => _hasResult = false),
+                          onTap: () {
+                            _cleanTemporaryPhoto();
+                            setState(() {
+                              _hasResult = false;
+                              _historyImagePath = null;
+                              _historyTime = null;
+                            });
+                          },
                           child: const Row(
                             children: [
                               Icon(Icons.replay, size: 14, color: AppTheme.primaryDark),
@@ -748,21 +942,45 @@ class _PracticeQuizScreenState extends State<PracticeQuizScreen>
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Text('Kecocokan Asal Daerah', style: AppTheme.satoshi(fontSize: 16, fontWeight: FontWeight.bold)),
-                            Text('Berdasarkan ornamen, canting, & isen', style: AppTheme.inter(fontSize: 11, color: AppTheme.textSecondary)),
+                            Text('Evaluasi Ornamen Batik', style: AppTheme.satoshi(fontSize: 16, fontWeight: FontWeight.bold)),
+                            Text('Klasifikasi AI On-Device TensorFlow Lite (1 Hasil Tunggal)', style: AppTheme.inter(fontSize: 11, color: AppTheme.textSecondary)),
                           ],
                         ),
                       ),
-                      const Icon(Icons.auto_awesome, color: AppTheme.accentGold, size: 20),
+                      Icon(
+                        _evaluatedPassed ? Icons.check_circle : Icons.warning_amber_rounded,
+                        color: _evaluatedPassed ? const Color(0xFF2E7D32) : const Color(0xFFD32F2F),
+                        size: 24,
+                      ),
                     ],
                   ),
                   const SizedBox(height: 18),
 
-                  _buildDaerahItem('S', 'Sumatra', 70, isTop: true, badge: 'Paling Cocok'),
+                  Builder(
+                    builder: (context) {
+                      final int displayPercent = (_evaluatedScore > 1.0
+                              ? _evaluatedScore
+                              : _evaluatedScore * 100)
+                          .round()
+                          .clamp(0, 100);
+                      return _buildDaerahItem(
+                        _evaluatedMotifName.isNotEmpty
+                            ? _evaluatedMotifName[0].toUpperCase()
+                            : 'M',
+                        _evaluatedMotifName.isNotEmpty
+                            ? _evaluatedMotifName
+                            : widget.module.title,
+                        displayPercent,
+                        isTop: true,
+                        badge:
+                            '${BatikClassifierService.getRatingDisplay(_evaluatedScore)} (${_evaluatedPassed ? "Lulus" : "Belum Lulus"})',
+                      );
+                    },
+                  ),
                   const SizedBox(height: 18),
 
                   Text(
-                    'ⓘ  Persentase menunjukkan kemiripan pola, warna, dan komposisi karyamu dengan ciri khas tiap daerah.',
+                    'ⓘ  Hasil evaluasi mengukur tingkat kemiripan ornamen, goresan canting, dan isen-isen karyamu terhadap modul ${widget.module.title}.',
                     style: AppTheme.inter(fontSize: 12, color: AppTheme.textMuted, height: 1.4),
                   ),
                 ],
@@ -791,7 +1009,7 @@ class _PracticeQuizScreenState extends State<PracticeQuizScreen>
                   const SizedBox(height: 10),
                   _buildKetentuanBullet('≥ 70%: Sangat Mirip', const Color(0xFFD49B45)),
                   const SizedBox(height: 6),
-                  _buildKetentuanBullet('50% – 69%: Cukup Mirip', const Color(0xFF5A3416)),
+                  _buildKetentuanBullet('50% - 69%: Cukup Mirip', const Color(0xFF5A3416)),
                   const SizedBox(height: 6),
                   _buildKetentuanBullet('< 50%: Perlu Dilatih', const Color(0xFF8A827B)),
                 ],
@@ -799,11 +1017,21 @@ class _PracticeQuizScreenState extends State<PracticeQuizScreen>
             ),
             const SizedBox(height: 20),
 
-            // Tombol Coba Lagi & Kembali
+            // Tombol Coba Praktik Lagi (Tombol Riwayat tidak ditampilkan di sini karena pengguna sudah berada di halaman hasil)
             ElevatedButton.icon(
-              onPressed: () => setState(() => _hasResult = false),
-              icon: const Icon(Icons.replay, size: 18),
-              label: const Text('Coba Lagi'),
+              onPressed: () {
+                _cleanTemporaryPhoto();
+                setState(() {
+                  _hasResult = false;
+                  _historyImagePath = null;
+                  _historyTime = null;
+                });
+              },
+              icon: const Icon(Icons.replay, size: 18, color: Colors.white),
+              label: const Text(
+                'Coba Praktik Lagi',
+                style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+              ),
               style: ElevatedButton.styleFrom(
                 backgroundColor: const Color(0xFF5A3416),
                 foregroundColor: Colors.white,
@@ -815,7 +1043,10 @@ class _PracticeQuizScreenState extends State<PracticeQuizScreen>
 
             Center(
               child: TextButton.icon(
-                onPressed: () => Navigator.popUntil(context, (route) => route.isFirst),
+                onPressed: () {
+                  _cleanTemporaryPhoto();
+                  Navigator.popUntil(context, (route) => route.isFirst);
+                },
                 icon: const Icon(Icons.home_outlined, size: 16, color: AppTheme.textSecondary),
                 label: Text('Kembali ke Beranda', style: AppTheme.inter(fontSize: 13, color: AppTheme.textSecondary, fontWeight: FontWeight.w600)),
               ),
@@ -826,7 +1057,9 @@ class _PracticeQuizScreenState extends State<PracticeQuizScreen>
     );
   }
 
+
   Widget _buildDaerahItem(String letter, String name, int percent, {bool isTop = false, String? badge}) {
+    final int cleanPercent = percent.clamp(0, 100);
     return Column(
       children: [
         Row(
@@ -843,30 +1076,51 @@ class _PracticeQuizScreenState extends State<PracticeQuizScreen>
               ),
             ),
             const SizedBox(width: 10),
-            Text(name, style: AppTheme.satoshi(fontSize: 15, fontWeight: FontWeight.bold)),
-            if (badge != null) ...[
-              const SizedBox(width: 8),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                decoration: BoxDecoration(color: const Color(0xFFFCECDA), borderRadius: BorderRadius.circular(12)),
-                child: Row(
-                  children: [
-                    const Icon(Icons.star, size: 12, color: AppTheme.accentGold),
-                    const SizedBox(width: 4),
-                    Text(badge, style: const TextStyle(color: Color(0xFF7A4B29), fontSize: 10, fontWeight: FontWeight.bold)),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    name,
+                    style: AppTheme.satoshi(fontSize: 15, fontWeight: FontWeight.bold),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  if (badge != null) ...[
+                    const SizedBox(height: 3),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                      decoration: BoxDecoration(color: const Color(0xFFFCECDA), borderRadius: BorderRadius.circular(12)),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const Icon(Icons.star, size: 11, color: AppTheme.accentGold),
+                          const SizedBox(width: 4),
+                          Flexible(
+                            child: Text(
+                              badge,
+                              style: const TextStyle(color: Color(0xFF7A4B29), fontSize: 10, fontWeight: FontWeight.bold),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
                   ],
-                ),
+                ],
               ),
-            ],
-            const Spacer(),
-            Text('$percent%', style: AppTheme.satoshi(fontSize: 18, fontWeight: FontWeight.bold, color: const Color(0xFF5A3416))),
+            ),
+            const SizedBox(width: 10),
+            Text('$cleanPercent%', style: AppTheme.satoshi(fontSize: 18, fontWeight: FontWeight.bold, color: const Color(0xFF5A3416))),
           ],
         ),
         const SizedBox(height: 6),
         ClipRRect(
           borderRadius: BorderRadius.circular(4),
           child: LinearProgressIndicator(
-            value: percent / 100.0,
+            value: cleanPercent / 100.0,
             minHeight: 8,
             backgroundColor: const Color(0xFFF0EBE1),
             valueColor: AlwaysStoppedAnimation<Color>(isTop ? AppTheme.accentGold : const Color(0xFF5A3416)),

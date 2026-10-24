@@ -331,7 +331,11 @@ class _TheoryQuizScreenState extends State<TheoryQuizScreen> {
                           ),
                           child: Text(
                             'Selesai & Kumpulkan Jawaban',
-                            style: AppTheme.satoshi(fontSize: 15, fontWeight: FontWeight.bold),
+                            style: AppTheme.satoshi(
+                              fontSize: 15,
+                              fontWeight: FontWeight.bold,
+                              color: Colors.white,
+                            ),
                           ),
                         )
                       else ...[
@@ -345,7 +349,11 @@ class _TheoryQuizScreenState extends State<TheoryQuizScreen> {
                           ),
                           child: Text(
                             'Kembali ke Menu Modul',
-                            style: AppTheme.satoshi(fontSize: 15, fontWeight: FontWeight.bold),
+                            style: AppTheme.satoshi(
+                              fontSize: 15,
+                              fontWeight: FontWeight.bold,
+                              color: Colors.white,
+                            ),
                           ),
                         ),
                         const SizedBox(height: 10),

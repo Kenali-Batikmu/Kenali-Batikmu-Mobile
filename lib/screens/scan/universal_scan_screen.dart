@@ -10,6 +10,7 @@ import 'package:provider/provider.dart';
 import '../../core/theme/app_theme.dart';
 import '../../models/app_models.dart';
 import '../../providers/app_provider.dart';
+import '../../core/services/classifier_service.dart';
 import '../modules/module_detail_screen.dart';
 
 /// Screen Universal Scan Batik
@@ -42,6 +43,7 @@ class _UniversalScanScreenState extends State<UniversalScanScreen>
   List<CameraDescription> _cams = [];
   int _camIdx = 0;
   File? _photo;
+  Uint8List? _photoBytes;
   bool _flash = false;
   bool _grid = false;
   bool _busy = false;
@@ -82,6 +84,7 @@ class _UniversalScanScreenState extends State<UniversalScanScreen>
 
   @override
   void dispose() {
+    _cleanTemporaryPhoto();
     WidgetsBinding.instance.removeObserver(this);
     _cam?.dispose();
     super.dispose();
@@ -101,17 +104,23 @@ class _UniversalScanScreenState extends State<UniversalScanScreen>
   }
 
   /// Menampilkan foto yang sudah diambil/dipilih.
-  /// Di web memakai Image.network (blob URL), di Android/iOS/Windows memakai Image.file.
+  /// Mendukung memory bytes (web & multiplatform aman), Image.network, atau Image.file.
   Widget _photoImage(
-    File file, {
+    File? file, {
     BoxFit fit = BoxFit.cover,
     double? width,
     double? height,
   }) {
-    if (kIsWeb) {
+    if (_photoBytes != null) {
+      return Image.memory(_photoBytes!, fit: fit, width: width, height: height);
+    }
+    if (kIsWeb && file != null) {
       return Image.network(file.path, fit: fit, width: width, height: height);
     }
-    return Image.file(file, fit: fit, width: width, height: height);
+    if (file != null) {
+      return Image.file(file, fit: fit, width: width, height: height);
+    }
+    return const SizedBox.shrink();
   }
 
   /// Inisialisasi kamera platform-aware (Windows & Mobile)
@@ -226,7 +235,13 @@ class _UniversalScanScreenState extends State<UniversalScanScreen>
     if (c != null && c.value.isInitialized && !c.value.isTakingPicture) {
       try {
         final x = await c.takePicture();
-        if (mounted) setState(() => _photo = File(x.path));
+        final bytes = await x.readAsBytes();
+        if (mounted) {
+          setState(() {
+            _photoBytes = bytes;
+            if (!kIsWeb) _photo = File(x.path);
+          });
+        }
         return;
       } catch (e) {
         debugPrint('Gagal takePicture: $e');
@@ -241,7 +256,11 @@ class _UniversalScanScreenState extends State<UniversalScanScreen>
     try {
       final x = await ImagePicker().pickImage(source: source);
       if (x != null && mounted) {
-        setState(() => _photo = File(x.path));
+        final bytes = await x.readAsBytes();
+        setState(() {
+          _photoBytes = bytes;
+          if (!kIsWeb) _photo = File(x.path);
+        });
       }
     } catch (e) {
       _snack('Gagal memilih gambar: $e');
@@ -249,75 +268,91 @@ class _UniversalScanScreenState extends State<UniversalScanScreen>
   }
 
   Future<void> _send() async {
-    if (_photo == null && (_cam == null || !_cam!.value.isInitialized)) {
+    if (_photo == null && _photoBytes == null && (_cam == null || !_cam!.value.isInitialized)) {
       // Jika belum ada foto & kamera tidak ada, langsung arahkan memilih dari galeri
       await _pick(source: ImageSource.gallery);
-      if (_photo == null) return;
+      if (_photo == null && _photoBytes == null) return;
     }
 
     // Jika pengguna menekan Kirim saat preview kamera aktif tanpa foto terpilih, otomatis ambil foto
-    if (_photo == null && _cam != null && _cam!.value.isInitialized) {
+    if (_photo == null && _photoBytes == null && _cam != null && _cam!.value.isInitialized) {
       await _shoot();
-      if (_photo == null) return;
+      if (_photo == null && _photoBytes == null) return;
     }
 
-    if (_photo == null) {
+    if (_photo == null && _photoBytes == null) {
       _snack('Ambil foto atau pilih gambar dari galeri terlebih dahulu.');
       return;
     }
 
+    if (!mounted) return;
     setState(() => _busy = true);
 
     try {
-      // Simulasi analisis klasifikasi AI motif batik yang sangat cepat & responsif
-      await Future.delayed(const Duration(milliseconds: 750));
       if (!mounted) return;
-
       final provider = Provider.of<AppProvider>(context, listen: false);
       final motifs = List<BatikMotifModel>.from(provider.motifs);
 
-      // Fallback jika data motif belum terisi
-      if (motifs.isEmpty) {
-        motifs.addAll([
-          BatikMotifModel(id: 2, name: 'Parang Rusak', slug: 'parang-rusak', originRegion: 'Yogyakarta & Surakarta', shortDescription: 'Pakem keraton agung melambangkan ombak samudera dan perjuangan batin.', mlClassIndex: 1),
-          BatikMotifModel(id: 4, name: 'Parang Kusumo', slug: 'parang-kusumo', originRegion: 'Surakarta & Yogyakarta', shortDescription: 'Batik larangan keraton bermakna ksatria dengan keharuman budi pekerti bunga.', mlClassIndex: 3),
-          BatikMotifModel(id: 1, name: 'Cecek Hasan', slug: 'cecek-hasan', originRegion: 'Pekalongan', shortDescription: 'Ornamen isen halus berupa titik-titik melingkar membentuk geometri harmonis.', mlClassIndex: 0),
-          BatikMotifModel(id: 3, name: 'Truntum', slug: 'truntum', originRegion: 'Surakarta', shortDescription: 'Bintang kasih sayang abadi, lambang cinta tulus yang senantiasa bersemi.', mlClassIndex: 2),
-          BatikMotifModel(id: 5, name: 'Kawung', slug: 'kawung', originRegion: 'Yogyakarta', shortDescription: 'Empat bulatan lonjong melambangkan kesucian hati dan harmoni semesta.', mlClassIndex: 4),
-          BatikMotifModel(id: 6, name: 'Mega Mendung', slug: 'mega-mendung', originRegion: 'Cirebon', shortDescription: 'Gradasi lapisan awan membawa keteduhan, kesabaran, dan kelapangan dada.', mlClassIndex: 5),
-        ]);
+      // 1. Jalankan inferensi AI On-Device menggunakan TensorFlow Lite (raw bytes aman di Web & Android)
+      final classificationResults = await BatikClassifierService.instance.classifyTopK(
+        _photoBytes ?? _photo!,
+        k: 5,
+        availableMotifs: motifs,
+      );
+
+      final List<MotifSimilarityMatch> top5Matches = [];
+      for (final res in classificationResults) {
+        final matchedMotif = motifs.firstWhere(
+          (m) =>
+              (res.motifId != null && m.id == res.motifId) ||
+              m.mlClassIndex == res.classIndex ||
+              m.slug.toLowerCase() == res.label.toLowerCase() ||
+              m.slug.toLowerCase() == res.label.replaceAll('batik_', '').toLowerCase(),
+          orElse: () => BatikMotifModel(
+            id: res.motifId ?? (res.classIndex + 1),
+            name: res.motifName,
+            slug: res.label,
+            originRegion: 'Nusantara',
+            shortDescription: 'Motif batik nusantara.',
+            mlClassIndex: res.classIndex,
+          ),
+        );
+        top5Matches.add(MotifSimilarityMatch(motif: matchedMotif, score: res.confidence));
       }
 
-      // Skor kemiripan realistis terurut dari peringkat 1 hingga 5
-      final baseScores = [0.94, 0.86, 0.77, 0.65, 0.52];
-
-      // Variasikan rotasi urutan motif agar dinamis sesuai timestamp
-      final shift = DateTime.now().second % motifs.length;
-      final List<MotifSimilarityMatch> top5Matches = [];
-
-      for (int i = 0; i < 5 && i < motifs.length; i++) {
-        final index = (shift + i) % motifs.length;
-        top5Matches.add(
-          MotifSimilarityMatch(
-            motif: motifs[index],
-            score: baseScores[i < baseScores.length ? i : baseScores.length - 1],
-          ),
+      // 2. Simpan hasil pindaian motif teratas (#1) ke riwayat provider
+      if (top5Matches.isNotEmpty) {
+        provider.addUniversalScanResult(
+          motifName: top5Matches.first.motif.name,
+          confidence: top5Matches.first.score,
         );
       }
 
-      // Simpan hasil pindaian motif teratas (#1) ke riwayat provider
-      provider.addUniversalScanResult(
-        motifName: top5Matches.first.motif.name,
-        confidence: top5Matches.first.score,
-      );
-
       setState(() => _busy = false);
 
-      // Tampilkan Modal Sheet Hasil Top 5 Kemiripan Motif
+      // 3. Tampilkan Modal Sheet Hasil Top 5 Kemiripan Motif
       _showResultSheet(top5Matches);
     } catch (e) {
       if (mounted) setState(() => _busy = false);
       _snack('Gagal menganalisis gambar: $e');
+    }
+  }
+
+  /// Menghapus file foto sementara dari disk cache HP saat sheet ditutup (Zero Storage Leak)
+  void _cleanTemporaryPhoto() {
+    _photoBytes = null;
+    if (_photo != null) {
+      final fileToDelete = _photo;
+      try {
+        if (!kIsWeb && fileToDelete != null && fileToDelete.existsSync()) {
+          fileToDelete.deleteSync();
+        }
+      } catch (_) {}
+      if (mounted) {
+        setState(() => _photo = null);
+      } else {
+        _photo = null;
+      }
     }
   }
 
@@ -428,8 +463,8 @@ class _UniversalScanScreenState extends State<UniversalScanScreen>
                                             border: Border.all(color: AppTheme.accentGold, width: 2),
                                           ),
                                           clipBehavior: Clip.antiAlias,
-                                          child: _photo != null
-                                              ? _photoImage(_photo!)
+                                          child: (_photo != null || _photoBytes != null)
+                                              ? _photoImage(_photo)
                                               : const Icon(Icons.waves, color: AppTheme.accentGold, size: 28),
                                         ),
                                         const SizedBox(width: 14),
@@ -846,15 +881,17 @@ class _UniversalScanScreenState extends State<UniversalScanScreen>
           },
         );
       },
-    );
+    ).whenComplete(() {
+      _cleanTemporaryPhoto();
+    });
   }
 
   Widget _buildPreviewArea(bool isDark) {
     final c = _cam;
 
-    if (_photo != null) {
+    if (_photo != null || _photoBytes != null) {
       return _photoImage(
-        _photo!,
+        _photo,
         fit: BoxFit.cover,
         width: double.infinity,
         height: double.infinity,
@@ -1070,9 +1107,9 @@ class _UniversalScanScreenState extends State<UniversalScanScreen>
                                             color: Colors.black45,
                                           ),
                                           clipBehavior: Clip.antiAlias,
-                                          child: _photo == null
+                                          child: (_photo == null && _photoBytes == null)
                                               ? const Icon(Icons.photo_library_outlined, color: Colors.white)
-                                              : _photoImage(_photo!),
+                                              : _photoImage(_photo),
                                         ),
                                         Positioned(
                                           right: -4,

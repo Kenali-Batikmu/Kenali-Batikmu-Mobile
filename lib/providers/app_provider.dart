@@ -1,6 +1,8 @@
 import 'dart:io';
 import 'dart:math';
+import 'dart:async';
 import 'package:flutter/foundation.dart';
+import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../core/database/database_helper.dart';
 import '../core/services/email_service.dart';
@@ -19,15 +21,15 @@ class AppProvider with ChangeNotifier {
   String? _resetTargetEmail;
   String? _resetOtpCode;
   DateTime? _resetOtpExpiresAt;
-  final Map<String, String> _inMemoryPasswordHashes = {
-    'sekar@batikmu.id': PasswordHasher.hashPassword('Batikmu123#'),
-    'kenalibatikmu@gmail.com': PasswordHasher.hashPassword('kenalibatikmupbl'),
-  };
+  final Map<String, String> _inMemoryPasswordHashes = {};
 
   List<ModuleModel> _modules = [];
   List<BatikMotifModel> _motifs = [];
   List<ScanHistoryModel> _scanHistories = [];
   bool _isDarkMode = false;
+
+  StreamSubscription<List<ConnectivityResult>>? _connectivitySub;
+  bool _wasOffline = false;
 
   UserModel? get currentUser => _currentUser;
   bool get isLoading => _isLoading;
@@ -59,6 +61,26 @@ class AppProvider with ChangeNotifier {
     _saveThemePref(value);
   }
 
+  @override
+  void dispose() {
+    _connectivitySub?.cancel();
+    super.dispose();
+  }
+
+  /// Pasang listener koneksi: saat internet kembali aktif setelah offline,
+  /// jalankan background sync dan proses antrian offline secara otomatis.
+  void _setupConnectivityListener() {
+    _connectivitySub?.cancel();
+    _connectivitySub = Connectivity().onConnectivityChanged.listen((results) async {
+      final isOffline = results.every((r) => r == ConnectivityResult.none);
+      if (_wasOffline && !isOffline) {
+        debugPrint('Connectivity: sinyal kembali aktif, mulai background sync antrian offline');
+        await _syncBackground();
+      }
+      _wasOffline = isOffline;
+    });
+  }
+
   Future<void> _saveThemePref(bool value) async {
     try {
       final prefs = await SharedPreferences.getInstance();
@@ -67,354 +89,22 @@ class AppProvider with ChangeNotifier {
   }
 
   void _initInMemoryDefaultData({bool isLoggedIn = false, String? userEmail}) {
-    if (isLoggedIn) {
-      final email = userEmail ?? 'sekar@batikmu.id';
-      final name = email.startsWith('kenalibatikmu')
-          ? 'Kenali Batikmu'
-          : (email.startsWith('sekar') ? 'Sekar Ayu Kinanti' : 'Sahabat Batik');
-      _currentUser = UserModel(
-        id: 1,
-        name: name,
-        email: email,
-        phone: '081234567890',
-        createdAt: '2026-03-01T08:00:00Z',
-      );
-    } else {
-      _currentUser = null;
-    }
-
-    // 2. Daftar 6 Motif Utama Sesuai PDF Page 2 & Skema Database
-    _motifs = [
-      BatikMotifModel(
-        id: 1,
-        name: 'Cecek Hasan',
-        slug: 'cecek-hasan',
-        originRegion: 'Pekalongan',
-        shortDescription: 'Ornamen isen halus berupa titik-titik melingkar membentuk geometri harmonis.',
-        mlClassIndex: 0,
-      ),
-      BatikMotifModel(
-        id: 2,
-        name: 'Parang Rusak',
-        slug: 'parang-rusak',
-        originRegion: 'Yogyakarta & Surakarta',
-        shortDescription: 'Pakem keraton agung melambangkan ombak samudera dan perjuangan batin.',
-        mlClassIndex: 1,
-      ),
-      BatikMotifModel(
-        id: 3,
-        name: 'Truntum',
-        slug: 'truntum',
-        originRegion: 'Surakarta',
-        shortDescription: 'Bintang kasih sayang abadi, lambang cinta tulus yang senantiasa bersemi.',
-        mlClassIndex: 2,
-      ),
-      BatikMotifModel(
-        id: 4,
-        name: 'Parang Kusumo',
-        slug: 'parang-kusumo',
-        originRegion: 'Surakarta & Yogyakarta',
-        shortDescription: 'Batik larangan keraton bermakna ksatria dengan keharuman budi pekerti bunga.',
-        mlClassIndex: 3,
-      ),
-      BatikMotifModel(
-        id: 5,
-        name: 'Kawung',
-        slug: 'kawung',
-        originRegion: 'Yogyakarta',
-        shortDescription: 'Empat bulatan lonjong melambangkan kesucian hati dan harmoni semesta.',
-        mlClassIndex: 4,
-      ),
-      BatikMotifModel(
-        id: 6,
-        name: 'Mega Mendung',
-        slug: 'mega-mendung',
-        originRegion: 'Cirebon',
-        shortDescription: 'Gradasi lapisan awan membawa keteduhan, kesabaran, dan kelapangan dada.',
-        mlClassIndex: 5,
-      ),
-    ];
-
-    // 3. Daftar Modul Belajar — akan menyesuaikan dataset ML Engineer nantinya
-    _modules = [
-      ModuleModel(
-        id: 1,
-        motifId: 4,
-        title: 'Batik Parang Kusumo',
-        description: 'Pelajari asal usul lereng ombak Panembahan Senopati dan pakem larangan Mataram.',
-        orderNo: 1,
-        progressPercent: 0,
-        historyDone: false,
-        characterDone: false,
-        galleryDone: false,
-        quizDone: false,
-        practiceDone: false,
-        content: ModuleContentModel(
-          origin: 'Batik Klasik Surakarta & Yogyakarta',
-          // estimatedTime: otomatis dihitung dinamis dari total kata materi
-          sejarahDanFilosofi: SejarahFilosofiModel(
-            youtubeUrl: 'https://www.youtube.com/watch?v=iulhQDSIVMQ', // Video Edukasi Motif Batik Parang (Javanologi UNS)
-            deskripsiUtama: 'Motif Parang Kusumo memancarkan ritme visual diagonal yang merepresentasikan deburan ombak Samudra Hindia yang tiada henti menghantam tebing karang terjal. Garis meliuk tanpa putus mencerminkan laku prihatin, kesinambungan budi pekerti luhur, dan ketabahan batin manusia Jawa dalam mengarungi pasang surut gelombang kehidupan tanpa pernah kehilangan kehormatan martabatnya.',
-            asalDaerah: 'Diciptakan pada era Panembahan Senopati (pendiri Kesultanan Mataram Islam) saat melakukan semedi meditasi di pesisir tebing Parangtritis. Gerak dinamis air laut yang tak kenal menyerah mengilhami terciptanya garis diagonal sakral ini.',
-            maknaFilosofis: 'Berasal dari kata Parang (batu karang/lereng terjal) dan Kusumo (bunga bangsawan). Motif ini memuat amanah luhur bahwa keturunan ningrat sejati wajib mengharumkan nama bangsa laksana bunga mekar dengan ketegaran jiwa sekeras batu karang.',
-            penggunaan: 'Tergolong sebagai batik larangan sakral (awisan dalem). Dahulu kala hanya boleh dikenakan keluarga sentana dalem keraton pada upacara tukar cincin pernikahan adat dan pisowanan agung menghadap Sri Sultan atau Sunan.',
-          ),
-          karakteristik: KarakteristikModel(
-            deskripsi: 'Kenali struktur anatomi visual dan ornamen pakem yang membedakan Parang Kusumo dari ragam parang lainnya dalam tradisi keraton Mataram.',
-            strukturUtama: KarakteristikDetailModel(
-              title: 'Jejak Lilin Malam Alami',
-              desc: 'Tetesan canting membentuk kontur lereng ombak tanpa henti',
-              badge: 'Struktur Utama • 45° Lereng',
-              image: '',
-            ),
-            ornamen: KarakteristikDetailModel(
-              title: 'Ornamen Mlinjon & Lidah Api',
-              desc: 'Tekstur belah ketupat mini pengisi ruang kosong motif.',
-              badge: 'Isen-Isen Halus',
-              image: '',
-            ),
-            warna: KarakteristikDetailModel(
-              title: 'Warna Khas Sogan',
-              desc: 'Paduan soga tua, oker kuning, dan krem mori murni.',
-              badge: 'Pewarna Alami',
-              image: '',
-            ),
-            pakemList: [
-              PakemModel(title: '1. Sudut Kemiringan 45°', desc: 'Garis lereng sejajar membentang miring 45 derajat tanpa terputus, melambangkan kontinuitas tekad ksatria Jawa.'),
-              PakemModel(title: '2. Ornamen Mlinjon & Lidah Api', desc: 'Lekukan menyerupai lidah api berulang yang diselingi belah ketupat mikro, memberi keseimbangan ritme dinamis.'),
-              PakemModel(title: '3. Tiga Warna Sakral Sogan', desc: 'Didominasi warna cokelat soga tua (soga jambal), kuning oker keemasan (kayu tegeran), dan dasar putih gading mori prima.'),
-              PakemModel(title: '4. Dimensi Khusus Ningrat', desc: 'Ukuran lidah parang berkisar 3-4 cm, dikhususkan bagi bangsawan dan keturunan keraton Mataram.'),
-            ],
-          ),
-          galeri: [
-            GaleriModel(imageUrl: '', caption: 'Proses Mencanting'),
-            GaleriModel(imageUrl: '', caption: 'Kain Sogan Klasik'),
-            GaleriModel(imageUrl: '', caption: 'Jejak Lilin Lereng'),
-            GaleriModel(imageUrl: '', caption: 'Detail Isen Canting'),
-          ],
-        ),
-      ),
-      ModuleModel(
-        id: 2,
-        motifId: 6,
-        title: 'Batik Mega Mendung',
-        description: 'Teknik kuasan tujuh tingkatan gradasi warna langit pesisir Cirebon.',
-        orderNo: 2,
-        progressPercent: 0,
-        historyDone: false,
-        characterDone: false,
-        galleryDone: false,
-        quizDone: false,
-        practiceDone: false,
-        content: ModuleContentModel(
-          origin: 'Batik Khas Pesisir Cirebon',
-          // estimatedTime: otomatis dihitung dinamis dari total kata materi
-          sejarahDanFilosofi: SejarahFilosofiModel(
-            youtubeUrl: 'https://www.youtube.com/watch?v=wylWYSHkzoQ', // Video Dokumenter Seni & Filosofi Batik (UNESCO)
-            deskripsiUtama: 'Motif Megamendung melambangkan awan pembawa hujan sebagai simbol kesuburan dan pemberi kehidupan. Tarikan garis awannya yang tegas mencerminkan maskulinitas, namun tetap luwes membawa kesejukan.',
-            asalDaerah: 'Diciptakan di wilayah pesisir utara Jawa, tepatnya Cirebon. Terinspirasi dari kedatangan bangsa Tiongkok ke wilayah keraton Cirebon pada masa lampau.',
-            maknaFilosofis: 'Mega berarti awan, dan Mendung berarti cuaca sejuk/menahan amarah. Filosofinya adalah manusia harus bisa meredam amarah (teduh) dalam situasi apa pun.',
-            penggunaan: 'Dahulu digunakan oleh kalangan keraton Cirebon, kini menjadi motif kebanggaan masyarakat umum baik untuk pakaian formal maupun kasual.',
-          ),
-          karakteristik: KarakteristikModel(
-            deskripsi: 'Berbeda dengan parang, Megamendung berfokus pada gradasi warna dan garis lengkung awan yang menyerupai gumpalan memanjang.',
-            strukturUtama: KarakteristikDetailModel(
-              title: 'Garis Awan Tegas',
-              desc: 'Lengkungan awan ditarik dengan garis yang tegas dan tidak putus.',
-              badge: 'Struktur Utama',
-              image: '',
-            ),
-            ornamen: KarakteristikDetailModel(
-              title: 'Bentuk Lonjong/Segitiga',
-              desc: 'Ujung awan cenderung meruncing membedakannya dengan awan Tiongkok yang bulat.',
-              badge: 'Ciri Khas Bentuk',
-              image: '',
-            ),
-            warna: KarakteristikDetailModel(
-              title: 'Gradasi 7 Warna',
-              desc: 'Pakem aslinya memiliki 7 gradasi warna dari biru tua hingga biru muda.',
-              badge: 'Pewarna Pesisir',
-              image: '',
-            ),
-            pakemList: [
-              PakemModel(title: '1. Gradasi Warna (Ganggeng)', desc: 'Harus memiliki gradasi warna yang halus, umumnya lebih dari 3 tingkat warna untuk menciptakan efek 3D awan.'),
-              PakemModel(title: '2. Bentuk Runcing', desc: 'Berbeda dengan motif awan Tiongkok yang membulat, Megamendung memiliki ujung yang agak lancip/runcing.'),
-              PakemModel(title: '3. Arah Horizontal', desc: 'Bentuk awan membentang secara horizontal, melambangkan kehidupan yang sejajar.'),
-            ],
-          ),
-          galeri: [
-            GaleriModel(imageUrl: '', caption: 'Proses Pembuatan Pola'),
-            GaleriModel(imageUrl: '', caption: 'Gradasi Warna Biru'),
-            GaleriModel(imageUrl: '', caption: 'Hasil Akhir Khas Cirebon'),
-          ],
-        ),
-      ),
-      ModuleModel(
-        id: 3,
-        motifId: 5,
-        title: 'Batik Kawung',
-        description: 'Struktur empat lingkaran elips lambang kiblat papat limo pancer Mataram.',
-        orderNo: 3,
-        progressPercent: 0,
-        historyDone: false,
-        characterDone: false,
-        galleryDone: false,
-        quizDone: false,
-        practiceDone: false,
-        content: ModuleContentModel(
-          origin: 'Batik Klasik Kesultanan Yogyakarta',
-          // estimatedTime: otomatis dihitung dinamis dari total kata materi
-          sejarahDanFilosofi: SejarahFilosofiModel(
-            youtubeUrl: '', // Tidak ada link YouTube (opsional) untuk pengujian UI tanpa video
-            deskripsiUtama: 'Motif Kawung tersusun dari empat elips geometris simetris yang menyerupai belahan buah kolang-kaling atau kuncup teratai yang merekah. Motif ini mencerminkan pengendalian diri yang teguh, kemurnian hati nurani, dan keadilan pemimpin dalam menaungi rakyatnya.',
-            asalDaerah: 'Diciptakan dan berkembang pesat di lingkungan Keraton Kesultanan Ngayogyakarta Hadiningrat sejak era Mataram Islam pada abad ke-13.',
-            maknaFilosofis: 'Filosofi empat elips merujuk pada konsep Kiblat Papat Limo Pancer: empat penjuru mata angin dengan satu pusat batin yang menuntun manusia senantiasa eling lan waspada terhadap godaan duniawi.',
-            penggunaan: 'Termasuk salah satu batik larangan (awisan dalem) yang dahulu hanya boleh dikenakan oleh para pembesar dan abdi dalem keraton sebagai lambang integritas moral.',
-          ),
-          karakteristik: KarakteristikModel(
-            deskripsi: 'Pola geometris simetris empat lingkaran lonjong dengan isen titik cecek di poros tengah.',
-            strukturUtama: KarakteristikDetailModel(
-              title: 'Simetri 4 Elips (Kiblat Papat)',
-              desc: 'Empat bidang lonjong yang berpotongan secara presisi membentuk lingkaran bunga.',
-              badge: 'Struktur Utama',
-              image: '',
-            ),
-            ornamen: KarakteristikDetailModel(
-              title: 'Poros Tengah (Pancer)',
-              desc: 'Titik pusat perpotongan kelopak yang dihiasi isen cecek mikro halus.',
-              badge: 'Titik Poros',
-              image: '',
-            ),
-            warna: KarakteristikDetailModel(
-              title: 'Sogan Klasik & Putih Mori',
-              desc: 'Warna cokelat alami kulit kayu soga berpadu kontras dengan putih mori lembut.',
-              badge: 'Pewarna Alami',
-              image: '',
-            ),
-            pakemList: [
-              PakemModel(title: '1. Proporsi Elips Presisi', desc: 'Ukuran keempat bidang kelopak harus proporsional dan membentuk sudut 90 derajat yang teratur.'),
-              PakemModel(title: '2. Isen Poros Pancer', desc: 'Pusat silang harus memiliki titik temu atau cecek penyeimbang ritme ornamen.'),
-              PakemModel(title: '3. Garis Kontur Mulus', desc: 'Tarikan canting melingkar tanpa patahan tajam untuk menjaga keharmonisan bentuk.'),
-            ],
-          ),
-          galeri: [
-            GaleriModel(imageUrl: '', caption: 'Sketsa Geometris Kawung'),
-            GaleriModel(imageUrl: '', caption: 'Pencantingan Mori Putih'),
-            GaleriModel(imageUrl: '', caption: 'Kain Kawung Mataram Sogan'),
-          ],
-        ),
-      ),
-      ModuleModel(
-        id: 4,
-        motifId: 3,
-        title: 'Batik Truntum',
-        description: 'Pola gemintang cinta kasih tulus yang senantiasa bersemi di keheningan malam.',
-        orderNo: 4,
-        progressPercent: 0,
-        historyDone: false,
-        characterDone: false,
-        galleryDone: false,
-        quizDone: false,
-        practiceDone: false,
-        content: ModuleContentModel(
-          origin: 'Batik Keraton Kasunanan Surakarta',
-          // estimatedTime: otomatis dihitung dinamis dari total kata materi
-          sejarahDanFilosofi: SejarahFilosofiModel(
-            youtubeUrl: '', // Tidak ada link YouTube (opsional) untuk pengujian UI tanpa video
-            deskripsiUtama: 'Motif Truntum menampilkan tebaran kuntum bunga melati mikro menyerupai gemintang di langit malam. Diciptakan oleh Kanjeng Ratu Kencana (Permaisuri Pakubuwono III) saat merenung menatap bintang di keheningan malam sembari mencanting untuk menumbuhkan kembali cinta kasih sang Raja.',
-            asalDaerah: 'Diciptakan di lingkungan Keraton Kasunanan Surakarta Hadiningrat pada pertengahan abad ke-18.',
-            maknaFilosofis: 'Truntum berasal dari kata taruntum yang berarti bersemi atau tumbuh kembali. Mengandung filosofi cinta kasih yang tulus, tanpa pamrih, dan senantiasa mekar abadi sepanjang masa.',
-            penggunaan: 'Wajib dikenakan oleh orang tua pengantin pada upacara pernikahan adat Jawa, menyimbolkan doa restu agar cinta kedua mempelai selalu bersemi dan mampu menjadi panutan hidup.',
-          ),
-          karakteristik: KarakteristikModel(
-            deskripsi: 'Pola repetisi kuntum bunga melati mikro yang tertata rapi di atas latar hitam pekat.',
-            strukturUtama: KarakteristikDetailModel(
-              title: 'Kuntum Bintang Melati',
-              desc: 'Motif bunga kecil berbentuk bintang berkelopak mekar teratur di seluruh kain.',
-              badge: 'Struktur Utama',
-              image: '',
-            ),
-            ornamen: KarakteristikDetailModel(
-              title: 'Cecek Isen Melati',
-              desc: 'Titik-titik mikro lilin malam yang mengisi bagian dalam kelopak bintang.',
-              badge: 'Isen Canting Halus',
-              image: '',
-            ),
-            warna: KarakteristikDetailModel(
-              title: 'Latar Hitam & Emas Cokelat',
-              desc: 'Latar hitam pekat menyerupai langit malam berpadu cokelat soga keemasan.',
-              badge: 'Warna Tradisi',
-              image: '',
-            ),
-            pakemList: [
-              PakemModel(title: '1. Kerapatan Kuntum Seragam', desc: 'Jarak antar kuntum bunga terjaga secara konsisten di seluruh bidang kain mori.'),
-              PakemModel(title: '2. Latar Gelap Pekat', desc: 'Warna dasar harus hitam atau cokelat pekat tanpa corak latar tambahan.'),
-              PakemModel(title: '3. Canting Cecek Halus', desc: 'Bintik cecek mikro pada mahkota melambangkan ketulusan dan kehalusan budi pekerti.'),
-            ],
-          ),
-          galeri: [
-            GaleriModel(imageUrl: '', caption: 'Pola Kuntum Bintang'),
-            GaleriModel(imageUrl: '', caption: 'Pencelupan Warna Gelap'),
-            GaleriModel(imageUrl: '', caption: 'Kain Truntum Pengantin'),
-          ],
-        ),
-      ),
-    ];
-
-    // 4. 6 Riwayat Scan Sesuai Profil PDF Page 12
-    _scanHistories = [
-      ScanHistoryModel(
-        id: 1,
-        scanType: 'kuismu',
-        motifName: 'Motif Parang Kusumo',
-        score: 0.70,
-        passed: true,
-        createdAt: '2 hari lalu',
-      ),
-      ScanHistoryModel(
-        id: 2,
-        scanType: 'universal',
-        motifName: 'Filosofi & Pola Kawung',
-        score: 0.88,
-        passed: true,
-        createdAt: '5 hari lalu',
-      ),
-      ScanHistoryModel(
-        id: 3,
-        scanType: 'universal',
-        motifName: 'Teknik Celup Kulit Soga',
-        score: 0.92,
-        passed: true,
-        createdAt: '1 mgg lalu',
-      ),
-      ScanHistoryModel(
-        id: 4,
-        scanType: 'universal',
-        motifName: 'Motif Mega Mendung',
-        score: 0.85,
-        passed: true,
-        createdAt: '2 mgg lalu',
-      ),
-      ScanHistoryModel(
-        id: 5,
-        scanType: 'universal',
-        motifName: 'Motif Parang Rusak',
-        score: 0.78,
-        passed: true,
-        createdAt: '3 mgg lalu',
-      ),
-      ScanHistoryModel(
-        id: 6,
-        scanType: 'universal',
-        motifName: 'Motif Cecek Hasan',
-        score: 0.90,
-        passed: true,
-        createdAt: '1 bln lalu',
-      ),
-    ];
+    _currentUser = null;
+    _motifs = [];
+    _modules = [];
+    _scanHistories = [];
   }
 
-  Future<void> initApp() async {
+  Future<void>? _initFuture;
+
+  Future<void> initApp() {
+    _initFuture ??= _runInitApp().whenComplete(() {
+      _initFuture = null;
+    });
+    return _initFuture!;
+  }
+
+  Future<void> _runInitApp() async {
     _isLoading = false; // Memastikan UI instan tidak terhalang
     notifyListeners();
 
@@ -429,9 +119,10 @@ class AppProvider with ChangeNotifier {
       }
 
       final isLoggedIn = prefs.getBool('is_logged_in') ?? false;
+      String? savedEmail;
       if (isLoggedIn) {
-        final savedEmail = prefs.getString('logged_user_email');
-        if (savedEmail != null) {
+        savedEmail = prefs.getString('logged_user_email');
+        if (savedEmail != null && savedEmail.isNotEmpty) {
           final dbUser = await DatabaseHelper.instance.getUserByEmail(savedEmail);
           if (dbUser != null) {
             _currentUser = UserModel.fromMap(dbUser);
@@ -446,77 +137,316 @@ class AppProvider with ChangeNotifier {
               if (_currentUser?.profileImagePath != null && _currentUser!.profileImagePath!.isNotEmpty) {
                 _savedPhotoPath = _currentUser!.profileImagePath;
               }
-              // Cache ke SQLite lokal
+              // Cache ke SQLite lokal dengan data aslinya
               await DatabaseHelper.instance.insertUser(
-                name: supaUser['name'] ?? 'Sahabat Batik',
+                id: supaUser['id'] as int?,
+                name: supaUser['name'] ?? '',
                 email: savedEmail,
                 passwordHash: supaUser['password_hash'] ?? '',
                 phone: supaUser['phone'],
                 profileImagePath: supaUser['profile_image_path'],
               );
             } else {
-              final savedName = prefs.getString('logged_user_name');
-              final name = savedName ?? (savedEmail.startsWith('kenalibatikmu')
-                  ? 'Kenali Batikmu'
-                  : (savedEmail.startsWith('sekar') ? 'Sekar Ayu Kinanti' : 'Sahabat Batik'));
-              _currentUser = UserModel(
-                id: prefs.getInt('logged_user_id') ?? 1,
-                name: name,
-                email: savedEmail,
-                phone: prefs.getString('logged_user_phone') ?? '081234567890',
-                profileImagePath: _savedPhotoPath,
-                createdAt: '2026-03-01T08:00:00Z',
-              );
+              // Jika data user tidak ditemukan di SQLite maupun Supabase, batalkan sesi (jangan fabrikasi akun palsu)
+              _currentUser = null;
+              await prefs.setBool('is_logged_in', false);
+              await prefs.remove('logged_user_email');
+              await prefs.remove('logged_user_name');
+              await prefs.remove('logged_user_id');
             }
           }
-          // Muat progres modul khusus milik user yang tersimpan
-          await _loadUserModuleProgress(savedEmail);
+        } else {
+          _currentUser = null;
+          await prefs.setBool('is_logged_in', false);
         }
       } else {
-        // Fallback default akun jika ada di DB lokal
-        final db = await DatabaseHelper.instance.database;
-        if (db != null) {
-          final users = await db.query('users', limit: 1);
-          if (users.isNotEmpty && _currentUser != null) {
-            _currentUser = UserModel.fromMap(users.first);
-          }
-        }
-        if (_currentUser == null) {
-          _resetModuleProgressInMemory();
-        }
+        _currentUser = null;
       }
 
-      // Muat data master dari SQLite lokal (20 Modul & 20 Motif)
+      // 3. Muat data master dari SQLite lokal (20 Modul & 20 Motif)
       final db = await DatabaseHelper.instance.database;
       if (db != null) {
-        if (_currentUser == null) {
-          final users = await db.query('users', limit: 1);
-          if (users.isNotEmpty) {
-            _currentUser = UserModel.fromMap(users.first);
-          }
-        }
-
         final dbMotifs = await DatabaseHelper.instance.getAllMotifs();
         if (dbMotifs.isNotEmpty) {
           _motifs = dbMotifs;
         }
 
-        final dbModules = await DatabaseHelper.instance.getAllModules(userId: _currentUser?.id ?? 1);
+        final dbModules = await DatabaseHelper.instance.getAllModules(
+          userId: _currentUser?.id,
+          userEmail: _currentUser?.email,
+        );
         if (dbModules.isNotEmpty) {
           _modules = dbModules;
         }
 
-        final histories = await DatabaseHelper.instance.getScanHistories(_currentUser?.id ?? 1);
-        if (histories.isNotEmpty) {
-          _scanHistories = histories;
-        }
+        final histories = await DatabaseHelper.instance.getScanHistories(
+          _currentUser?.id,
+          userEmail: _currentUser?.email,
+        );
+        _scanHistories = histories;
+      }
+
+      // 4. Rekonsiliasi progres modul khusus milik user yang login
+      if (_currentUser != null && savedEmail != null) {
+        await _loadUserModuleProgress(savedEmail);
+      } else {
+        _resetModuleProgressInMemory();
       }
     } catch (e) {
-      debugPrint('Info sync SQLite: $e (Aplikasi berjalan dalam Interactive Prototype Mode)');
+      debugPrint('Info sync SQLite: $e');
     } finally {
       _applySavedPhoto();
       notifyListeners();
+      // Sinkronisasi background terurut tanpa race condition
+      _syncBackground();
+      // Pasang listener koneksi setelah init selesai
+      _setupConnectivityListener();
     }
+  }
+
+  /// Sinkronisasi background berurutan (sequential) untuk mencegah race condition
+  Future<void> _syncBackground() async {
+    try {
+      await syncMasterDataFromCloud();
+      // 1. Upload antrean aktivitas offline ke cloud terlebih dahulu (Local-First Push)
+      await processOfflineQueue();
+      // 2. Baru kemudian tarik data terbaru dari cloud jika ada (dengan proteksi anti-timpa)
+      if (_currentUser != null) {
+        await syncUserProgressFromServer();
+      }
+    } catch (e) {
+      debugPrint('Background sync error: $e');
+    }
+  }
+
+  /// Sinkronkan master data (motif dan modul) dari Cloud Supabase ke SQLite lokal
+  Future<bool> syncMasterDataFromCloud() async {
+    if (!SupabaseService.instance.isReady) return false;
+    try {
+      final cloudMotifs = await SupabaseService.instance.fetchMotifs();
+      if (cloudMotifs.isNotEmpty) {
+        await DatabaseHelper.instance.upsertMotifs(cloudMotifs);
+        final updatedMotifs = await DatabaseHelper.instance.getAllMotifs();
+        if (updatedMotifs.isNotEmpty) {
+          _motifs = updatedMotifs;
+        }
+      }
+
+      final cloudModules = await SupabaseService.instance.fetchModules();
+      if (cloudModules.isNotEmpty) {
+        await DatabaseHelper.instance.upsertModules(cloudModules);
+        final updatedModules = await DatabaseHelper.instance.getAllModules(
+          userId: _currentUser?.id,
+          userEmail: _currentUser?.email,
+        );
+        if (updatedModules.isNotEmpty) {
+          // Preservasi progres modul yang sedang aktif di memori agar tidak tertimpa race condition
+          _modules = updatedModules.map((newMod) {
+            final existingIndex = _modules.indexWhere((m) => m.id == newMod.id);
+            if (existingIndex == -1) return newMod;
+            final existing = _modules[existingIndex];
+            final merged = newMod.copyWith(
+              historyDone: existing.historyDone || newMod.historyDone,
+              characterDone: existing.characterDone || newMod.characterDone,
+              galleryDone: existing.galleryDone || newMod.galleryDone,
+              quizDone: existing.quizDone || newMod.quizDone,
+              practiceDone: existing.practiceDone || newMod.practiceDone,
+              quizScore: existing.quizScore ?? newMod.quizScore,
+              practiceScore: existing.practiceScore ?? newMod.practiceScore,
+            );
+            return merged.copyWith(
+              progressPercent: merged.calculateProgressPercent(),
+            );
+          }).toList();
+        }
+      }
+
+      notifyListeners();
+      debugPrint('AppProvider sync: Berhasil sinkronisasi master data (${cloudMotifs.length} motif, ${cloudModules.length} modul)');
+      return true;
+    } catch (e) {
+      debugPrint('AppProvider syncMasterData error: $e');
+      return false;
+    }
+  }
+
+  /// Sinkronkan progres modul, riwayat praktikum, dan kuis dari Cloud Supabase ke SQLite lokal
+  Future<bool> syncUserProgressFromServer() async {
+    if (_currentUser == null || !SupabaseService.instance.isReady) {
+      return false;
+    }
+
+    final userId = _currentUser!.id;
+    final userEmail = _currentUser!.email;
+
+    try {
+      // 1. Tarik seluruh progres modul dari tabel user_module_progress Supabase
+      final cloudProgressList = await SupabaseService.instance.fetchUserModuleProgress(userEmail);
+      if (cloudProgressList.isNotEmpty) {
+        // Ambil data lokal SQLite saat ini untuk proteksi anti-overwrite (Local Wins)
+        final localList = await DatabaseHelper.instance.getUserModuleProgressList(userId, userEmail: userEmail);
+        final Map<int, Map<String, dynamic>> localMap = {
+          for (final r in localList) r['module_id'] as int: r
+        };
+
+        for (final row in cloudProgressList) {
+          final mId = row['module_id'] as int? ?? 0;
+          if (mId <= 0) continue;
+
+          final localRow = localMap[mId];
+          final localH = (localRow?['history_done'] as int? ?? 0) == 1;
+          final localC = (localRow?['character_done'] as int? ?? 0) == 1;
+          final localG = (localRow?['gallery_done'] as int? ?? 0) == 1;
+          final localQ = (localRow?['quiz_done'] as int? ?? 0) == 1;
+          final localP = (localRow?['practice_done'] as int? ?? 0) == 1;
+          final localQS = localRow?['quiz_score'] as int?;
+          final localPS = localRow?['practice_score'] as int?;
+
+          // Merge: Nilai lokal yang lebih maju tidak boleh tertimpa nilai server yang kosong/lebih rendah
+          final h = localH || row['history_done'] == true;
+          final c = localC || row['character_done'] == true;
+          final g = localG || row['gallery_done'] == true;
+          final q = localQ || row['quiz_done'] == true;
+          final p = localP || row['practice_done'] == true;
+          final int? qS = max(localQS ?? 0, row['quiz_score'] as int? ?? 0) > 0 ? max(localQS ?? 0, row['quiz_score'] as int? ?? 0) : null;
+          final int? pS = max(localPS ?? 0, row['practice_score'] as int? ?? 0) > 0 ? max(localPS ?? 0, row['practice_score'] as int? ?? 0) : null;
+          final passScore = row['passing_score'] as int? ?? 70;
+
+          final int completedComponents = (h ? 1 : 0) +
+              (c ? 1 : 0) +
+              (g ? 1 : 0) +
+              (q && (qS ?? 0) >= passScore ? 1 : 0) +
+              (p && (pS ?? 0) >= passScore ? 1 : 0);
+          final percent = (completedComponents * 20).clamp(0, 100);
+          final isPass = percent >= 100;
+
+          await DatabaseHelper.instance.upsertUserModuleProgress(
+            userId: userId,
+            moduleId: mId,
+            progressPercent: percent,
+            historyDone: h,
+            characterDone: c,
+            galleryDone: g,
+            quizDone: q,
+            practiceDone: p,
+            quizScore: qS,
+            practiceScore: pS,
+            passingScore: passScore,
+            isPassed: isPass,
+            isSynced: true,
+          );
+        }
+      }
+
+      // 2. Tarik riwayat praktikum dari tabel scans Supabase (scan_type = 'kuismu')
+      final cloudPracticeScans = await SupabaseService.instance.fetchPracticeScans(userEmail);
+      if (cloudPracticeScans.isNotEmpty) {
+        for (final scan in cloudPracticeScans) {
+          final mId = scan['module_id'] as int? ?? 1;
+          final conf = (scan['confidence'] as num? ?? 0.70).toDouble();
+          final passed = scan['passed'] == true;
+          final imgUrl = scan['image_path'] as String?;
+
+          await DatabaseHelper.instance.savePracticeAttempt(
+            userId: userId,
+            moduleId: mId,
+            confidence: conf,
+            passed: passed,
+            imagePath: imgUrl,
+            isSynced: true,
+          );
+        }
+      }
+
+      // 3. Muat ulang ke memori lokal
+      await _loadUserModuleProgress(userEmail);
+      final updatedHistories = await DatabaseHelper.instance.getScanHistories(userId, userEmail: userEmail);
+      if (updatedHistories.isNotEmpty) {
+        _scanHistories = updatedHistories;
+      }
+
+      notifyListeners();
+      debugPrint('AppProvider sync: Progres pengguna ($userEmail) berhasil ditarik dari Cloud');
+      return true;
+    } catch (e) {
+      debugPrint('AppProvider syncUserProgressFromServer error: $e');
+      return false;
+    }
+  }
+
+  /// Memproses antrean sinkronisasi riwayat pindaian dan kuis offline ke Cloud Supabase
+  Future<int> processOfflineQueue() async {
+    if (_currentUser == null || !SupabaseService.instance.isReady) {
+      return 0;
+    }
+
+    final userId = _currentUser!.id;
+    final userEmail = _currentUser!.email;
+    int syncedCount = 0;
+
+    try {
+      // 1. Sinkronkan riwayat kuis teori yang belum tersinkronkan
+      final pendingQuizzes = await DatabaseHelper.instance.getUnsyncedQuizAttempts(userId);
+      for (var q in pendingQuizzes) {
+        final success = await SupabaseService.instance.saveQuizAttempt(
+          userEmail: userEmail,
+          moduleId: q['module_id'] as int,
+          score: q['score'] as int,
+          passed: (q['passed'] as int) == 1,
+        );
+        if (success) {
+          await DatabaseHelper.instance.markQuizAttemptSynced(q['id'] as int);
+          syncedCount++;
+        }
+      }
+
+      // 2. Sinkronkan riwayat pindaian/praktikum yang belum tersinkronkan
+      final pendingScans = await DatabaseHelper.instance.getUnsyncedScans(userId);
+      for (var s in pendingScans) {
+        final success = await SupabaseService.instance.savePracticeScan(
+          userEmail: userEmail,
+          moduleId: s['module_id'] as int? ?? 1,
+          confidence: (s['confidence'] as num? ?? 0.0).toDouble(),
+          passed: (s['passed'] as int? ?? 0) == 1,
+          imageUrl: s['image_path'] as String?,
+        );
+        if (success) {
+          await DatabaseHelper.instance.markScanSynced(s['id'] as int);
+          syncedCount++;
+        }
+      }
+
+      // 3. Sinkronkan progres modul yang belum tersinkronkan
+      final pendingProgress = await DatabaseHelper.instance.getUnsyncedUserModuleProgress(userId);
+      for (var p in pendingProgress) {
+        final success = await SupabaseService.instance.syncUserModuleProgress(
+          userEmail: userEmail,
+          moduleId: p['module_id'] as int,
+          progressPercent: p['progress_percent'] as int,
+          historyDone: (p['history_done'] as int) == 1,
+          characterDone: (p['character_done'] as int) == 1,
+          galleryDone: (p['gallery_done'] as int) == 1,
+          quizDone: (p['quiz_done'] as int) == 1,
+          practiceDone: (p['practice_done'] as int) == 1,
+          quizScore: p['quiz_score'] as int?,
+          practiceScore: p['practice_score'] as int?,
+          passingScore: p['passing_score'] as int? ?? 70,
+          isPassed: (p['is_passed'] as int? ?? 0) == 1,
+        );
+        if (success) {
+          await DatabaseHelper.instance.markUserModuleProgressSynced(userId, p['module_id'] as int);
+          syncedCount++;
+        }
+      }
+
+      if (syncedCount > 0) {
+        debugPrint('Offline Queue: Berhasil menyinkronkan $syncedCount rekaman tertunda ke Cloud Supabase');
+      }
+    } catch (e) {
+      debugPrint('Offline Queue sync error: $e');
+    }
+
+    return syncedCount;
   }
 
   /// Reset progres seluruh modul di memori ke kondisi awal (0%)
@@ -540,16 +470,14 @@ class AppProvider with ChangeNotifier {
     try {
       final cleanEmail = email.trim().toLowerCase();
       final dbUser = await DatabaseHelper.instance.getUserByEmail(cleanEmail);
-      final userId = dbUser != null ? dbUser['id'] as int? : null;
+      final userId = _currentUser?.id ?? dbUser?['id'] as int? ?? 1;
 
-      // 1. Ambil data dari tabel relasional SQLite jika user terdaftar
+      // 1. Ambil data dari tabel relasional SQLite jika user terdaftar (dengan fallback email)
       Map<int, Map<String, dynamic>> sqliteProgressMap = {};
-      if (userId != null) {
-        final list = await DatabaseHelper.instance.getUserModuleProgressList(userId);
-        for (final row in list) {
-          final mId = row['module_id'] as int;
-          sqliteProgressMap[mId] = row;
-        }
+      final list = await DatabaseHelper.instance.getUserModuleProgressList(userId, userEmail: cleanEmail);
+      for (final row in list) {
+        final mId = row['module_id'] as int;
+        sqliteProgressMap[mId] = row;
       }
 
       final prefs = await SharedPreferences.getInstance();
@@ -565,7 +493,6 @@ class AppProvider with ChangeNotifier {
         bool? p;
         int? qS;
         int? pS;
-        int? percent;
 
         if (sqlRow != null) {
           h = (sqlRow['history_done'] as int? ?? 0) == 1;
@@ -573,7 +500,18 @@ class AppProvider with ChangeNotifier {
           g = (sqlRow['gallery_done'] as int? ?? 0) == 1;
           q = (sqlRow['quiz_done'] as int? ?? 0) == 1;
           p = (sqlRow['practice_done'] as int? ?? 0) == 1;
-          percent = sqlRow['progress_percent'] as int? ?? 0;
+          qS = sqlRow['quiz_score'] as int?;
+          pS = sqlRow['practice_score'] as int?;
+
+          // Sinkronkan cache SharedPreferences agar tetap konsisten saat offline/hot reload
+          final userKeyPrefix = 'user_${cleanEmail}_module_$mId';
+          await prefs.setBool('${userKeyPrefix}_history', h);
+          await prefs.setBool('${userKeyPrefix}_character', c);
+          await prefs.setBool('${userKeyPrefix}_gallery', g);
+          await prefs.setBool('${userKeyPrefix}_quiz', q);
+          await prefs.setBool('${userKeyPrefix}_practice', p);
+          if (qS != null) await prefs.setInt('${userKeyPrefix}_quizScore', qS);
+          if (pS != null) await prefs.setInt('${userKeyPrefix}_practiceScore', pS);
         } else {
           // Fallback ke SharedPreferences cache
           final userKeyPrefix = 'user_${cleanEmail}_module_$mId';
@@ -582,26 +520,11 @@ class AppProvider with ChangeNotifier {
           g = prefs.getBool('${userKeyPrefix}_gallery');
           q = prefs.getBool('${userKeyPrefix}_quiz');
           p = prefs.getBool('${userKeyPrefix}_practice');
-          percent = prefs.getInt('${userKeyPrefix}_progress');
+          qS = prefs.getInt('${userKeyPrefix}_quizScore');
+          pS = prefs.getInt('${userKeyPrefix}_practiceScore');
         }
 
-        final userKeyPrefix = 'user_${cleanEmail}_module_$mId';
-        qS = prefs.getInt('${userKeyPrefix}_quizScore');
-        pS = prefs.getInt('${userKeyPrefix}_practiceScore');
-
-        // Fallback backward compatibility untuk akun default 'sekar' jika belum ada key baru
-        if (h == null && cleanEmail.startsWith('sekar')) {
-          h = prefs.getBool('module_${mId}_history');
-          c = prefs.getBool('module_${mId}_character');
-          g = prefs.getBool('module_${mId}_gallery');
-          q = prefs.getBool('module_${mId}_quiz');
-          p = prefs.getBool('module_${mId}_practice');
-          qS = prefs.getInt('module_${mId}_quizScore');
-          pS = prefs.getInt('module_${mId}_practiceScore');
-          percent = prefs.getInt('module_${mId}_progress');
-        }
-
-        _modules[i] = _modules[i].copyWith(
+        final tempMod = _modules[i].copyWith(
           historyDone: h ?? false,
           characterDone: c ?? false,
           galleryDone: g ?? false,
@@ -609,8 +532,9 @@ class AppProvider with ChangeNotifier {
           practiceDone: p ?? false,
           quizScore: qS,
           practiceScore: pS,
-          progressPercent: percent ?? 0,
         );
+        final computedPercent = tempMod.calculateProgressPercent();
+        _modules[i] = tempMod.copyWith(progressPercent: computedPercent);
       }
     } catch (_) {}
   }
@@ -647,80 +571,124 @@ class AppProvider with ChangeNotifier {
       return false;
     }
 
-    final dbUser = await DatabaseHelper.instance.getUserByEmail(cleanEmail);
-    if (dbUser != null && dbUser['password_hash'] != null) {
-      final storedHash = dbUser['password_hash'] as String;
-      if (!PasswordHasher.verify(cleanPass, storedHash)) {
-        _errorMessage = 'Kata sandi salah. Silakan periksa kembali.';
-        _isLoading = false;
-        notifyListeners();
-        return false;
-      }
-    } else if (_inMemoryPasswordHashes.containsKey(cleanEmail)) {
-      final storedHash = _inMemoryPasswordHashes[cleanEmail]!;
-      if (!PasswordHasher.verify(cleanPass, storedHash)) {
-        _errorMessage = 'Kata sandi salah. Silakan periksa kembali.';
-        _isLoading = false;
-        notifyListeners();
-        return false;
+    Map<String, dynamic>? userRecord;
+
+    // 1. Jika terhubung ke Cloud Supabase (Online / Web): Utamakan cek ke Server (Single Source of Truth)
+    if (SupabaseService.instance.isReady) {
+      final supaUser = await SupabaseService.instance.getUserByEmail(cleanEmail);
+      if (supaUser != null) {
+        userRecord = Map<String, dynamic>.from(supaUser);
+        // Cache user dari cloud ke SQLite lokal HP (khusus non-web) agar siap jika offline nanti
+        if (!kIsWeb) {
+          await DatabaseHelper.instance.insertUser(
+            id: supaUser['id'] as int?,
+            name: supaUser['name'] ?? '',
+            email: cleanEmail,
+            passwordHash: supaUser['password_hash'] ?? PasswordHasher.hashPassword(cleanPass),
+            phone: supaUser['phone'],
+            profileImagePath: supaUser['profile_image_path'],
+          );
+        }
       }
     }
 
-    // Ambil nama profil jika ada
-    final userName = dbUser != null && dbUser['name'] != null
-        ? dbUser['name'] as String
-        : (cleanEmail.startsWith('sekar')
-            ? 'Sekar Ayu Kinanti'
-            : (cleanEmail.startsWith('kenalibatikmu')
-                ? 'Kenali Batikmu'
-                : 'Sahabat Batik'));
+    // 2. Jika offline atau belum ditemukan di server: Cek ke SQLite lokal HP (khusus non-web)
+    if (userRecord == null && !kIsWeb) {
+      userRecord = await DatabaseHelper.instance.getUserByEmail(cleanEmail);
+    }
+
+    // 3. Jika user TIDAK ADA di server maupun di SQLite lokal: Tolak login!
+    if (userRecord == null) {
+      // Bedakan: jika offline DAN Supabase tidak ready, kemungkinan user perlu internet
+      if (!SupabaseService.instance.isReady) {
+        _errorMessage = 'Tidak dapat terhubung ke server. Pastikan kamu punya koneksi internet untuk login pertama kali.';
+      } else {
+        _errorMessage = 'Akun belum terdaftar. Silakan registrasi terlebih dahulu.';
+      }
+      _isLoading = false;
+      notifyListeners();
+      return false;
+    }
+
+    // 4. Validasi Password Asli (Salted SHA-256)
+    final storedHash = userRecord['password_hash'] as String?;
+    if (storedHash == null || storedHash.isEmpty || !PasswordHasher.verify(cleanPass, storedHash)) {
+      _errorMessage = 'Kata sandi salah. Silakan periksa kembali.';
+      _isLoading = false;
+      notifyListeners();
+      return false;
+    }
+
+    // Ambil data profil asli dari database
+    final rawName = (userRecord['name'] as String? ?? '').trim();
+    final userName = rawName.isNotEmpty ? rawName : cleanEmail.split('@').first;
 
     // Ambil foto profil dari database lokal jika tersedia
-    final dbPhoto = dbUser?['profile_image_path'] as String?;
+    final dbPhoto = userRecord['profile_image_path'] as String?;
     final userPhoto = (dbPhoto != null && dbPhoto.isNotEmpty) ? dbPhoto : _savedPhotoPath;
     if (userPhoto != null && userPhoto.isNotEmpty) {
       _savedPhotoPath = userPhoto;
     }
 
-    // Login Sukses
+    // Login Sukses dengan Akun Asli
     _currentUser = UserModel(
-      id: dbUser != null ? (dbUser['id'] as int? ?? 1) : 1,
+      id: userRecord['id'] as int? ?? 1,
       name: userName,
       email: cleanEmail,
-      phone: dbUser?['phone'] as String?,
+      phone: userRecord['phone'] as String?,
       profileImagePath: userPhoto,
-      createdAt: DateTime.now().toIso8601String(),
+      createdAt: userRecord['created_at'] as String? ?? DateTime.now().toIso8601String(),
     );
 
-    // Jika belum ada foto lokal, coba sinkronkan profil & foto dari Supabase
-    if (userPhoto == null || userPhoto.isEmpty) {
-      SupabaseService.instance.getUserByEmail(cleanEmail).then((supaUser) {
-        if (supaUser != null) {
-          final cloudPhoto = supaUser['profile_image_path'] as String?;
-          final cloudPhone = supaUser['phone'] as String?;
-          if ((cloudPhoto != null && cloudPhoto.isNotEmpty) || cloudPhone != null) {
-            if (cloudPhoto != null && cloudPhoto.isNotEmpty) {
-              _savedPhotoPath = cloudPhoto;
-            }
-            _currentUser = _currentUser?.copyWith(
-              profileImagePath: cloudPhoto,
-              phone: cloudPhone,
-            );
-            DatabaseHelper.instance.updateUserProfile(
-              userId: _currentUser?.id ?? 1,
-              name: _currentUser?.name ?? 'Sahabat Batik',
-              email: cleanEmail,
-              phone: cloudPhone,
-              profileImagePath: cloudPhoto,
-            );
-            notifyListeners();
-          }
+    // Sinkronkan data terbaru dari Supabase jika ada pembaruan di cloud
+    SupabaseService.instance.getUserByEmail(cleanEmail).then((supaUser) {
+      if (supaUser != null) {
+        final cloudName = supaUser['name'] as String?;
+        final cloudPhoto = supaUser['profile_image_path'] as String?;
+        final cloudPhone = supaUser['phone'] as String?;
+        bool changed = false;
+        String currentName = _currentUser?.name ?? '';
+        if (cloudName != null && cloudName.trim().isNotEmpty && currentName != cloudName) {
+          currentName = cloudName.trim();
+          changed = true;
         }
-      }).catchError((_) {});
-    }
+        if (cloudPhoto != null && cloudPhoto.isNotEmpty && cloudPhoto != _savedPhotoPath) {
+          _savedPhotoPath = cloudPhoto;
+          changed = true;
+        }
+        if (cloudPhone != null && cloudPhone.isNotEmpty) {
+          changed = true;
+        }
+        if (changed) {
+          _currentUser = _currentUser?.copyWith(
+            name: currentName,
+            profileImagePath: _savedPhotoPath,
+            phone: cloudPhone,
+          );
+          DatabaseHelper.instance.updateUserProfile(
+            userId: _currentUser?.id ?? 1,
+            name: currentName,
+            email: cleanEmail,
+            phone: cloudPhone,
+            profileImagePath: _savedPhotoPath,
+          );
+          SharedPreferences.getInstance().then((p) => p.setString('logged_user_name', currentName));
+          notifyListeners();
+        }
+      }
+    }).catchError((_) {});
 
     // Muat progres modul khusus milik user yang berhasil login
     await _loadUserModuleProgress(cleanEmail);
+
+    // Muat riwayat scan dan praktikum user yang login dari SQLite lokal
+    try {
+      final histories = await DatabaseHelper.instance.getScanHistories(_currentUser?.id ?? 1);
+      _scanHistories = histories;
+    } catch (_) {}
+
+    // Tarik progres dan riwayat praktikum terbaru dari Cloud Supabase (Server-First)
+    await syncUserProgressFromServer();
 
     _isLoading = false;
     notifyListeners();
@@ -739,6 +707,9 @@ class AppProvider with ChangeNotifier {
         await prefs.remove('logged_user_email');
       }
     } catch (_) {}
+
+    // Jalankan antrean sinkronisasi offline di latar belakang setelah login
+    processOfflineQueue();
 
     return true;
   }
@@ -763,24 +734,21 @@ class AppProvider with ChangeNotifier {
       );
     }
 
-    // Cek apakah email terdaftar di SQLite atau in-memory default
+    // Cek apakah email terdaftar di SQLite lokal atau cloud Supabase
     bool isRegistered = false;
-    String recipientName = 'Sahabat Batik';
+    String recipientName = cleanEmail.split('@').first;
 
-    if (cleanEmail == 'kenalibatikmu@gmail.com') {
+    final dbUser = await DatabaseHelper.instance.getUserByEmail(cleanEmail);
+    if (dbUser != null) {
       isRegistered = true;
-      recipientName = 'Kenali Batikmu';
-    } else if (cleanEmail == 'sekar@batikmu.id') {
-      isRegistered = true;
-      recipientName = 'Sekar Ayu Kinanti';
+      final raw = (dbUser['name'] as String? ?? '').trim();
+      if (raw.isNotEmpty) recipientName = raw;
     } else {
-      final dbUser = await DatabaseHelper.instance.getUserByEmail(cleanEmail);
-      if (dbUser != null) {
+      final supaUser = await SupabaseService.instance.getUserByEmail(cleanEmail);
+      if (supaUser != null) {
         isRegistered = true;
-        recipientName = dbUser['name'] as String? ?? 'Sahabat Batik';
-      } else if (_inMemoryPasswordHashes.containsKey(cleanEmail)) {
-        isRegistered = true;
-        recipientName = 'Sahabat Batik';
+        final raw = (supaUser['name'] as String? ?? '').trim();
+        if (raw.isNotEmpty) recipientName = raw;
       }
     }
 
@@ -987,25 +955,15 @@ class AppProvider with ChangeNotifier {
       if (pillar == 'character' && !c) c = true;
       if (pillar == 'gallery' && !g) g = true;
 
-      int completedComponents = (h ? 1 : 0) + (c ? 1 : 0) + (g ? 1 : 0) + (q ? 1 : 0) + (p ? 1 : 0);
-      int percent = (completedComponents * 20).clamp(0, 100);
-
-      _modules[index] = ModuleModel(
-        id: old.id,
-        motifId: old.motifId,
-        title: old.title,
-        description: old.description,
-        coverImage: old.coverImage,
-        passingScore: old.passingScore,
-        orderNo: old.orderNo,
-        progressPercent: percent,
+      final tempMod = old.copyWith(
         historyDone: h,
         characterDone: c,
         galleryDone: g,
-        quizDone: q,
-        practiceDone: p,
-        content: old.content,
       );
+      final int percent = tempMod.calculateProgressPercent();
+      final bool isPassed = tempMod.isCompleted;
+
+      _modules[index] = tempMod.copyWith(progressPercent: percent);
       notifyListeners();
 
       // Simpan progres ke SharedPreferences & SQLite
@@ -1038,8 +996,11 @@ class AppProvider with ChangeNotifier {
           galleryDone: g,
           quizDone: q,
           practiceDone: p,
+          quizScore: old.quizScore,
+          practiceScore: old.practiceScore,
+          passingScore: old.passingScore,
+          isPassed: isPassed,
         );
-        await DatabaseHelper.instance.updatePillarProgress(userId, moduleId, pillar);
 
         // Sinkronisasi ke Cloud Supabase (non-blocking)
         final userEmail = _currentUser?.email;
@@ -1053,9 +1014,16 @@ class AppProvider with ChangeNotifier {
             galleryDone: g,
             quizDone: q,
             practiceDone: p,
-          ).catchError((e) {
+            quizScore: old.quizScore,
+            practiceScore: old.practiceScore,
+            passingScore: old.passingScore,
+            isPassed: isPassed,
+          ).then((success) {
+            if (success) {
+              DatabaseHelper.instance.markUserModuleProgressSynced(userId, moduleId);
+            }
+          }).catchError((e) {
             debugPrint('Cloud sync pillar fallback: $e');
-            return false;
           });
         }
       } catch (_) {}
@@ -1071,14 +1039,14 @@ class AppProvider with ChangeNotifier {
       bool g = old.galleryDone;
       bool p = old.practiceDone;
 
-      int completedComponents = (h ? 1 : 0) + (c ? 1 : 0) + (g ? 1 : 0) + (passed ? 1 : 0) + (p ? 1 : 0);
-      int percent = (completedComponents * 20).clamp(0, 100);
-
-      _modules[index] = old.copyWith(
-        progressPercent: percent,
+      final tempMod = old.copyWith(
         quizDone: passed,
         quizScore: score,
       );
+      final int percent = tempMod.calculateProgressPercent();
+      final bool isPassed = tempMod.isCompleted;
+
+      _modules[index] = tempMod.copyWith(progressPercent: percent);
       notifyListeners();
 
       try {
@@ -1103,6 +1071,10 @@ class AppProvider with ChangeNotifier {
           galleryDone: g,
           quizDone: passed,
           practiceDone: p,
+          quizScore: score,
+          practiceScore: old.practiceScore,
+          passingScore: old.passingScore,
+          isPassed: isPassed,
         );
 
         await DatabaseHelper.instance.saveQuizAttempt(
@@ -1121,9 +1093,16 @@ class AppProvider with ChangeNotifier {
             moduleId: moduleId,
             score: score,
             passed: passed,
-          ).catchError((e) {
+          ).then((success) {
+            if (success) {
+              DatabaseHelper.instance.getUnsyncedQuizAttempts(userId).then((list) {
+                if (list.isNotEmpty) {
+                  DatabaseHelper.instance.markQuizAttemptSynced(list.last['id'] as int);
+                }
+              }).catchError((_) {});
+            }
+          }).catchError((e) {
             debugPrint('Cloud sync quiz attempt fallback: $e');
-            return false;
           });
 
           SupabaseService.instance.syncUserModuleProgress(
@@ -1135,9 +1114,16 @@ class AppProvider with ChangeNotifier {
             galleryDone: g,
             quizDone: passed,
             practiceDone: p,
-          ).catchError((e) {
+            quizScore: score,
+            practiceScore: old.practiceScore,
+            passingScore: old.passingScore,
+            isPassed: isPassed,
+          ).then((success) {
+            if (success) {
+              DatabaseHelper.instance.markUserModuleProgressSynced(userId, moduleId);
+            }
+          }).catchError((e) {
             debugPrint('Cloud sync quiz progress fallback: $e');
-            return false;
           });
         }
       } catch (_) {}
@@ -1153,14 +1139,18 @@ class AppProvider with ChangeNotifier {
       bool g = old.galleryDone;
       bool q = old.quizDone;
 
-      int completedComponents = (h ? 1 : 0) + (c ? 1 : 0) + (g ? 1 : 0) + (q ? 1 : 0) + (passed ? 1 : 0);
-      int percent = (completedComponents * 20).clamp(0, 100);
+      // Pastikan skor integer bulat (0..100) dan skor ter-normalisasi (0.0..1.0)
+      final int intScore = (fitScore > 1.0 ? fitScore : fitScore * 100).round().clamp(0, 100);
+      final double normalizedScore = intScore / 100.0;
 
-      _modules[index] = old.copyWith(
-        progressPercent: percent,
+      final tempMod = old.copyWith(
         practiceDone: passed,
-        practiceScore: (fitScore * 100).toInt(),
+        practiceScore: intScore,
       );
+      final int percent = tempMod.calculateProgressPercent();
+      final bool isPassed = tempMod.isCompleted;
+
+      _modules[index] = tempMod.copyWith(progressPercent: percent);
       notifyListeners();
 
       try {
@@ -1169,11 +1159,11 @@ class AppProvider with ChangeNotifier {
         final userKeyPrefix = 'user_${userKey}_module_$moduleId';
         await prefs.setInt('${userKeyPrefix}_progress', percent);
         await prefs.setBool('${userKeyPrefix}_practice', passed);
-        await prefs.setInt('${userKeyPrefix}_practiceScore', (fitScore * 100).toInt());
+        await prefs.setInt('${userKeyPrefix}_practiceScore', intScore);
 
         await prefs.setInt('module_${moduleId}_progress', percent);
         await prefs.setBool('module_${moduleId}_practice', passed);
-        await prefs.setInt('module_${moduleId}_practiceScore', (fitScore * 100).toInt());
+        await prefs.setInt('module_${moduleId}_practiceScore', intScore);
 
         final userId = _currentUser?.id ?? 1;
         await DatabaseHelper.instance.upsertUserModuleProgress(
@@ -1185,15 +1175,41 @@ class AppProvider with ChangeNotifier {
           galleryDone: g,
           quizDone: q,
           practiceDone: passed,
+          quizScore: old.quizScore,
+          practiceScore: intScore,
+          passingScore: old.passingScore,
+          isPassed: isPassed,
         );
 
         await DatabaseHelper.instance.savePracticeAttempt(
           userId: userId,
           moduleId: moduleId,
-          confidence: fitScore,
+          topMotifId: old.motifId,
+          confidence: normalizedScore,
           passed: passed,
           imagePath: imagePath,
         );
+
+        // Muat ulang daftar riwayat lokal agar mobile langsung memiliki data terbaru
+        final updatedHistories = await DatabaseHelper.instance.getScanHistories(userId, userEmail: _currentUser?.email);
+        if (updatedHistories.isNotEmpty) {
+          _scanHistories = updatedHistories;
+        } else {
+          _scanHistories.removeWhere((s) => s.moduleId == moduleId && s.scanType == 'kuismu');
+          _scanHistories.insert(
+            0,
+            ScanHistoryModel(
+              id: DateTime.now().millisecondsSinceEpoch,
+              scanType: 'kuismu',
+              motifName: old.title.replaceAll('\n', ' '),
+              score: normalizedScore,
+              passed: passed,
+              createdAt: 'Baru saja',
+              imagePath: imagePath,
+              moduleId: moduleId,
+            ),
+          );
+        }
 
         // Sinkronisasi ke Cloud Supabase (non-blocking)
         final userEmail = _currentUser?.email;
@@ -1207,35 +1223,56 @@ class AppProvider with ChangeNotifier {
               SupabaseService.instance.savePracticeScan(
                 userEmail: userEmail,
                 moduleId: moduleId,
-                confidence: fitScore,
+                confidence: normalizedScore,
                 passed: passed,
                 imageUrl: publicUrl,
-              ).catchError((e) {
+              ).then((success) {
+                if (success) {
+                  DatabaseHelper.instance.getUnsyncedScans(userId).then((list) {
+                    if (list.isNotEmpty) {
+                      DatabaseHelper.instance.markScanSynced(list.last['id'] as int);
+                    }
+                  }).catchError((_) {});
+                }
+              }).catchError((e) {
                 debugPrint('Cloud sync practice scan fallback: $e');
-                return false;
               });
             }).catchError((_) {
               SupabaseService.instance.savePracticeScan(
                 userEmail: userEmail,
                 moduleId: moduleId,
-                confidence: fitScore,
+                confidence: normalizedScore,
                 passed: passed,
                 imageUrl: null,
-              ).catchError((e) {
+              ).then((success) {
+                if (success) {
+                  DatabaseHelper.instance.getUnsyncedScans(userId).then((list) {
+                    if (list.isNotEmpty) {
+                      DatabaseHelper.instance.markScanSynced(list.last['id'] as int);
+                    }
+                  }).catchError((_) {});
+                }
+              }).catchError((e) {
                 debugPrint('Cloud sync practice scan fallback: $e');
-                return false;
               });
             });
           } else {
             SupabaseService.instance.savePracticeScan(
               userEmail: userEmail,
               moduleId: moduleId,
-              confidence: fitScore,
+              confidence: normalizedScore,
               passed: passed,
               imageUrl: null,
-            ).catchError((e) {
+            ).then((success) {
+              if (success) {
+                DatabaseHelper.instance.getUnsyncedScans(userId).then((list) {
+                  if (list.isNotEmpty) {
+                    DatabaseHelper.instance.markScanSynced(list.last['id'] as int);
+                  }
+                }).catchError((_) {});
+              }
+            }).catchError((e) {
               debugPrint('Cloud sync practice scan fallback: $e');
-              return false;
             });
           }
 
@@ -1248,27 +1285,43 @@ class AppProvider with ChangeNotifier {
             galleryDone: g,
             quizDone: q,
             practiceDone: passed,
-          ).catchError((e) {
+            quizScore: old.quizScore,
+            practiceScore: intScore,
+            passingScore: old.passingScore,
+            isPassed: isPassed,
+          ).then((success) {
+            if (success) {
+              DatabaseHelper.instance.markUserModuleProgressSynced(userId, moduleId);
+            }
+          }).catchError((e) {
             debugPrint('Cloud sync practice progress fallback: $e');
-            return false;
           });
         }
-      } catch (_) {}
+      } catch (_) {
+        _scanHistories.removeWhere((s) => s.moduleId == moduleId && s.scanType == 'kuismu');
+        _scanHistories.insert(
+          0,
+          ScanHistoryModel(
+            id: DateTime.now().millisecondsSinceEpoch,
+            scanType: 'kuismu',
+            motifName: old.title.replaceAll('\n', ' '),
+            score: normalizedScore,
+            passed: passed,
+            createdAt: 'Baru saja',
+            imagePath: imagePath,
+            moduleId: moduleId,
+          ),
+        );
+      }
 
-      // Tambahkan ke riwayat scan
-      _scanHistories.insert(
-        0,
-        ScanHistoryModel(
-          id: DateTime.now().millisecondsSinceEpoch,
-          scanType: 'kuismu',
-          motifName: old.title.replaceAll('\n', ' '),
-          score: fitScore,
-          passed: passed,
-          createdAt: 'Baru saja',
-        ),
-      );
       notifyListeners();
     }
+  }
+
+  /// Mengambil riwayat percobaan praktikum dari database lokal SQLite
+  Future<List<Map<String, dynamic>>> getPracticeAttempts(int moduleId) async {
+    final userId = _currentUser?.id ?? 1;
+    return await DatabaseHelper.instance.getPracticeAttempts(userId: userId, moduleId: moduleId);
   }
 
   void addUniversalScanResult({required String motifName, required double confidence}) {
@@ -1421,6 +1474,16 @@ class AppProvider with ChangeNotifier {
     }
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove(_photoPrefKey);
+    notifyListeners();
+  }
+
+  /// Melakukan migrate fresh database SQLite lokal dan memuat ulang state aplikasi
+  Future<void> migrateFreshDatabase() async {
+    _isLoading = true;
+    notifyListeners();
+    await DatabaseHelper.instance.migrateFresh();
+    await initApp();
+    _isLoading = false;
     notifyListeners();
   }
 }

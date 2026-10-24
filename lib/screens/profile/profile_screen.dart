@@ -435,7 +435,9 @@ class ProfileScreen extends StatelessWidget {
                               const SizedBox(height: 12),
 
                               Text(
-                                (user != null && user.name.trim().isNotEmpty) ? user.name : 'Sahabat Batik',
+                                (user != null && user.name.trim().isNotEmpty)
+                                    ? user.name
+                                    : (user?.email ?? 'Pengguna'),
                                 style: AppTheme.satoshi(fontSize: 20, fontWeight: FontWeight.bold, color: Colors.white),
                               ),
                               const SizedBox(height: 2),

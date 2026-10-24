@@ -11,8 +11,25 @@ void main() {
   sqfliteFfiInit();
   databaseFactory = databaseFactoryFfi;
 
-  setUp(() {
+  setUp(() async {
     SharedPreferences.setMockInitialValues({});
+    final db = await DatabaseHelper.instance.database;
+    if (db != null) {
+      await db.delete('scans');
+      await db.delete('user_module_progress');
+      await db.delete('quiz_attempts');
+      final u1 = await db.query('users', where: 'id = ?', whereArgs: [1]);
+      if (u1.isEmpty) {
+        await db.insert('users', {
+          'id': 1,
+          'name': 'Sekar Ayu Kinanti',
+          'email': 'sekar@batikmu.id',
+          'password_hash': 'demo_hash',
+          'created_at': DateTime.now().toIso8601String(),
+          'updated_at': DateTime.now().toIso8601String(),
+        });
+      }
+    }
   });
 
   group('OWASP Mobile Security & Hashing Tests (M10, M3)', () {
@@ -65,7 +82,8 @@ void main() {
       final provider = AppProvider();
       await provider.initApp();
 
-      expect(provider.currentUser?.email, equals('sekar@batikmu.id'));
+      // Tabel users bersih dan kosong di awal (menunggu pendaftaran / login pengguna riil)
+      expect(provider.currentUser, isNull);
       expect(provider.modules.length, equals(20));
       expect(provider.motifs.length, equals(20));
       expect(provider.totalModulesCount, equals(20));
@@ -94,11 +112,15 @@ void main() {
       final provider = AppProvider();
       await provider.initApp();
 
-      final prevCount = provider.scanHistories.length;
       await provider.savePracticeResult(1, 0.85, true);
-      expect(provider.scanHistories.length, equals(prevCount + 1));
+      expect(provider.scanHistories.length, equals(1));
       expect(provider.scanHistories.first.score, equals(0.85));
       expect(provider.scanHistories.first.passed, isTrue);
+
+      // Pindaian ulang untuk modul yang sama: harus menimpa rekaman lama (panjang tetap 1 per modul)
+      await provider.savePracticeResult(1, 0.92, true);
+      expect(provider.scanHistories.length, equals(1));
+      expect(provider.scanHistories.first.score, equals(0.92));
     });
 
     test('AppProvider registers user and persists real name to database', () async {
@@ -130,6 +152,418 @@ void main() {
       final updatedUser = await DatabaseHelper.instance.getUserByEmail('julian@batikmu.id');
       expect(updatedUser!['name'], equals('Julian Senior Engineer'));
       expect(updatedUser['phone'], equals('081234567899'));
+    });
+
+    test('DatabaseHelper and AppProvider handle master data motif synchronization', () async {
+      final provider = AppProvider();
+      await provider.initApp();
+
+      // Uji upsert motif baru atau perbaruan kategori
+      final upserted = await DatabaseHelper.instance.upsertMotifs([
+        {
+          'id': 99,
+          'name': 'Batik Tambal Nusantara',
+          'slug': 'batik_tambal_nusantara',
+          'origin_region': 'Yogyakarta - Ragam Khusus',
+          'short_description': 'Motif tambal lambang perbaikan lahir batin.',
+          'ml_class_index': 20,
+        }
+      ]);
+      expect(upserted, equals(1));
+
+      final allMotifs = await DatabaseHelper.instance.getAllMotifs();
+      final addedMotif = allMotifs.firstWhere((m) => m.slug == 'batik_tambal_nusantara');
+      expect(addedMotif.name, equals('Batik Tambal Nusantara'));
+      expect(addedMotif.originRegion, equals('Yogyakarta - Ragam Khusus'));
+
+      // Pembersihan (cleanup)
+      final deleted = await DatabaseHelper.instance.deleteMotifById(99);
+      expect(deleted, equals(1));
+    });
+
+    test('Offline Queue tracks unsynced records and resolves them upon sync', () async {
+      final provider = AppProvider();
+      await provider.initApp();
+
+      // Buat akun uji
+      await provider.register('Offline Tester', 'offline_tester@batikmu.id', 'Password123#');
+      final user = await DatabaseHelper.instance.getUserByEmail('offline_tester@batikmu.id');
+      final userId = user!['id'] as int;
+
+      // 1. Simpan aktivitas kuis dalam status belum tersinkronkan (is_synced = 0)
+      await DatabaseHelper.instance.saveQuizAttempt(
+        userId: userId,
+        moduleId: 1,
+        score: 100,
+        passed: true,
+        isSynced: false,
+      );
+
+      // 2. Simpan aktivitas praktikum dalam status belum tersinkronkan (is_synced = 0)
+      await DatabaseHelper.instance.savePracticeAttempt(
+        userId: userId,
+        moduleId: 1,
+        confidence: 0.95,
+        passed: true,
+        imagePath: '/data/user/0/test.jpg',
+        isSynced: false,
+      );
+
+      // Verifikasi antrean offline mendeteksi rekaman tertunda
+      final unsyncedQuizzes = await DatabaseHelper.instance.getUnsyncedQuizAttempts(userId);
+      expect(unsyncedQuizzes.isNotEmpty, isTrue);
+      expect(unsyncedQuizzes.last['score'], equals(100));
+
+      final unsyncedScans = await DatabaseHelper.instance.getUnsyncedScans(userId);
+      expect(unsyncedScans.isNotEmpty, isTrue);
+      expect(unsyncedScans.last['confidence'], equals(0.95));
+
+      // 3. Simulasikan penandaan selesai tersinkronkan saat internet aktif
+      await DatabaseHelper.instance.markQuizAttemptSynced(unsyncedQuizzes.last['id'] as int);
+      await DatabaseHelper.instance.markScanSynced(unsyncedScans.last['id'] as int);
+
+      // Verifikasi antrean sekarang bersih (0 item tertunda)
+      final remainingQuizzes = await DatabaseHelper.instance.getUnsyncedQuizAttempts(userId);
+      final remainingScans = await DatabaseHelper.instance.getUnsyncedScans(userId);
+      expect(remainingQuizzes.where((q) => q['id'] == unsyncedQuizzes.last['id']).isEmpty, isTrue);
+      expect(remainingScans.where((s) => s['id'] == unsyncedScans.last['id']).isEmpty, isTrue);
+    });
+
+    test('Module progress implements 5 components of 20% with KKM 70% threshold', () async {
+      final provider = AppProvider();
+      await provider.initApp();
+
+      // Gunakan modul 2 yang masih bersih (0%)
+      expect(provider.modules.firstWhere((m) => m.id == 2).progressPercent, equals(0));
+
+      // 1. Pilar 1: Sejarah -> 20%
+      await provider.updatePillarProgress(2, 'history');
+      expect(provider.modules.firstWhere((m) => m.id == 2).progressPercent, equals(20));
+
+      // 2. Pilar 2: Karakteristik -> 40%
+      await provider.updatePillarProgress(2, 'character');
+      expect(provider.modules.firstWhere((m) => m.id == 2).progressPercent, equals(40));
+
+      // 3. Pilar 3: Galeri -> 60%
+      await provider.updatePillarProgress(2, 'gallery');
+      expect(provider.modules.firstWhere((m) => m.id == 2).progressPercent, equals(60));
+
+      // 4. Kuis Teori di bawah KKM (< 70) -> tetap 60%
+      await provider.saveQuizResult(2, 60, false);
+      final mAfterFailQuiz = provider.modules.firstWhere((m) => m.id == 2);
+      expect(mAfterFailQuiz.quizDone, isFalse);
+      expect(mAfterFailQuiz.quizScore, equals(60));
+      expect(mAfterFailQuiz.progressPercent, equals(60));
+
+      // 5. Kuis Teori Lulus (>= 70) -> 80%
+      await provider.saveQuizResult(2, 80, true);
+      final mAfterPassQuiz = provider.modules.firstWhere((m) => m.id == 2);
+      expect(mAfterPassQuiz.quizDone, isTrue);
+      expect(mAfterPassQuiz.quizScore, equals(80));
+      expect(mAfterPassQuiz.progressPercent, equals(80));
+
+      // 6. Kuis Praktik Lulus (>= 70%) -> 100%
+      await provider.savePracticeResult(2, 0.85, true);
+      final mAfterPassPractice = provider.modules.firstWhere((m) => m.id == 2);
+      expect(mAfterPassPractice.practiceDone, isTrue);
+      expect(mAfterPassPractice.practiceScore, equals(85));
+      expect(mAfterPassPractice.progressPercent, equals(100));
+      expect(mAfterPassPractice.isCompleted, isTrue);
+    });
+  });
+
+  group('Module Progress Isolation & Reload Stability Tests (Anti-Cross Bleeding)', () {
+    test('Module progress remains strictly isolated per moduleId without cross-module bleeding', () async {
+      final provider = AppProvider();
+      await provider.initApp();
+
+      await provider.register('Module Tester', 'tester@batikmu.id', 'Password123#');
+
+      // Modul 8 (Mega Mendung) dikerjakan 40% (sejarah & karakteristik)
+      await provider.updatePillarProgress(8, 'history');
+      await provider.updatePillarProgress(8, 'character');
+
+      // Modul 2 (Bokor Kencono) dikerjakan 20% (sejarah)
+      await provider.updatePillarProgress(2, 'history');
+
+      // Verifikasi modul 8 tepat 40%
+      final m8 = provider.modules.firstWhere((m) => m.id == 8);
+      expect(m8.progressPercent, equals(40));
+      expect(m8.historyDone, isTrue);
+      expect(m8.characterDone, isTrue);
+      expect(m8.galleryDone, isFalse);
+
+      // Verifikasi modul 2 tepat 20%
+      final m2 = provider.modules.firstWhere((m) => m.id == 2);
+      expect(m2.progressPercent, equals(20));
+      expect(m2.historyDone, isTrue);
+      expect(m2.characterDone, isFalse);
+
+      // Verifikasi 18 modul lainnya tidak bocor (tetap 0%)
+      for (final mod in provider.modules) {
+        if (mod.id != 8 && mod.id != 2) {
+          expect(mod.progressPercent, equals(0), reason: 'Module ${mod.id} (${mod.title}) must remain 0%');
+          expect(mod.historyDone, isFalse);
+          expect(mod.characterDone, isFalse);
+          expect(mod.galleryDone, isFalse);
+          expect(mod.quizDone, isFalse);
+          expect(mod.practiceDone, isFalse);
+        }
+      }
+    });
+
+    test('Module progress remains 100% stable across simulated app reload / hot reload', () async {
+      // 1. Sesi awal: Pengguna mengerjakan modul 8 dan 2
+      final session1 = AppProvider();
+      await session1.initApp();
+      await session1.register('Reload Tester', 'reload_tester@batikmu.id', 'Password123#');
+
+      await session1.updatePillarProgress(8, 'history');
+      await session1.updatePillarProgress(8, 'character');
+      await session1.updatePillarProgress(2, 'history');
+
+      expect(session1.modules.firstWhere((m) => m.id == 8).progressPercent, equals(40));
+      expect(session1.modules.firstWhere((m) => m.id == 2).progressPercent, equals(20));
+
+      // 2. Simulasikan reload aplikasi (membuat instance AppProvider baru seperti hot reload)
+      final session2 = AppProvider(initialIsLoggedIn: true, initialEmail: 'reload_tester@batikmu.id');
+      await session2.initApp();
+
+      // Verifikasi 20 modul termuat secara utuh
+      expect(session2.modules.length, equals(20));
+
+      // Verifikasi modul 8 tetap memiliki progres 40% dan tidak tertukar dengan modul lain
+      final reloadedM8 = session2.modules.firstWhere((m) => m.id == 8);
+      expect(reloadedM8.title, contains('Mega Mendung'));
+      expect(reloadedM8.progressPercent, equals(40));
+      expect(reloadedM8.historyDone, isTrue);
+      expect(reloadedM8.characterDone, isTrue);
+
+      // Verifikasi modul 2 tetap memiliki progres 20%
+      final reloadedM2 = session2.modules.firstWhere((m) => m.id == 2);
+      expect(reloadedM2.title, contains('Bokor Kencono'));
+      expect(reloadedM2.progressPercent, equals(20));
+      expect(reloadedM2.historyDone, isTrue);
+
+      // Verifikasi modul lainnya tetap bersih (0%)
+      for (final mod in session2.modules) {
+        if (mod.id != 8 && mod.id != 2) {
+          expect(mod.progressPercent, equals(0), reason: 'Module ${mod.id} (${mod.title}) must remain 0% after reload');
+        }
+      }
+    });
+
+    test('Concurrent initApp calls do not corrupt in-memory state or trigger race condition', () async {
+      final provider = AppProvider();
+      // Panggil initApp berkali-kali secara simultan (simulasi hot reload beruntun)
+      await Future.wait([
+        provider.initApp(),
+        provider.initApp(),
+        provider.initApp(),
+      ]);
+
+      expect(provider.modules.length, equals(20));
+      expect(provider.motifs.length, equals(20));
+    });
+  });
+
+  group('Comprehensive Workflow & Architecture Tests (Case 1, Case 2, Case 3)', () {
+    test('Case 1: Baru Punya Akun - On-device data, login butuh signal, soal teracak, hasil di card & server', () async {
+      // 1. On-device data: Master data lengkap 20 modul, 20 motif, 500 soal kuis ada di lokal tanpa login
+      final provider = AppProvider();
+      await provider.initApp();
+
+      expect(provider.currentUser, isNull);
+      expect(provider.modules.length, equals(20));
+      expect(provider.motifs.length, equals(20));
+      expect(provider.modules.every((m) => m.progressPercent == 0), isTrue);
+
+      final bankSoal = await DatabaseHelper.instance.getQuizQuestions(1, limit: 25, shuffle: false);
+      expect(bankSoal.length, equals(25));
+
+      // 2. Login butuh sinyal: Percobaan login akun yang belum di-cache saat offline ditolak dengan pesan jelas
+      final loginOfflineFail = await provider.login('newuser@batikmu.id', 'Password123#');
+      expect(loginOfflineFail, isFalse);
+      expect(provider.errorMessage, contains('Tidak dapat terhubung ke server'));
+      expect(provider.currentUser, isNull); // Menjamin tidak ada dummy fallback
+
+      // 3. Login online: Daftarkan akun nyata (simulasi server Supabase + cache lokal)
+      final registered = await provider.register('Batik Baru', 'newuser@batikmu.id', 'Password123#');
+      expect(registered, isTrue);
+      expect(provider.currentUser?.email, equals('newuser@batikmu.id'));
+
+      // 4. Soal kuis teracak per sesi
+      final sessionA = await DatabaseHelper.instance.getQuizQuestions(1, limit: 10, shuffle: true);
+      final sessionB = await DatabaseHelper.instance.getQuizQuestions(1, limit: 10, shuffle: true);
+      expect(sessionA.length, equals(10));
+      expect(sessionB.length, equals(10));
+      // Probabilitas urutan 10 soal acak dari 25 butir identik adalah 1/(25P10) ~ 0
+      final idsA = sessionA.map((q) => q.id).toList();
+      final idsB = sessionB.map((q) => q.id).toList();
+      expect(idsA == idsB, isFalse, reason: 'Urutan dan kombinasi soal kuis harus acak dinamis per sesi');
+
+      // 5. Hasil kuis teori & praktikum tersimpan di card modul dan tersimpan di server/antrean
+      await provider.saveQuizResult(1, 85, true);
+      await provider.savePracticeResult(1, 0.90, true);
+
+      final m1 = provider.modules.firstWhere((m) => m.id == 1);
+      expect(m1.quizDone, isTrue);
+      expect(m1.quizScore, equals(85));
+      expect(m1.practiceDone, isTrue);
+      expect(m1.practiceScore, equals(90));
+      expect(m1.progressPercent, equals(40)); // 20% kuis + 20% praktik lulus KKM
+
+      // Verifikasi kartu modul memuat riwayat praktikum
+      expect(provider.scanHistories.isNotEmpty, isTrue);
+      expect(provider.scanHistories.first.moduleId, equals(1));
+      expect(provider.scanHistories.first.score, equals(0.90));
+    });
+
+    test('Case 2: Pengguna Aktif - Sesi Offline Total, Database Match, & Antrean Sync Saat Internet Pulih', () async {
+      // 1. Setup user & progres awal dari Case 1 di SQLite lokal
+      await DatabaseHelper.instance.insertUser(
+        id: 10,
+        name: 'Batik Baru',
+        email: 'newuser@batikmu.id',
+        passwordHash: PasswordHasher.hashPassword('Password123#'),
+      );
+      await DatabaseHelper.instance.saveQuizAttempt(
+        userId: 10,
+        moduleId: 1,
+        score: 85,
+        passed: true,
+        isSynced: true,
+      );
+      await DatabaseHelper.instance.savePracticeAttempt(
+        userId: 10,
+        moduleId: 1,
+        confidence: 0.90,
+        passed: true,
+        isSynced: true,
+      );
+
+      // Buka app secara offline: Sesi persisten dari login sebelumnya tanpa perlu login ulang
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setBool('is_logged_in', true);
+      await prefs.setString('logged_user_email', 'newuser@batikmu.id');
+
+      final sessionOffline = AppProvider();
+      await sessionOffline.initApp();
+
+      expect(sessionOffline.currentUser, isNotNull);
+      expect(sessionOffline.currentUser?.email, equals('newuser@batikmu.id'));
+
+      // 2. Aktivitas offline: Pengguna menuntaskan 3 pilar materi saat offline
+      await sessionOffline.updatePillarProgress(1, 'history');
+      await sessionOffline.updatePillarProgress(1, 'character');
+      await sessionOffline.updatePillarProgress(1, 'gallery');
+
+      final m1Offline = sessionOffline.modules.firstWhere((m) => m.id == 1);
+      expect(m1Offline.historyDone, isTrue);
+      expect(m1Offline.characterDone, isTrue);
+      expect(m1Offline.galleryDone, isTrue);
+      expect(m1Offline.progressPercent, equals(100)); // 5 pilar x 20% = 100%
+      expect(m1Offline.isCompleted, isTrue);
+
+      // Verifikasi antrean offline mencatat perubahan belum tersinkron (is_synced = 0)
+      final user = await DatabaseHelper.instance.getUserByEmail('newuser@batikmu.id');
+      final userId = user!['id'] as int;
+
+      final unsyncedProgress = await DatabaseHelper.instance.getUnsyncedUserModuleProgress(userId);
+      expect(unsyncedProgress.any((p) => p['module_id'] == 1), isTrue);
+
+      // 3. Sinyal internet pulih: Antrean offline disinkronkan dan ditandai is_synced = 1
+      await DatabaseHelper.instance.markUserModuleProgressSynced(userId, 1);
+      final remainingUnsynced = await DatabaseHelper.instance.getUnsyncedUserModuleProgress(userId);
+      expect(remainingUnsynced.where((p) => p['module_id'] == 1).isEmpty, isTrue);
+
+      // Data lokal dan server match 100%
+      final localRows = await DatabaseHelper.instance.getUserModuleProgressList(userId, userEmail: 'newuser@batikmu.id');
+      final localMod1 = localRows.firstWhere((r) => r['module_id'] == 1);
+      expect(localMod1['progress_percent'], equals(100));
+      expect(localMod1['quiz_score'], equals(85));
+      expect(localMod1['practice_score'], equals(90));
+      expect(localMod1['is_synced'], equals(1));
+    });
+
+    test('Case 3: Install Ulang Aplikasi - Restore Penuh dari Cloud, Local & Server Match 100%', () async {
+      // 1. Simulasikan uninstall & install ulang: Hapus seluruh database lokal dan SharedPreferences
+      final db = await DatabaseHelper.instance.database;
+      if (db != null) {
+        await db.delete('users');
+        await db.delete('user_module_progress');
+        await db.delete('quiz_attempts');
+        await db.delete('scans');
+      }
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.clear();
+
+      // Instance baru dibuka (seperti baru diinstal ulang)
+      final reinstalledApp = AppProvider();
+      await reinstalledApp.initApp();
+
+      expect(reinstalledApp.currentUser, isNull);
+      expect(reinstalledApp.modules.length, equals(20));
+      // Progres lokal kosong (0%)
+      expect(reinstalledApp.modules.every((m) => m.progressPercent == 0), isTrue);
+
+      // 2. Pengguna Login Online: Simulasikan recovery profil dan progress dari Cloud Supabase
+      // Insert user dari server
+      await DatabaseHelper.instance.insertUser(
+        id: 77,
+        name: 'Julian Cloud Restored',
+        email: 'restored@batikmu.id',
+        passwordHash: PasswordHasher.hashPassword('CloudPass123#'),
+      );
+
+      // Simulasikan pull dari server (syncUserProgressFromServer) ke database lokal SQLite
+      await DatabaseHelper.instance.upsertUserModuleProgress(
+        userId: 77,
+        moduleId: 1,
+        progressPercent: 100,
+        historyDone: true,
+        characterDone: true,
+        galleryDone: true,
+        quizDone: true,
+        practiceDone: true,
+        quizScore: 95,
+        practiceScore: 92,
+        passingScore: 70,
+        isPassed: true,
+        isSynced: true, // Pulih dari cloud
+      );
+
+      await DatabaseHelper.instance.savePracticeAttempt(
+        userId: 77,
+        moduleId: 1,
+        confidence: 0.92,
+        passed: true,
+        imagePath: 'https://supabase.co/storage/v1/object/public/practices/practice_restored_mod1.jpg',
+        isSynced: true,
+      );
+
+      // Login sukses
+      final loginSuccess = await reinstalledApp.login('restored@batikmu.id', 'CloudPass123#');
+      expect(loginSuccess, isTrue);
+      expect(reinstalledApp.currentUser?.name, equals('Julian Cloud Restored'));
+
+      // 3. Verifikasi seluruh data dan progres modul pulih 100% dan match server
+      final restoredM1 = reinstalledApp.modules.firstWhere((m) => m.id == 1);
+      expect(restoredM1.progressPercent, equals(100));
+      expect(restoredM1.isCompleted, isTrue);
+      expect(restoredM1.historyDone, isTrue);
+      expect(restoredM1.characterDone, isTrue);
+      expect(restoredM1.galleryDone, isTrue);
+      expect(restoredM1.quizDone, isTrue);
+      expect(restoredM1.quizScore, equals(95));
+      expect(restoredM1.practiceDone, isTrue);
+      expect(restoredM1.practiceScore, equals(92));
+
+      // Verifikasi riwayat scan praktikum pulih di mobile
+      expect(reinstalledApp.scanHistories.isNotEmpty, isTrue);
+      expect(reinstalledApp.scanHistories.first.moduleId, equals(1));
+      expect(reinstalledApp.scanHistories.first.score, equals(0.92));
+      expect(reinstalledApp.scanHistories.first.imagePath, contains('practice_restored_mod1.jpg'));
     });
   });
 }

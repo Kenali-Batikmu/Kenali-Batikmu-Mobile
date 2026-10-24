@@ -77,6 +77,36 @@ class SupabaseService {
     }
   }
 
+  /// Ambil seluruh daftar motif batik dari Cloud Supabase
+  Future<List<Map<String, dynamic>>> fetchMotifs() async {
+    if (!isReady || client == null) return [];
+    try {
+      final res = await client!
+          .from('batik_motifs')
+          .select()
+          .order('id', ascending: true);
+      return List<Map<String, dynamic>>.from(res);
+    } catch (e) {
+      debugPrint('Supabase fetchMotifs error: $e');
+      return [];
+    }
+  }
+
+  /// Ambil seluruh daftar modul pembelajaran dari Cloud Supabase
+  Future<List<Map<String, dynamic>>> fetchModules() async {
+    if (!isReady || client == null) return [];
+    try {
+      final res = await client!
+          .from('modules')
+          .select()
+          .order('order_no', ascending: true);
+      return List<Map<String, dynamic>>.from(res);
+    } catch (e) {
+      debugPrint('Supabase fetchModules error: $e');
+      return [];
+    }
+  }
+
   /// Perbarui profil pengguna di Supabase
   Future<bool> updateUserProfile({
     required String email,
@@ -152,7 +182,7 @@ class SupabaseService {
 
       final ext = filePath.split('.').last.toLowerCase();
       final cleanEmail = email.replaceAll(RegExp(r'[^a-zA-Z0-9]'), '_');
-      final fileName = 'practice_${cleanEmail}_mod${moduleId}_${DateTime.now().millisecondsSinceEpoch}.$ext';
+      final fileName = 'practice_${cleanEmail}_mod$moduleId.$ext';
 
       final fileBytes = await file.readAsBytes();
       await client!.storage.from('practices').uploadBinary(
@@ -201,7 +231,7 @@ class SupabaseService {
     }
   }
 
-  /// Simpan hasil praktikum kuis ke tabel scans di Supabase
+  /// Simpan hasil praktikum kuis ke tabel scans di Supabase (1 rekaman per modul: menimpa yang lama)
   Future<bool> savePracticeScan({
     required String userEmail,
     required int moduleId,
@@ -215,6 +245,18 @@ class SupabaseService {
       if (supaUser == null) return false;
       final userId = supaUser['id'] as int;
 
+      // Hapus scan praktikum lama untuk modul ini di Supabase agar hemat storage (1 per modul)
+      try {
+        await client!
+            .from('scans')
+            .delete()
+            .eq('user_id', userId)
+            .eq('module_id', moduleId)
+            .eq('scan_type', 'kuismu');
+      } catch (e) {
+        debugPrint('Supabase notice: Timpa scan praktikum lama modul $moduleId: $e');
+      }
+
       await client!.from('scans').insert({
         'user_id': userId,
         'scan_type': 'kuismu',
@@ -226,7 +268,7 @@ class SupabaseService {
         'inference_time_ms': 120,
         'created_at': DateTime.now().toIso8601String(),
       });
-      debugPrint('Supabase sync: Praktikum modul $moduleId berhasil disimpan ke cloud');
+      debugPrint('Supabase sync: Praktikum modul $moduleId berhasil ditimpa/disimpan ke cloud (1 rekaman per modul)');
       return true;
     } catch (e) {
       debugPrint('Supabase savePracticeScan error: $e');
@@ -244,6 +286,10 @@ class SupabaseService {
     required bool galleryDone,
     required bool quizDone,
     required bool practiceDone,
+    int? quizScore,
+    int? practiceScore,
+    int passingScore = 70,
+    bool isPassed = false,
   }) async {
     if (!isReady || client == null) return false;
     try {
@@ -266,16 +312,97 @@ class SupabaseService {
           'gallery_done': galleryDone,
           'quiz_done': quizDone,
           'practice_done': practiceDone,
+          'quiz_score': quizScore,
+          'practice_score': practiceScore,
+          'passing_score': passingScore,
+          'is_passed': isPassed,
           'completed_at': progressPercent >= 100 ? now : null,
           'last_accessed_at': now,
         },
         onConflict: 'user_id,module_id',
       );
-      debugPrint('Supabase sync: Progres modul $moduleId ($progressPercent%) berhasil disinkronkan');
+      debugPrint('Supabase sync: Progres modul $moduleId ($progressPercent%) berhasil disinkronkan ke cloud');
       return true;
     } catch (e) {
       debugPrint('Supabase syncUserModuleProgress error: $e');
       return false;
+    }
+  }
+
+  /// Tarik data progres seluruh modul milik user dari Cloud Supabase (Server-First Pull)
+  Future<List<Map<String, dynamic>>> fetchUserModuleProgress(String userEmail) async {
+    if (!isReady || client == null) return [];
+    try {
+      final supaUser = await getUserByEmail(userEmail);
+      if (supaUser == null) return [];
+      final userId = supaUser['id'] as int;
+
+      final res = await client!
+          .from('user_module_progress')
+          .select()
+          .eq('user_id', userId)
+          .order('module_id', ascending: true);
+      return List<Map<String, dynamic>>.from(res);
+    } catch (e) {
+      debugPrint('Supabase fetchUserModuleProgress error: $e');
+      return [];
+    }
+  }
+
+  /// Tarik riwayat percobaan kuis teori milik user dari Cloud Supabase
+  Future<List<Map<String, dynamic>>> fetchQuizAttempts(String userEmail) async {
+    if (!isReady || client == null) return [];
+    try {
+      final supaUser = await getUserByEmail(userEmail);
+      if (supaUser == null) return [];
+      final userId = supaUser['id'] as int;
+
+      final res = await client!
+          .from('quiz_attempts')
+          .select()
+          .eq('user_id', userId)
+          .order('id', ascending: false);
+      return List<Map<String, dynamic>>.from(res);
+    } catch (e) {
+      debugPrint('Supabase fetchQuizAttempts error: $e');
+      return [];
+    }
+  }
+
+  /// Tarik bank soal kuis teori untuk satu modul dari Cloud Supabase
+  Future<List<Map<String, dynamic>>> fetchQuizQuestions(int moduleId) async {
+    if (!isReady || client == null) return [];
+    try {
+      final res = await client!
+          .from('quiz_questions')
+          .select()
+          .eq('module_id', moduleId)
+          .order('id', ascending: true);
+      return List<Map<String, dynamic>>.from(res);
+    } catch (e) {
+      debugPrint('Supabase fetchQuizQuestions error: $e');
+      return [];
+    }
+  }
+
+  /// Tarik riwayat pindaian kuis praktikum milik user dari Cloud Supabase
+  Future<List<Map<String, dynamic>>> fetchPracticeScans(String userEmail) async {
+    if (!isReady || client == null) return [];
+    try {
+      final supaUser = await getUserByEmail(userEmail);
+      if (supaUser == null) return [];
+      final userId = supaUser['id'] as int;
+
+      final res = await client!
+          .from('scans')
+          .select()
+          .eq('user_id', userId)
+          .eq('scan_type', 'kuismu')
+          .order('id', ascending: false);
+      return List<Map<String, dynamic>>.from(res);
+    } catch (e) {
+      debugPrint('Supabase fetchPracticeScans error: $e');
+      return [];
     }
   }
 }

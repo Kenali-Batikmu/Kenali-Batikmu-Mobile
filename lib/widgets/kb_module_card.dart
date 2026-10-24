@@ -87,7 +87,7 @@ class KbModuleCard extends StatelessWidget {
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
                     Text(
-                      'MODUL ${module.orderNo}/8',
+                      'MODUL ${module.orderNo}',
                       style: AppTheme.satoshi(
                         fontSize: 11,
                         fontWeight: FontWeight.bold,
@@ -156,12 +156,23 @@ class KbModuleCard extends StatelessWidget {
   Widget _buildBody(BuildContext context, bool isDone, bool isWorking, num progress) {
     final fraction = (progress / 100).clamp(0.0, 1.0).toDouble();
 
-    final theory = isDone
-        ? (module.id == 1 ? 'Nilai Teori: 80%' : 'Nilai Teori: 100%')
-        : (module.quizDone ? 'Nilai Teori: 80%' : 'Nilai Teori: 0%');
-    final practice = isDone
-        ? 'Nilai Praktikum: 100%'
-        : (module.practiceDone ? 'Nilai Praktikum: 70%' : 'Nilai Praktikum: 0%');
+    final String theory;
+    if (module.quizScore != null) {
+      theory = 'Nilai Teori: ${module.quizScore}%';
+    } else if (module.quizDone) {
+      theory = 'Nilai Teori: 100%';
+    } else {
+      theory = 'Nilai Teori: -';
+    }
+
+    final String practice;
+    if (module.practiceScore != null) {
+      practice = 'Nilai Praktikum: ${module.practiceScore}%';
+    } else if (module.practiceDone) {
+      practice = 'Nilai Praktikum: 100%';
+    } else {
+      practice = 'Nilai Praktikum: -';
+    }
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,

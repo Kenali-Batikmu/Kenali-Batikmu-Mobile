@@ -46,7 +46,7 @@ class TermsAndPrivacyScreen extends StatelessWidget {
               ),
               const SizedBox(height: 12),
               Text(
-                'Terakhir Diperbarui: 2 Oktober 2026\nVersi 1.0 — Sesuai Standar OWASP Mobile M6 (Kontrol Privasi)',
+                'Terakhir Diperbarui: 2 Oktober 2026\nVersi 1.0 - Sesuai Standar OWASP Mobile M6 (Kontrol Privasi)',
                 style: AppTheme.inter(fontSize: 12, color: AppTheme.textMuted),
               ),
               const Divider(height: 28, color: AppTheme.border),

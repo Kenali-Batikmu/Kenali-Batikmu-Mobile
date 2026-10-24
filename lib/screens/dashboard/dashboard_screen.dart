@@ -5,6 +5,7 @@ import 'package:provider/provider.dart';
 
 import '../../core/theme/app_theme.dart';
 import '../../providers/app_provider.dart';
+import '../../widgets/kb_header_bar.dart';
 import '../../widgets/kb_module_card.dart';
 import '../modules/module_detail_screen.dart';
 
@@ -524,7 +525,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
     final firstName = (user?.name.isNotEmpty ?? false)
         ? user!.name.split(' ').first
-        : 'Sekar';
+        : (user?.email.split('@').first ?? 'Kawan');
 
     return Scaffold(
       backgroundColor: bgColor,
@@ -583,20 +584,26 @@ class _DashboardScreenState extends State<DashboardScreen> {
                               ),
                               const SizedBox(height: 14),
 
-                              // ── Riwayat Belajar: modul yang sedang dikerjakan ──
+                              // ── Riwayat Belajar: modul yang memiliki riwayat aktivitas atau sedang dikerjakan ──
                               Builder(
                                 builder: (_) {
-                                  final inProgress = provider.modules
+                                  final activeModules = provider.modules
                                       .where((m) =>
-                                          m.progressPercent > 0 &&
-                                          m.progressPercent < 100)
+                                          m.progressPercent > 0 ||
+                                          m.quizScore != null ||
+                                          m.practiceScore != null ||
+                                          m.quizDone ||
+                                          m.practiceDone)
                                       .toList()
-                                    ..sort((a, b) => b.progressPercent
-                                        .compareTo(a.progressPercent));
+                                    ..sort((a, b) {
+                                      if (a.progressPercent < 100 && b.progressPercent >= 100) return -1;
+                                      if (a.progressPercent >= 100 && b.progressPercent < 100) return 1;
+                                      return b.progressPercent.compareTo(a.progressPercent);
+                                    });
 
-                                  if (inProgress.isNotEmpty) {
+                                  if (activeModules.isNotEmpty) {
                                     return _RiwayatSlider(
-                                      modules: inProgress.take(5).toList(),
+                                      modules: activeModules.take(5).toList(),
                                       isDark: isDark,
                                     );
                                   }
@@ -738,72 +745,16 @@ class _DashboardScreenState extends State<DashboardScreen> {
     );
   }
 
-  List<BoxShadow> get _softShadow => [
-        BoxShadow(
-          color: Colors.black.withValues(alpha: 0.10),
-          blurRadius: 10,
-          offset: const Offset(0, 3),
-        ),
-      ];
-
-  // ── Top bar: logo di kiri, avatar profil di kanan ──
+  // ── Top bar: logo di kiri, avatar profil di kanan (menggunakan KbHeaderBar) ──
   Widget _buildTopBar(BuildContext context) {
-    final provider = context.read<AppProvider>();
+    final provider = context.watch<AppProvider>();
     final user = provider.currentUser;
 
-    return Padding(
+    return KbHeaderBar(
+      user: user,
+      onOpenProfile: widget.onOpenProfile,
+      showSearch: false,
       padding: const EdgeInsets.symmetric(horizontal: 16),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Container(
-            width: 44,
-            height: 44,
-            decoration: BoxDecoration(
-              color: Colors.white,
-              shape: BoxShape.circle,
-              boxShadow: _softShadow,
-            ),
-            child: ClipOval(
-              child: Image.asset(
-                'assets/images/kb_logo.jpeg',
-                fit: BoxFit.cover,
-              ),
-            ),
-          ),
-          GestureDetector(
-            onTap: widget.onOpenProfile,
-            child: Container(
-              width: 42,
-              height: 42,
-              decoration: BoxDecoration(
-                color: AppTheme.primary,
-                shape: BoxShape.circle,
-                border: Border.all(color: AppTheme.accentGold, width: 2),
-                boxShadow: [
-                  BoxShadow(
-                    color: AppTheme.primary.withValues(alpha: 0.2),
-                    blurRadius: 8,
-                    offset: const Offset(0, 4),
-                  ),
-                ],
-              ),
-              child: Center(
-                child: Text(
-                  (user?.name.isNotEmpty ?? false)
-                      ? user!.name[0].toUpperCase()
-                      : 'S',
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 17,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-              ),
-            ),
-          ),
-        ],
-      ),
     );
   }
 }

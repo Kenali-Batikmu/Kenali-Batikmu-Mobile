@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import '../../core/theme/app_theme.dart';
 import '../../models/app_models.dart';
+import '../../providers/app_provider.dart';
 import 'theory_quiz_screen.dart';
 import 'practice_quiz_screen.dart';
 
@@ -12,6 +14,8 @@ class QuizChoiceScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
+    final provider = context.watch<AppProvider>();
+    final currentMod = provider.modules.firstWhere((m) => m.id == module.id, orElse: () => module);
 
     return Scaffold(
       backgroundColor: isDark ? AppTheme.darkBackground : AppTheme.background,
@@ -154,19 +158,25 @@ class QuizChoiceScreen extends StatelessWidget {
                       Container(
                         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                         decoration: BoxDecoration(
-                          color: AppTheme.borderLight,
+                          color: currentMod.quizDone ? const Color(0xFFE8F5E9) : AppTheme.borderLight,
                           borderRadius: BorderRadius.circular(10),
                         ),
                         child: Text(
-                          'Nilai Teori: 100%',
-                          style: AppTheme.inter(fontSize: 12, fontWeight: FontWeight.bold, color: AppTheme.primaryDark),
+                          currentMod.quizDone
+                              ? 'Nilai Teori: ${currentMod.quizScore ?? 100}%'
+                              : 'Belum Dikerjakan',
+                          style: AppTheme.inter(
+                            fontSize: 12,
+                            fontWeight: FontWeight.bold,
+                            color: currentMod.quizDone ? const Color(0xFF2E7D32) : AppTheme.textSecondary,
+                          ),
                         ),
                       ),
                       ElevatedButton(
                         onPressed: () {
                           Navigator.push(
                             context,
-                            MaterialPageRoute(builder: (_) => TheoryQuizScreen(module: module)),
+                            MaterialPageRoute(builder: (_) => TheoryQuizScreen(module: currentMod)),
                           );
                         },
                         style: ElevatedButton.styleFrom(
@@ -230,7 +240,9 @@ class QuizChoiceScreen extends StatelessWidget {
                       Container(
                         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                         decoration: BoxDecoration(
-                          color: AppTheme.borderLight,
+                          color: currentMod.practiceDone
+                              ? const Color(0xFFE8F5E9)
+                              : (currentMod.practiceScore != null ? const Color(0xFFFFF3E0) : AppTheme.borderLight),
                           borderRadius: BorderRadius.circular(10),
                         ),
                         child: Row(
@@ -238,15 +250,27 @@ class QuizChoiceScreen extends StatelessWidget {
                             Container(
                               width: 8,
                               height: 8,
-                              decoration: const BoxDecoration(
-                                color: AppTheme.accentGold,
+                              decoration: BoxDecoration(
+                                color: currentMod.practiceDone
+                                    ? const Color(0xFF2E7D32)
+                                    : (currentMod.practiceScore != null ? const Color(0xFFE65100) : AppTheme.accentGold),
                                 shape: BoxShape.circle,
                               ),
                             ),
                             const SizedBox(width: 6),
                             Text(
-                              'Belum Dilakukan',
-                              style: AppTheme.inter(fontSize: 12, fontWeight: FontWeight.bold, color: AppTheme.textSecondary),
+                              currentMod.practiceDone
+                                  ? 'Nilai: ${currentMod.practiceScore ?? 100}% (Lulus)'
+                                  : (currentMod.practiceScore != null
+                                      ? 'Nilai: ${currentMod.practiceScore}% (Belum Lulus)'
+                                      : 'Belum Dilakukan'),
+                              style: AppTheme.inter(
+                                fontSize: 12,
+                                fontWeight: FontWeight.bold,
+                                color: currentMod.practiceDone
+                                    ? const Color(0xFF2E7D32)
+                                    : (currentMod.practiceScore != null ? const Color(0xFFE65100) : AppTheme.textSecondary),
+                              ),
                             ),
                           ],
                         ),
@@ -255,7 +279,7 @@ class QuizChoiceScreen extends StatelessWidget {
                         onPressed: () {
                           Navigator.push(
                             context,
-                            MaterialPageRoute(builder: (_) => PracticeQuizScreen(module: module)),
+                            MaterialPageRoute(builder: (_) => PracticeQuizScreen(module: currentMod)),
                           );
                         },
                         style: ElevatedButton.styleFrom(
@@ -265,11 +289,11 @@ class QuizChoiceScreen extends StatelessWidget {
                           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
                           minimumSize: const Size(130, 42),
                         ),
-                        child: const Row(
+                        child: Row(
                           children: [
-                            Text('Mulai Kuis Praktik'),
-                            SizedBox(width: 4),
-                            Icon(Icons.arrow_forward_ios, size: 12),
+                            Text((currentMod.practiceDone || currentMod.practiceScore != null) ? 'Coba Praktik Lagi' : 'Mulai Kuis Praktik'),
+                            const SizedBox(width: 4),
+                            const Icon(Icons.arrow_forward_ios, size: 12),
                           ],
                         ),
                       ),

@@ -328,6 +328,112 @@ class ModuleModel {
       content: content,
     );
   }
+
+  /// Menghitung persentase progres (0-100%) dengan bobot 20% per komponen
+  /// Modul hanya 100% jika seluruh 3 materi dibaca dan kuis teori & kuis praktikum lulus KKM (>= passingScore)
+  int calculateProgressPercent() {
+    int points = 0;
+    if (historyDone) points += 20;
+    if (characterDone) points += 20;
+    if (galleryDone) points += 20;
+    if (quizDone && (quizScore ?? 0) >= passingScore) points += 20;
+    if (practiceDone && (practiceScore ?? 0) >= passingScore) points += 20;
+    return points.clamp(0, 100);
+  }
+
+  /// Memeriksa apakah seluruh 5 komponen tuntas dan lulus passing score (100%)
+  bool get isCompleted => calculateProgressPercent() >= 100;
+
+  /// Status modul: 'not_started', 'in_progress', 'completed'
+  String get status {
+    final p = calculateProgressPercent();
+    if (p >= 100) return 'completed';
+    if (p > 0 || historyDone || characterDone || galleryDone || quizScore != null || practiceScore != null) {
+      return 'in_progress';
+    }
+    return 'not_started';
+  }
+}
+
+/// Model Data Progres Modul Pengguna (Sinkronisasi SQLite & Supabase)
+class UserModuleProgressModel {
+  final int? id;
+  final int userId;
+  final int moduleId;
+  final String status;
+  final int progressPercent;
+  final bool historyDone;
+  final bool characterDone;
+  final bool galleryDone;
+  final bool quizDone;
+  final bool practiceDone;
+  final int? quizScore;
+  final int? practiceScore;
+  final int passingScore;
+  final bool isPassed;
+  final String? completedAt;
+  final String lastAccessedAt;
+
+  UserModuleProgressModel({
+    this.id,
+    required this.userId,
+    required this.moduleId,
+    required this.status,
+    required this.progressPercent,
+    this.historyDone = false,
+    this.characterDone = false,
+    this.galleryDone = false,
+    this.quizDone = false,
+    this.practiceDone = false,
+    this.quizScore,
+    this.practiceScore,
+    this.passingScore = 70,
+    this.isPassed = false,
+    this.completedAt,
+    required this.lastAccessedAt,
+  });
+
+  factory UserModuleProgressModel.fromMap(Map<String, dynamic> map) {
+    return UserModuleProgressModel(
+      id: map['id'] as int?,
+      userId: map['user_id'] as int,
+      moduleId: map['module_id'] as int,
+      status: map['status'] as String? ?? 'not_started',
+      progressPercent: map['progress_percent'] as int? ?? 0,
+      historyDone: map['history_done'] == 1 || map['history_done'] == true,
+      characterDone: map['character_done'] == 1 || map['character_done'] == true,
+      galleryDone: map['gallery_done'] == 1 || map['gallery_done'] == true,
+      quizDone: map['quiz_done'] == 1 || map['quiz_done'] == true,
+      practiceDone: map['practice_done'] == 1 || map['practice_done'] == true,
+      quizScore: map['quiz_score'] as int?,
+      practiceScore: map['practice_score'] as int?,
+      passingScore: map['passing_score'] as int? ?? 70,
+      isPassed: map['is_passed'] == 1 || map['is_passed'] == true,
+      completedAt: map['completed_at'] as String?,
+      lastAccessedAt: map['last_accessed_at'] as String? ?? '',
+    );
+  }
+
+  Map<String, dynamic> toMap() {
+    return {
+      if (id != null) 'id': id,
+      'user_id': userId,
+      'module_id': moduleId,
+      'status': status,
+      'progress_percent': progressPercent,
+      'history_done': historyDone ? 1 : 0,
+      'character_done': characterDone ? 1 : 0,
+      'gallery_done': galleryDone ? 1 : 0,
+      'quiz_done': quizDone ? 1 : 0,
+      'practice_done': practiceDone ? 1 : 0,
+      'quiz_score': quizScore,
+      'practice_score': practiceScore,
+      'passing_score': passingScore,
+      'is_passed': isPassed ? 1 : 0,
+      'completed_at': completedAt,
+      'last_accessed_at': lastAccessedAt,
+    };
+  }
 }
 
 class QuizQuestionModel {
@@ -375,6 +481,8 @@ class ScanHistoryModel {
   final double score;
   final bool passed;
   final String createdAt;
+  final String? imagePath;
+  final int? moduleId;
 
   ScanHistoryModel({
     required this.id,
@@ -383,5 +491,8 @@ class ScanHistoryModel {
     required this.score,
     required this.passed,
     required this.createdAt,
+    this.imagePath,
+    this.moduleId,
   });
 }
+
