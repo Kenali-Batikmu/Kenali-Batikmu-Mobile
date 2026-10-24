@@ -451,8 +451,43 @@ class AppProvider with ChangeNotifier {
           await _loadUserModuleProgress(savedEmail);
         }
       } else {
-        _currentUser = null;
-        _resetModuleProgressInMemory();
+        // Fallback default akun jika ada di DB lokal
+        final db = await DatabaseHelper.instance.database;
+        if (db != null) {
+          final users = await db.query('users', limit: 1);
+          if (users.isNotEmpty && _currentUser != null) {
+            _currentUser = UserModel.fromMap(users.first);
+          }
+        }
+        if (_currentUser == null) {
+          _resetModuleProgressInMemory();
+        }
+      }
+
+      // Muat data master dari SQLite lokal (20 Modul & 20 Motif)
+      final db = await DatabaseHelper.instance.database;
+      if (db != null) {
+        if (_currentUser == null) {
+          final users = await db.query('users', limit: 1);
+          if (users.isNotEmpty) {
+            _currentUser = UserModel.fromMap(users.first);
+          }
+        }
+
+        final dbMotifs = await DatabaseHelper.instance.getAllMotifs();
+        if (dbMotifs.isNotEmpty) {
+          _motifs = dbMotifs;
+        }
+
+        final dbModules = await DatabaseHelper.instance.getAllModules(userId: _currentUser?.id ?? 1);
+        if (dbModules.isNotEmpty) {
+          _modules = dbModules;
+        }
+
+        final histories = await DatabaseHelper.instance.getScanHistories(_currentUser?.id ?? 1);
+        if (histories.isNotEmpty) {
+          _scanHistories = histories;
+        }
       }
     } catch (e) {
       debugPrint('Info sync SQLite: $e (Aplikasi berjalan dalam Interactive Prototype Mode)');
@@ -888,7 +923,7 @@ class AppProvider with ChangeNotifier {
       );
       notifyListeners();
 
-      // Simpan progres ke SharedPreferences (cache cepat) & SQLite (relational)
+      // Simpan progres ke SharedPreferences & SQLite
       try {
         final prefs = await SharedPreferences.getInstance();
         final userKey = _currentUser?.email.trim().toLowerCase() ?? 'guest';
@@ -900,19 +935,26 @@ class AppProvider with ChangeNotifier {
         await prefs.setBool('${userKeyPrefix}_quiz', q);
         await prefs.setBool('${userKeyPrefix}_practice', p);
 
-        final userId = _currentUser?.id;
-        if (userId != null) {
-          await DatabaseHelper.instance.upsertUserModuleProgress(
-            userId: userId,
-            moduleId: moduleId,
-            progressPercent: percent,
-            historyDone: h,
-            characterDone: c,
-            galleryDone: g,
-            quizDone: q,
-            practiceDone: p,
-          );
-        }
+        // Fallback key umum
+        await prefs.setInt('module_${moduleId}_progress', percent);
+        await prefs.setBool('module_${moduleId}_history', h);
+        await prefs.setBool('module_${moduleId}_character', c);
+        await prefs.setBool('module_${moduleId}_gallery', g);
+        await prefs.setBool('module_${moduleId}_quiz', q);
+        await prefs.setBool('module_${moduleId}_practice', p);
+
+        final userId = _currentUser?.id ?? 1;
+        await DatabaseHelper.instance.upsertUserModuleProgress(
+          userId: userId,
+          moduleId: moduleId,
+          progressPercent: percent,
+          historyDone: h,
+          characterDone: c,
+          galleryDone: g,
+          quizDone: q,
+          practiceDone: p,
+        );
+        await DatabaseHelper.instance.updatePillarProgress(userId, moduleId, pillar);
       } catch (_) {}
     }
   }
@@ -944,19 +986,29 @@ class AppProvider with ChangeNotifier {
         await prefs.setBool('${userKeyPrefix}_quiz', passed);
         await prefs.setInt('${userKeyPrefix}_quizScore', score);
 
-        final userId = _currentUser?.id;
-        if (userId != null) {
-          await DatabaseHelper.instance.upsertUserModuleProgress(
-            userId: userId,
-            moduleId: moduleId,
-            progressPercent: percent,
-            historyDone: h,
-            characterDone: c,
-            galleryDone: g,
-            quizDone: passed,
-            practiceDone: p,
-          );
-        }
+        await prefs.setInt('module_${moduleId}_progress', percent);
+        await prefs.setBool('module_${moduleId}_quiz', passed);
+        await prefs.setInt('module_${moduleId}_quizScore', score);
+
+        final userId = _currentUser?.id ?? 1;
+        await DatabaseHelper.instance.upsertUserModuleProgress(
+          userId: userId,
+          moduleId: moduleId,
+          progressPercent: percent,
+          historyDone: h,
+          characterDone: c,
+          galleryDone: g,
+          quizDone: passed,
+          practiceDone: p,
+        );
+
+        await DatabaseHelper.instance.saveQuizAttempt(
+          userId: userId,
+          moduleId: moduleId,
+          score: score,
+          passed: passed,
+          totalQuestions: 10,
+        );
       } catch (_) {}
     }
   }
@@ -988,19 +1040,28 @@ class AppProvider with ChangeNotifier {
         await prefs.setBool('${userKeyPrefix}_practice', passed);
         await prefs.setInt('${userKeyPrefix}_practiceScore', (fitScore * 100).toInt());
 
-        final userId = _currentUser?.id;
-        if (userId != null) {
-          await DatabaseHelper.instance.upsertUserModuleProgress(
-            userId: userId,
-            moduleId: moduleId,
-            progressPercent: percent,
-            historyDone: h,
-            characterDone: c,
-            galleryDone: g,
-            quizDone: q,
-            practiceDone: passed,
-          );
-        }
+        await prefs.setInt('module_${moduleId}_progress', percent);
+        await prefs.setBool('module_${moduleId}_practice', passed);
+        await prefs.setInt('module_${moduleId}_practiceScore', (fitScore * 100).toInt());
+
+        final userId = _currentUser?.id ?? 1;
+        await DatabaseHelper.instance.upsertUserModuleProgress(
+          userId: userId,
+          moduleId: moduleId,
+          progressPercent: percent,
+          historyDone: h,
+          characterDone: c,
+          galleryDone: g,
+          quizDone: q,
+          practiceDone: passed,
+        );
+
+        await DatabaseHelper.instance.savePracticeAttempt(
+          userId: userId,
+          moduleId: moduleId,
+          confidence: fitScore,
+          passed: passed,
+        );
       } catch (_) {}
 
       // Tambahkan ke riwayat scan

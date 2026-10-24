@@ -50,6 +50,7 @@ dependencies:
   path_provider: ^2.1.5
   camera: ^0.12.1
   http: ^1.2.2
+  supabase_flutter: ^2.8.0
 
 dev_dependencies:
   flutter_test:
@@ -76,6 +77,8 @@ flutter:
   assets:
     - assets/images/
     - assets/images/leaf/
+    - assets/database/
+    - assets/models/
 
   # An image asset can refer to one or more resolution-specific "variants", see
   # https://flutter.dev/to/resolution-aware-images

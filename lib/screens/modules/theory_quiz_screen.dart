@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import '../../core/database/database_helper.dart';
 import '../../core/theme/app_theme.dart';
 import '../../models/app_models.dart';
 import '../../providers/app_provider.dart';
@@ -14,65 +15,54 @@ class TheoryQuizScreen extends StatefulWidget {
 }
 
 class _TheoryQuizScreenState extends State<TheoryQuizScreen> {
-  final Map<int, String> _userAnswers = {
-    0: 'B', // Contoh untuk simulasi jawaban yang salah di soal 1
-    1: 'B', // Benar di soal 2
-    2: 'A',
-    3: 'C',
-  };
-
+  final Map<int, String> _userAnswers = {};
   bool _isSubmitted = false;
+  bool _isLoading = true;
+  List<QuizQuestionModel> _questions = [];
+  int _finalScore = 0;
+  int _correctCount = 0;
 
-  final List<Map<String, dynamic>> _quizData = [
-    {
-      'no': 1,
-      'question': 'Motif Batik Parang Kusumo secara filosofis melambangkan _______ yang tidak pernah padam dalam menghadapi ujian hidup.',
-      'options': [
-        'A. semangat perjuangan dan keteguhan hati',
-        'B. ketenangan danau keraton yang syahdu',
-        'C. keagungan senjata keris pusaka Mataram',
-        'D. kesuburan tanah dan hasil bumi Nusantara',
-      ],
-      'correct': 'A',
-      'explanation': "Kata 'Kusumo' bermakna bunga ksatria. Bentuk lereng miring menyerupai deburan ombak karang laut selatan menggambarkan gelombang tekad pantang menyerah, keteguhan hati, serta budi pekerti luhur ksatria Jawa.",
-    },
-    {
-      'no': 2,
-      'question': 'Ciri khas kemiringan garis lereng pada motif Parang Kusumo adalah sebesar _______ derajat.',
-      'options': [
-        'A. 30',
-        'B. 45',
-        'C. 60',
-        'D. 90',
-      ],
-      'correct': 'B',
-      'explanation': 'Kemiringan lereng 45 derajat melambangkan keteguhan arah dan konsistensi jalan hidup seorang ksatria.',
-    },
-    {
-      'no': 3,
-      'question': 'Motif Parang Kusumo diciptakan oleh raja Keraton Mataram pada masa pemerintahan _______.',
-      'options': [
-        'A. Sultan Agung Hanyakrakusuma',
-        'B. Panembahan Senopati',
-        'C. Sri Sultan Hamengkubuwono I',
-        'D. Pakubuwana IV',
-      ],
-      'correct': 'B',
-      'explanation': 'Motif Parang Kusumo digubah oleh Panembahan Senopati saat bertapa di Pantai Parangtritis dan terinspirasi oleh deburan ombak karang.',
-    },
-    {
-      'no': 4,
-      'question': 'Ornamen belah ketupat yang mengisi sela-sela lereng motif Parang dikenal dengan nama _______.',
-      'options': [
-        'A. Cecek',
-        'B. Kaut',
-        'C. Mlinjon',
-        'D. Isen',
-      ],
-      'correct': 'C',
-      'explanation': 'Mlinjon melambangkan senjata perisai atau benteng perlindungan moral dalam menghadapi godaan hidup.',
-    },
-  ];
+  @override
+  void initState() {
+    super.initState();
+    _loadQuestions();
+  }
+
+  Future<void> _loadQuestions() async {
+    final list = await DatabaseHelper.instance.getQuizQuestions(widget.module.id, limit: 10, shuffle: true);
+    if (mounted) {
+      setState(() {
+        _questions = list;
+        _isLoading = false;
+        _userAnswers.clear();
+        _isSubmitted = false;
+      });
+    }
+  }
+
+  void _submitQuiz() {
+    if (_questions.isEmpty) return;
+
+    int correct = 0;
+    for (int i = 0; i < _questions.length; i++) {
+      final q = _questions[i];
+      if (_userAnswers[i] == q.correctOption) {
+        correct++;
+      }
+    }
+
+    final score = ((correct / _questions.length) * 100).round();
+    final passed = score >= widget.module.passingScore;
+
+    setState(() {
+      _correctCount = correct;
+      _finalScore = score;
+      _isSubmitted = true;
+    });
+
+    final provider = Provider.of<AppProvider>(context, listen: false);
+    provider.saveQuizResult(widget.module.id, score, passed);
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -96,238 +86,286 @@ class _TheoryQuizScreenState extends State<TheoryQuizScreen> {
         ),
         centerTitle: true,
       ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // Jika sudah di-submit, tampilkan Banner Skor Akhir 80 (8/10) Sesuai PDF Page 9
-            if (_isSubmitted) ...[
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-                decoration: BoxDecoration(
-                  color: const Color(0xFFE8F5E9),
-                  borderRadius: BorderRadius.circular(10),
-                  border: Border.all(color: const Color(0xFF81C784)),
-                ),
-                child: Text(
-                  'Skor Akhir: 80 (8/10)',
-                  style: AppTheme.satoshi(fontSize: 14, fontWeight: FontWeight.bold, color: const Color(0xFF2E7D32)),
-                ),
-              ),
-              const SizedBox(height: 18),
-            ],
-
-            // Daftar Soal
-            ..._quizData.asMap().entries.map((entry) {
-              final index = entry.key;
-              final q = entry.value;
-              final userChoice = _userAnswers[index];
-              final isCorrect = userChoice == q['correct'];
-
-              return Container(
-                margin: const EdgeInsets.only(bottom: 24),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    // Header Soal & Poin
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      body: _isLoading
+          ? const Center(child: CircularProgressIndicator())
+          : _questions.isEmpty
+              ? Center(
+                  child: Padding(
+                    padding: const EdgeInsets.all(24),
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
                       children: [
+                        const Icon(Icons.quiz_outlined, size: 56, color: AppTheme.textMuted),
+                        const SizedBox(height: 12),
                         Text(
-                          'SOAL ${q['no']} DARI 10',
-                          style: AppTheme.satoshi(fontSize: 12, fontWeight: FontWeight.bold, letterSpacing: 1.0, color: isDark ? Colors.white70 : AppTheme.textMuted),
+                          'Soal kuis untuk modul ini sedang disiapkan.',
+                          style: AppTheme.satoshi(fontSize: 15, fontWeight: FontWeight.bold),
+                          textAlign: TextAlign.center,
                         ),
-                        if (_isSubmitted)
-                          Text(
-                            isCorrect ? '1 / 1 Poin' : '0 / 1 Poin',
-                            style: AppTheme.satoshi(
-                              fontSize: 13,
-                              fontWeight: FontWeight.bold,
-                              color: isCorrect ? const Color(0xFF2E7D32) : const Color(0xFFC62828),
-                            ),
-                          ),
                       ],
                     ),
-                    const SizedBox(height: 8),
-                    Text(
-                      q['question'] as String,
-                      style: AppTheme.satoshi(fontSize: 15, fontWeight: FontWeight.bold, height: 1.4),
-                    ),
-                    const SizedBox(height: 14),
-
-                    // Opsi Pilihan Ganda A, B, C, D
-                    ...(q['options'] as List<String>).map((opt) {
-                      final optLetter = opt.substring(0, 1);
-                      final isSelectedByUser = userChoice == optLetter;
-                      final isCorrectOption = optLetter == q['correct'];
-
-                      Color borderColor = isDark ? AppTheme.darkBorder : AppTheme.border;
-                      Color bgColor = isDark ? AppTheme.darkSurface : Colors.white;
-                      Widget? trailingIcon;
-
-                      if (_isSubmitted) {
-                        if (isCorrectOption) {
-                          borderColor = const Color(0xFF2E7D32);
-                          bgColor = const Color(0xFFF1F8E9);
-                          trailingIcon = const Icon(Icons.check_circle_outline, color: Color(0xFF2E7D32), size: 20);
-                        } else if (isSelectedByUser) {
-                          borderColor = const Color(0xFFC62828);
-                          bgColor = const Color(0xFFFFEBEE);
-                          trailingIcon = const Icon(Icons.cancel_outlined, color: Color(0xFFC62828), size: 20);
-                        }
-                      } else if (isSelectedByUser) {
-                        borderColor = AppTheme.primary;
-                        bgColor = AppTheme.primary.withValues(alpha: 0.08);
-                      }
-
-                      return GestureDetector(
-                        onTap: _isSubmitted
-                            ? null
-                            : () {
-                                setState(() {
-                                  _userAnswers[index] = optLetter;
-                                });
-                              },
-                        child: Container(
-                          margin: const EdgeInsets.only(bottom: 10),
-                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                  ),
+                )
+              : SingleChildScrollView(
+                  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      // Banner Skor Akhir jika sudah di-submit
+                      if (_isSubmitted) ...[
+                        Container(
+                          width: double.infinity,
+                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                           decoration: BoxDecoration(
-                            color: bgColor,
-                            borderRadius: BorderRadius.circular(16),
-                            border: Border.all(color: borderColor, width: 1.5),
+                            color: _finalScore >= widget.module.passingScore
+                                ? const Color(0xFFE8F5E9)
+                                : const Color(0xFFFFEBEE),
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(
+                              color: _finalScore >= widget.module.passingScore
+                                  ? const Color(0xFF81C784)
+                                  : const Color(0xFFE57373),
+                            ),
                           ),
-                          child: Row(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              Expanded(
-                                child: Text(
-                                  opt,
-                                  style: AppTheme.inter(
-                                    fontSize: 13,
-                                    fontWeight: isSelectedByUser ? FontWeight.bold : FontWeight.normal,
-                                    color: _isSubmitted && isCorrectOption
-                                        ? const Color(0xFF2E7D32)
-                                        : _isSubmitted && isSelectedByUser
-                                            ? const Color(0xFFC62828)
-                                            : isDark
-                                                ? Colors.white
-                                                : AppTheme.textPrimary,
-                                  ),
+                              Text(
+                                'Skor Akhir: $_finalScore ($_correctCount/${_questions.length})',
+                                style: AppTheme.satoshi(
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.bold,
+                                  color: _finalScore >= widget.module.passingScore
+                                      ? const Color(0xFF2E7D32)
+                                      : const Color(0xFFC62828),
                                 ),
                               ),
-                              ?trailingIcon,
+                              const SizedBox(height: 4),
+                              Text(
+                                _finalScore >= widget.module.passingScore
+                                    ? 'Selamat! Kamu dinyatakan LULUS kuis teori modul ini.'
+                                    : 'Nilai minimal kelulusan adalah ${widget.module.passingScore}%. Silakan pelajari kembali materi dan ulangi kuis.',
+                                style: AppTheme.inter(
+                                  fontSize: 12,
+                                  color: _finalScore >= widget.module.passingScore
+                                      ? const Color(0xFF1B5E20)
+                                      : const Color(0xFFB71C1C),
+                                ),
+                              ),
                             ],
                           ),
                         ),
-                      );
-                    }),
+                        const SizedBox(height: 18),
+                      ],
 
-                    // Penjelasan Materi jika sudah disubmit (Sesuai PDF Page 9)
-                    if (_isSubmitted) ...[
-                      Container(
-                        width: double.infinity,
-                        padding: const EdgeInsets.all(16),
-                        decoration: BoxDecoration(
-                          color: const Color(0xFFFDF7F2),
-                          borderRadius: BorderRadius.circular(14),
-                          border: const Border(
-                            left: BorderSide(color: Color(0xFF7A4B29), width: 4),
+                      // Daftar Soal Kuis
+                      ..._questions.asMap().entries.map((entry) {
+                        final index = entry.key;
+                        final q = entry.value;
+                        final userChoice = _userAnswers[index];
+                        final isCorrect = userChoice == q.correctOption;
+
+                        final options = [
+                          'A. ${q.optionA}',
+                          'B. ${q.optionB}',
+                          'C. ${q.optionC}',
+                          'D. ${q.optionD}',
+                        ];
+
+                        return Container(
+                          margin: const EdgeInsets.only(bottom: 24),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Row(
+                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                children: [
+                                  Text(
+                                    'SOAL ${index + 1} DARI ${_questions.length}',
+                                    style: AppTheme.satoshi(
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.bold,
+                                      letterSpacing: 1.0,
+                                      color: isDark ? Colors.white70 : AppTheme.textMuted,
+                                    ),
+                                  ),
+                                  if (_isSubmitted)
+                                    Text(
+                                      isCorrect ? '1 / 1 Poin' : '0 / 1 Poin',
+                                      style: AppTheme.satoshi(
+                                        fontSize: 13,
+                                        fontWeight: FontWeight.bold,
+                                        color: isCorrect ? const Color(0xFF2E7D32) : const Color(0xFFC62828),
+                                      ),
+                                    ),
+                                ],
+                              ),
+                              const SizedBox(height: 8),
+                              Text(
+                                q.question,
+                                style: AppTheme.satoshi(fontSize: 15, fontWeight: FontWeight.bold, height: 1.4),
+                              ),
+                              const SizedBox(height: 14),
+
+                              // Pilihan Jawaban A, B, C, D
+                              ...options.map((opt) {
+                                final optLetter = opt.substring(0, 1);
+                                final isSelectedByUser = userChoice == optLetter;
+                                final isCorrectOption = optLetter == q.correctOption;
+
+                                Color borderColor = isDark ? AppTheme.darkBorder : AppTheme.border;
+                                Color bgColor = isDark ? AppTheme.darkSurface : Colors.white;
+                                Widget? trailingIcon;
+
+                                if (_isSubmitted) {
+                                  if (isCorrectOption) {
+                                    borderColor = const Color(0xFF2E7D32);
+                                    bgColor = const Color(0xFFF1F8E9);
+                                    trailingIcon = const Icon(Icons.check_circle_outline, color: Color(0xFF2E7D32), size: 20);
+                                  } else if (isSelectedByUser) {
+                                    borderColor = const Color(0xFFC62828);
+                                    bgColor = const Color(0xFFFFEBEE);
+                                    trailingIcon = const Icon(Icons.cancel_outlined, color: Color(0xFFC62828), size: 20);
+                                  }
+                                } else if (isSelectedByUser) {
+                                  borderColor = AppTheme.primary;
+                                  bgColor = AppTheme.primary.withValues(alpha: 0.08);
+                                }
+
+                                return GestureDetector(
+                                  onTap: _isSubmitted
+                                      ? null
+                                      : () {
+                                          setState(() {
+                                            _userAnswers[index] = optLetter;
+                                          });
+                                        },
+                                  child: Container(
+                                    margin: const EdgeInsets.only(bottom: 10),
+                                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                                    decoration: BoxDecoration(
+                                      color: bgColor,
+                                      borderRadius: BorderRadius.circular(16),
+                                      border: Border.all(color: borderColor, width: 1.5),
+                                    ),
+                                    child: Row(
+                                      children: [
+                                        Expanded(
+                                          child: Text(
+                                            opt,
+                                            style: AppTheme.inter(
+                                              fontSize: 13,
+                                              fontWeight: isSelectedByUser ? FontWeight.bold : FontWeight.normal,
+                                              color: _isSubmitted && isCorrectOption
+                                                  ? const Color(0xFF2E7D32)
+                                                  : _isSubmitted && isSelectedByUser
+                                                      ? const Color(0xFFC62828)
+                                                      : isDark
+                                                          ? Colors.white
+                                                          : AppTheme.textPrimary,
+                                            ),
+                                          ),
+                                        ),
+                                        ?trailingIcon,
+                                      ],
+                                    ),
+                                  ),
+                                );
+                              }),
+
+                              // Pembahasan Soal
+                              if (_isSubmitted && q.explanation != null && q.explanation!.isNotEmpty) ...[
+                                Container(
+                                  width: double.infinity,
+                                  padding: const EdgeInsets.all(16),
+                                  decoration: BoxDecoration(
+                                    color: const Color(0xFFFDF7F2),
+                                    borderRadius: BorderRadius.circular(14),
+                                    border: const Border(
+                                      left: BorderSide(color: Color(0xFF7A4B29), width: 4),
+                                    ),
+                                  ),
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        'Penjelasan Materi:',
+                                        style: AppTheme.satoshi(fontSize: 13, fontWeight: FontWeight.bold, color: const Color(0xFF7A4B29)),
+                                      ),
+                                      const SizedBox(height: 4),
+                                      Text(
+                                        q.explanation!,
+                                        style: AppTheme.inter(fontSize: 12, height: 1.45, color: const Color(0xFF4A3B32)),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                                const SizedBox(height: 14),
+                              ],
+                              const Divider(color: AppTheme.border),
+                            ],
+                          ),
+                        );
+                      }),
+
+                      const SizedBox(height: 10),
+
+                      // Tombol Aksi
+                      if (!_isSubmitted)
+                        ElevatedButton(
+                          onPressed: _userAnswers.length < _questions.length
+                              ? () {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    SnackBar(
+                                      content: Text('Harap jawab semua soal (${_userAnswers.length}/${_questions.length} terjawab)'),
+                                      backgroundColor: Colors.orange.shade800,
+                                    ),
+                                  );
+                                }
+                              : _submitQuiz,
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: const Color(0xFF5A3416),
+                            foregroundColor: Colors.white,
+                            minimumSize: const Size.fromHeight(50),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                          ),
+                          child: Text(
+                            'Selesai & Kumpulkan Jawaban',
+                            style: AppTheme.satoshi(fontSize: 15, fontWeight: FontWeight.bold),
+                          ),
+                        )
+                      else ...[
+                        ElevatedButton(
+                          onPressed: () => Navigator.pop(context),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: const Color(0xFF5A3416),
+                            foregroundColor: Colors.white,
+                            minimumSize: const Size.fromHeight(50),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                          ),
+                          child: Text(
+                            'Kembali ke Menu Modul',
+                            style: AppTheme.satoshi(fontSize: 15, fontWeight: FontWeight.bold),
                           ),
                         ),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              'Penjelasan Materi:',
-                              style: AppTheme.satoshi(fontSize: 13, fontWeight: FontWeight.bold, color: const Color(0xFF7A4B29)),
-                            ),
-                            const SizedBox(height: 4),
-                            Text(
-                              q['explanation'] as String,
-                              style: AppTheme.inter(fontSize: 12, height: 1.45, color: const Color(0xFF4A3B32)),
-                            ),
-                          ],
+                        const SizedBox(height: 10),
+                        OutlinedButton(
+                          onPressed: _loadQuestions,
+                          style: OutlinedButton.styleFrom(
+                            minimumSize: const Size.fromHeight(46),
+                            side: const BorderSide(color: Color(0xFF7A4B29)),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                          ),
+                          child: Text(
+                            'Ulangi Kuis (Acak Soal Baru)',
+                            style: AppTheme.satoshi(fontSize: 14, fontWeight: FontWeight.bold, color: const Color(0xFF7A4B29)),
+                          ),
                         ),
-                      ),
-                      const SizedBox(height: 14),
+                      ],
+                      const SizedBox(height: 24),
                     ],
-                    const Divider(color: AppTheme.border),
-                  ],
-                ),
-              );
-            }),
-
-            const SizedBox(height: 10),
-
-            // Tombol Done / Selesai Sesuai PDF Page 8 & 9
-            if (!_isSubmitted)
-              ElevatedButton(
-                onPressed: () {
-                  setState(() => _isSubmitted = true);
-                  // Simpan skor 80 (8/10) ke provider
-                  final provider = Provider.of<AppProvider>(context, listen: false);
-                  provider.saveQuizResult(widget.module.id, 80, true);
-                },
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFF5A3416),
-                  foregroundColor: Colors.white,
-                  minimumSize: const Size.fromHeight(50),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(14),
                   ),
                 ),
-                child: Text(
-                  'Done',
-                  style: AppTheme.satoshi(
-                    fontSize: 15,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.white,
-                  ),
-                ),
-              )
-            else ...[
-              ElevatedButton(
-                onPressed: () => Navigator.pop(context),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFF5A3416),
-                  foregroundColor: Colors.white,
-                  minimumSize: const Size.fromHeight(50),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(14),
-                  ),
-                ),
-                child: Text(
-                  'Selesai & Simpan Nilai',
-                  style: AppTheme.satoshi(
-                    fontSize: 15,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.white,
-                  ),
-                ),
-              ),
-              const SizedBox(height: 10),
-              OutlinedButton(
-                onPressed: () {
-                  setState(() {
-                    _isSubmitted = false;
-                    _userAnswers[0] = 'A'; // Sekarang pilih benar jika ingin coba lagi
-                  });
-                },
-                style: OutlinedButton.styleFrom(
-                  minimumSize: const Size.fromHeight(46),
-                  side: const BorderSide(color: Color(0xFF7A4B29)),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-                ),
-                child: Text(
-                  'Ulangi Kuis',
-                  style: AppTheme.satoshi(fontSize: 14, fontWeight: FontWeight.bold, color: const Color(0xFF7A4B29)),
-                ),
-              ),
-            ],
-            const SizedBox(height: 24),
-          ],
-        ),
-      ),
     );
   }
 }
