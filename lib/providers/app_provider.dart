@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../core/database/database_helper.dart';
 import '../core/services/email_service.dart';
+import '../core/services/supabase_service.dart';
 import '../core/utils/password_hasher.dart';
 import '../models/app_models.dart';
 
@@ -435,17 +436,32 @@ class AppProvider with ChangeNotifier {
           if (dbUser != null) {
             _currentUser = UserModel.fromMap(dbUser);
           } else {
-            final name = savedEmail.startsWith('kenalibatikmu')
-                ? 'Kenali Batikmu'
-                : (savedEmail.startsWith('sekar') ? 'Sekar Ayu Kinanti' : 'Sahabat Batik');
-            _currentUser = UserModel(
-              id: 1,
-              name: name,
-              email: savedEmail,
-              phone: '081234567890',
-              profileImagePath: _savedPhotoPath,
-              createdAt: '2026-03-01T08:00:00Z',
-            );
+            // Coba ambil dari cloud Supabase jika terhubung
+            final supaUser = await SupabaseService.instance.getUserByEmail(savedEmail);
+            if (supaUser != null) {
+              _currentUser = UserModel.fromMap(supaUser);
+              // Cache ke SQLite lokal
+              await DatabaseHelper.instance.insertUser(
+                name: supaUser['name'] ?? 'Sahabat Batik',
+                email: savedEmail,
+                passwordHash: supaUser['password_hash'] ?? '',
+                phone: supaUser['phone'],
+                profileImagePath: supaUser['profile_image_path'],
+              );
+            } else {
+              final savedName = prefs.getString('logged_user_name');
+              final name = savedName ?? (savedEmail.startsWith('kenalibatikmu')
+                  ? 'Kenali Batikmu'
+                  : (savedEmail.startsWith('sekar') ? 'Sekar Ayu Kinanti' : 'Sahabat Batik'));
+              _currentUser = UserModel(
+                id: prefs.getInt('logged_user_id') ?? 1,
+                name: name,
+                email: savedEmail,
+                phone: prefs.getString('logged_user_phone') ?? '081234567890',
+                profileImagePath: _savedPhotoPath,
+                createdAt: '2026-03-01T08:00:00Z',
+              );
+            }
           }
           // Muat progres modul khusus milik user yang tersimpan
           await _loadUserModuleProgress(savedEmail);
@@ -843,15 +859,41 @@ class AppProvider with ChangeNotifier {
       return false;
     }
 
-    if (password.trim().length < 8) {
+    final cleanPass = password.trim();
+    if (cleanPass.length < 8) {
       _errorMessage = 'Kata sandi minimal 8 karakter';
       _isLoading = false;
       notifyListeners();
       return false;
     }
 
+    final passwordHash = PasswordHasher.hashPassword(cleanPass);
+    _inMemoryPasswordHashes[cleanEmail] = passwordHash;
+
+    // 1. Simpan ke SQLite lokal
+    int newId = await DatabaseHelper.instance.insertUser(
+      name: cleanName,
+      email: cleanEmail,
+      passwordHash: passwordHash,
+      profileImagePath: _savedPhotoPath,
+    );
+    if (newId <= 0) {
+      newId = DateTime.now().millisecondsSinceEpoch ~/ 1000;
+    }
+
+    // 2. Sinkronkan ke cloud Supabase (jika terhubung)
+    SupabaseService.instance.registerUser(
+      name: cleanName,
+      email: cleanEmail,
+      passwordHash: passwordHash,
+    ).then((ok) {
+      if (ok) debugPrint('Cloud sync register: $cleanEmail berhasil disimpan ke Supabase');
+    }).catchError((e) {
+      debugPrint('Cloud sync register fallback: $e');
+    });
+
     _currentUser = UserModel(
-      id: 1,
+      id: newId,
       name: cleanName,
       email: cleanEmail,
       profileImagePath: _savedPhotoPath,
@@ -865,7 +907,9 @@ class AppProvider with ChangeNotifier {
       final prefs = await SharedPreferences.getInstance();
       await prefs.setBool('has_seen_onboarding', true);
       await prefs.setBool('is_logged_in', true);
+      await prefs.setInt('logged_user_id', newId);
       await prefs.setString('logged_user_email', cleanEmail);
+      await prefs.setString('logged_user_name', cleanName);
     } catch (_) {}
 
     _isLoading = false;
@@ -1101,13 +1145,52 @@ class AppProvider with ChangeNotifier {
     required String phone,
     required String password,
   }) async {
+    final cleanName = name.trim();
+    final cleanEmail = email.trim().toLowerCase();
+    final cleanPhone = phone.trim();
+
     if (_currentUser != null) {
       _currentUser = _currentUser!.copyWith(
-        name: name,
-        email: email,
-        phone: phone,
+        name: cleanName,
+        email: cleanEmail,
+        phone: cleanPhone,
       );
       notifyListeners();
+
+      // 1. Simpan ke SQLite lokal
+      await DatabaseHelper.instance.updateUserProfile(
+        userId: _currentUser!.id,
+        name: cleanName,
+        email: cleanEmail,
+        phone: cleanPhone,
+        profileImagePath: _savedPhotoPath,
+      );
+
+      // 2. Simpan perubahan kata sandi jika diisi
+      if (password.isNotEmpty && password.length >= 8) {
+        final newHash = PasswordHasher.hashPassword(password);
+        _inMemoryPasswordHashes[cleanEmail] = newHash;
+        await DatabaseHelper.instance.updateUserPassword(cleanEmail, newHash);
+      }
+
+      // 3. Simpan nama dan email ke SharedPreferences
+      try {
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.setString('logged_user_name', cleanName);
+        await prefs.setString('logged_user_email', cleanEmail);
+        await prefs.setString('logged_user_phone', cleanPhone);
+      } catch (_) {}
+
+      // 4. Sinkronkan ke cloud Supabase (jika terhubung)
+      SupabaseService.instance.updateUserProfile(
+        email: cleanEmail,
+        name: cleanName,
+        phone: cleanPhone,
+        profileImagePath: _savedPhotoPath,
+      ).catchError((e) {
+        debugPrint('Cloud sync profile update fallback: $e');
+        return false;
+      });
     }
   }
 

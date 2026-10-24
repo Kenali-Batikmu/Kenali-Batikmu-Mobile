@@ -100,5 +100,36 @@ void main() {
       expect(provider.scanHistories.first.score, equals(0.85));
       expect(provider.scanHistories.first.passed, isTrue);
     });
+
+    test('AppProvider registers user and persists real name to database', () async {
+      final provider = AppProvider();
+      await provider.initApp();
+
+      final registered = await provider.register(
+        'Julian Developer',
+        'julian@batikmu.id',
+        'RahasiaBatik123#',
+      );
+      expect(registered, isTrue);
+      expect(provider.currentUser?.name, equals('Julian Developer'));
+      expect(provider.currentUser?.email, equals('julian@batikmu.id'));
+
+      // Verifikasi tersimpan di database SQLite lokal
+      final dbUser = await DatabaseHelper.instance.getUserByEmail('julian@batikmu.id');
+      expect(dbUser, isNotNull);
+      expect(dbUser!['name'], equals('Julian Developer'));
+
+      // Test pembaruan nama dan profil
+      await provider.updateProfile(
+        name: 'Julian Senior Engineer',
+        email: 'julian@batikmu.id',
+        phone: '081234567899',
+        password: '',
+      );
+      expect(provider.currentUser?.name, equals('Julian Senior Engineer'));
+      final updatedUser = await DatabaseHelper.instance.getUserByEmail('julian@batikmu.id');
+      expect(updatedUser!['name'], equals('Julian Senior Engineer'));
+      expect(updatedUser['phone'], equals('081234567899'));
+    });
   });
 }

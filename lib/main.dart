@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
+import 'core/services/supabase_service.dart';
 import 'core/theme/app_theme.dart';
 import 'providers/app_provider.dart';
 import 'screens/auth/login_screen.dart';
@@ -21,6 +22,13 @@ void main() async {
     }
   } catch (e) {
     debugPrint('Database factory init info: $e');
+  }
+
+  // Inisialisasi Cloud Supabase (jika kredensial dikonfigurasi)
+  try {
+    await SupabaseService.instance.initialize();
+  } catch (e) {
+    debugPrint('Supabase bootstrap info: $e');
   }
 
   // Muat status sesi dan preferensi perangkat

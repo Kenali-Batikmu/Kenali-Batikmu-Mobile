@@ -814,6 +814,71 @@ class DatabaseHelper {
     }
   }
 
+  /// Menambahkan akun pengguna baru ke SQLite lokal
+  Future<int> insertUser({
+    required String name,
+    required String email,
+    required String passwordHash,
+    String? phone,
+    String? profileImagePath,
+  }) async {
+    final db = await database;
+    if (db == null) return -1;
+    try {
+      final now = DateTime.now().toIso8601String();
+      final id = await db.insert(
+        'users',
+        {
+          'name': name.trim(),
+          'email': email.trim().toLowerCase(),
+          'phone': phone?.trim(),
+          'password_hash': passwordHash,
+          'profile_image_path': profileImagePath,
+          'created_at': now,
+          'updated_at': now,
+        },
+        conflictAlgorithm: ConflictAlgorithm.replace,
+      );
+      return id;
+    } catch (e) {
+      debugPrint('DatabaseHelper insertUser error: $e');
+      return -1;
+    }
+  }
+
+  /// Memperbarui informasi profil pengguna di SQLite lokal
+  Future<bool> updateUserProfile({
+    required int userId,
+    required String name,
+    required String email,
+    String? phone,
+    String? profileImagePath,
+  }) async {
+    final db = await database;
+    if (db == null) return false;
+    try {
+      final now = DateTime.now().toIso8601String();
+      final map = <String, dynamic>{
+        'name': name.trim(),
+        'email': email.trim().toLowerCase(),
+        'updated_at': now,
+      };
+      if (phone != null) map['phone'] = phone.trim();
+      if (profileImagePath != null) map['profile_image_path'] = profileImagePath;
+
+      final count = await db.update(
+        'users',
+        map,
+        where: 'id = ?',
+        whereArgs: [userId],
+      );
+      return count > 0;
+    } catch (e) {
+      debugPrint('DatabaseHelper updateUserProfile error: $e');
+      return false;
+    }
+  }
+
   // ─────────────────────────────────────────────────────────────────────────
   // MANAJEMEN PROGRES MODUL PENGGUNA (Tabel: user_module_progress)
   // Sesuai standar SQLite Relasional & Siap Integrasi Backend Python
