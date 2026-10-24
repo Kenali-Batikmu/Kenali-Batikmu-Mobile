@@ -1203,8 +1203,42 @@ class AppProvider with ChangeNotifier {
       final prefs = await SharedPreferences.getInstance();
       await prefs.setString(_photoPrefKey, path);
       notifyListeners();
+
+      // 1. Simpan ke database SQLite lokal
+      if (_currentUser != null) {
+        await DatabaseHelper.instance.updateUserProfile(
+          userId: _currentUser!.id,
+          name: _currentUser!.name,
+          email: _currentUser!.email,
+          phone: _currentUser!.phone,
+          profileImagePath: path,
+        );
+      }
+
+      // 2. Upload ke Supabase Storage & perbarui Supabase users table (non-blocking)
+      final userEmail = _currentUser?.email;
+      if (userEmail != null) {
+        SupabaseService.instance.uploadAvatar(
+          filePath: path,
+          email: userEmail,
+        ).then((publicUrl) async {
+          if (publicUrl != null) {
+            await SupabaseService.instance.updateUserProfile(
+              email: userEmail,
+              name: _currentUser?.name ?? '',
+              phone: _currentUser?.phone,
+              profileImagePath: publicUrl,
+            );
+            debugPrint('Cloud sync: Foto profil tersinkron ke Supabase users & storage!');
+          }
+        }).catchError((e) {
+          debugPrint('Cloud sync avatar fallback: $e');
+        });
+      }
+
       return true;
     } catch (e) {
+      debugPrint('setProfilePhoto error: $e');
       return false;
     }
   }
@@ -1220,6 +1254,23 @@ class AppProvider with ChangeNotifier {
         profileImagePath: null,
         createdAt: _currentUser!.createdAt,
       );
+
+      // 1. Perbarui SQLite lokal
+      await DatabaseHelper.instance.updateUserProfile(
+        userId: _currentUser!.id,
+        name: _currentUser!.name,
+        email: _currentUser!.email,
+        phone: _currentUser!.phone,
+        profileImagePath: null,
+      );
+
+      // 2. Perbarui Supabase users table
+      SupabaseService.instance.updateUserProfile(
+        email: _currentUser!.email,
+        name: _currentUser!.name,
+        phone: _currentUser!.phone,
+        profileImagePath: null,
+      ).catchError((_) => false);
     }
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove(_photoPrefKey);

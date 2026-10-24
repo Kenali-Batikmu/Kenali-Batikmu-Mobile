@@ -1,3 +1,4 @@
+import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../config/supabase_config.dart';
@@ -102,6 +103,39 @@ class SupabaseService {
     } catch (e) {
       debugPrint('Supabase updateUserProfile error: $e');
       return false;
+    }
+  }
+
+  /// Upload foto profil ke bucket 'avatars' di Supabase Storage
+  Future<String?> uploadAvatar({
+    required String filePath,
+    required String email,
+  }) async {
+    if (!isReady || client == null) return null;
+    try {
+      final file = File(filePath);
+      if (!file.existsSync()) return null;
+
+      final ext = filePath.split('.').last.toLowerCase();
+      final cleanEmail = email.replaceAll(RegExp(r'[^a-zA-Z0-9]'), '_');
+      final fileName = 'avatar_${cleanEmail}_${DateTime.now().millisecondsSinceEpoch}.$ext';
+
+      final fileBytes = await file.readAsBytes();
+      await client!.storage.from('avatars').uploadBinary(
+        fileName,
+        fileBytes,
+        fileOptions: FileOptions(
+          contentType: ext == 'png' ? 'image/png' : 'image/jpeg',
+          upsert: true,
+        ),
+      );
+
+      final publicUrl = client!.storage.from('avatars').getPublicUrl(fileName);
+      debugPrint('Supabase Storage: Foto profil berhasil diupload: $publicUrl');
+      return publicUrl;
+    } catch (e) {
+      debugPrint('Supabase uploadAvatar error: $e');
+      return null;
     }
   }
 }
