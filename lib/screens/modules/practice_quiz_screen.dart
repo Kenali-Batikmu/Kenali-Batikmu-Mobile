@@ -213,7 +213,7 @@ class _PracticeQuizScreenState extends State<PracticeQuizScreen>
       if (!mounted) return;
 
       final provider = Provider.of<AppProvider>(context, listen: false);
-      provider.savePracticeResult(widget.module.id, 0.70, true);
+      provider.savePracticeResult(widget.module.id, 0.70, true, imagePath: _photo?.path);
 
       setState(() {
         _isAnalyzing = false;

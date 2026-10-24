@@ -422,9 +422,9 @@ class AppProvider with ChangeNotifier {
       final prefs = await SharedPreferences.getInstance();
       _isDarkMode = prefs.getBool('is_dark_mode') ?? false;
 
-      // Muat foto profil tersimpan (hanya jika filenya masih ada)
+      // Muat foto profil tersimpan (hanya jika filenya masih ada atau URL cloud)
       final savedPhoto = prefs.getString(_photoPrefKey);
-      if (!kIsWeb && savedPhoto != null && File(savedPhoto).existsSync()) {
+      if (savedPhoto != null && (savedPhoto.startsWith('http') || kIsWeb || File(savedPhoto).existsSync())) {
         _savedPhotoPath = savedPhoto;
       }
 
@@ -435,11 +435,17 @@ class AppProvider with ChangeNotifier {
           final dbUser = await DatabaseHelper.instance.getUserByEmail(savedEmail);
           if (dbUser != null) {
             _currentUser = UserModel.fromMap(dbUser);
+            if (_currentUser?.profileImagePath != null && _currentUser!.profileImagePath!.isNotEmpty) {
+              _savedPhotoPath = _currentUser!.profileImagePath;
+            }
           } else {
             // Coba ambil dari cloud Supabase jika terhubung
             final supaUser = await SupabaseService.instance.getUserByEmail(savedEmail);
             if (supaUser != null) {
               _currentUser = UserModel.fromMap(supaUser);
+              if (_currentUser?.profileImagePath != null && _currentUser!.profileImagePath!.isNotEmpty) {
+                _savedPhotoPath = _currentUser!.profileImagePath;
+              }
               // Cache ke SQLite lokal
               await DatabaseHelper.instance.insertUser(
                 name: supaUser['name'] ?? 'Sahabat Batik',
@@ -669,14 +675,49 @@ class AppProvider with ChangeNotifier {
                 ? 'Kenali Batikmu'
                 : 'Sahabat Batik'));
 
+    // Ambil foto profil dari database lokal jika tersedia
+    final dbPhoto = dbUser?['profile_image_path'] as String?;
+    final userPhoto = (dbPhoto != null && dbPhoto.isNotEmpty) ? dbPhoto : _savedPhotoPath;
+    if (userPhoto != null && userPhoto.isNotEmpty) {
+      _savedPhotoPath = userPhoto;
+    }
+
     // Login Sukses
     _currentUser = UserModel(
       id: dbUser != null ? (dbUser['id'] as int? ?? 1) : 1,
       name: userName,
       email: cleanEmail,
-      profileImagePath: _savedPhotoPath,
+      phone: dbUser?['phone'] as String?,
+      profileImagePath: userPhoto,
       createdAt: DateTime.now().toIso8601String(),
     );
+
+    // Jika belum ada foto lokal, coba sinkronkan profil & foto dari Supabase
+    if (userPhoto == null || userPhoto.isEmpty) {
+      SupabaseService.instance.getUserByEmail(cleanEmail).then((supaUser) {
+        if (supaUser != null) {
+          final cloudPhoto = supaUser['profile_image_path'] as String?;
+          final cloudPhone = supaUser['phone'] as String?;
+          if ((cloudPhoto != null && cloudPhoto.isNotEmpty) || cloudPhone != null) {
+            if (cloudPhoto != null && cloudPhoto.isNotEmpty) {
+              _savedPhotoPath = cloudPhoto;
+            }
+            _currentUser = _currentUser?.copyWith(
+              profileImagePath: cloudPhoto,
+              phone: cloudPhone,
+            );
+            DatabaseHelper.instance.updateUserProfile(
+              userId: _currentUser?.id ?? 1,
+              name: _currentUser?.name ?? 'Sahabat Batik',
+              email: cleanEmail,
+              phone: cloudPhone,
+              profileImagePath: cloudPhoto,
+            );
+            notifyListeners();
+          }
+        }
+      }).catchError((_) {});
+    }
 
     // Muat progres modul khusus milik user yang berhasil login
     await _loadUserModuleProgress(cleanEmail);
@@ -999,6 +1040,24 @@ class AppProvider with ChangeNotifier {
           practiceDone: p,
         );
         await DatabaseHelper.instance.updatePillarProgress(userId, moduleId, pillar);
+
+        // Sinkronisasi ke Cloud Supabase (non-blocking)
+        final userEmail = _currentUser?.email;
+        if (userEmail != null) {
+          SupabaseService.instance.syncUserModuleProgress(
+            userEmail: userEmail,
+            moduleId: moduleId,
+            progressPercent: percent,
+            historyDone: h,
+            characterDone: c,
+            galleryDone: g,
+            quizDone: q,
+            practiceDone: p,
+          ).catchError((e) {
+            debugPrint('Cloud sync pillar fallback: $e');
+            return false;
+          });
+        }
       } catch (_) {}
     }
   }
@@ -1053,11 +1112,39 @@ class AppProvider with ChangeNotifier {
           passed: passed,
           totalQuestions: 10,
         );
+
+        // Sinkronisasi ke Cloud Supabase (non-blocking)
+        final userEmail = _currentUser?.email;
+        if (userEmail != null) {
+          SupabaseService.instance.saveQuizAttempt(
+            userEmail: userEmail,
+            moduleId: moduleId,
+            score: score,
+            passed: passed,
+          ).catchError((e) {
+            debugPrint('Cloud sync quiz attempt fallback: $e');
+            return false;
+          });
+
+          SupabaseService.instance.syncUserModuleProgress(
+            userEmail: userEmail,
+            moduleId: moduleId,
+            progressPercent: percent,
+            historyDone: h,
+            characterDone: c,
+            galleryDone: g,
+            quizDone: passed,
+            practiceDone: p,
+          ).catchError((e) {
+            debugPrint('Cloud sync quiz progress fallback: $e');
+            return false;
+          });
+        }
       } catch (_) {}
     }
   }
 
-  Future<void> savePracticeResult(int moduleId, double fitScore, bool passed) async {
+  Future<void> savePracticeResult(int moduleId, double fitScore, bool passed, {String? imagePath}) async {
     final index = _modules.indexWhere((m) => m.id == moduleId);
     if (index != -1) {
       final old = _modules[index];
@@ -1105,7 +1192,67 @@ class AppProvider with ChangeNotifier {
           moduleId: moduleId,
           confidence: fitScore,
           passed: passed,
+          imagePath: imagePath,
         );
+
+        // Sinkronisasi ke Cloud Supabase (non-blocking)
+        final userEmail = _currentUser?.email;
+        if (userEmail != null) {
+          if (imagePath != null && imagePath.isNotEmpty) {
+            SupabaseService.instance.uploadPracticeImage(
+              filePath: imagePath,
+              email: userEmail,
+              moduleId: moduleId,
+            ).then((publicUrl) {
+              SupabaseService.instance.savePracticeScan(
+                userEmail: userEmail,
+                moduleId: moduleId,
+                confidence: fitScore,
+                passed: passed,
+                imageUrl: publicUrl,
+              ).catchError((e) {
+                debugPrint('Cloud sync practice scan fallback: $e');
+                return false;
+              });
+            }).catchError((_) {
+              SupabaseService.instance.savePracticeScan(
+                userEmail: userEmail,
+                moduleId: moduleId,
+                confidence: fitScore,
+                passed: passed,
+                imageUrl: null,
+              ).catchError((e) {
+                debugPrint('Cloud sync practice scan fallback: $e');
+                return false;
+              });
+            });
+          } else {
+            SupabaseService.instance.savePracticeScan(
+              userEmail: userEmail,
+              moduleId: moduleId,
+              confidence: fitScore,
+              passed: passed,
+              imageUrl: null,
+            ).catchError((e) {
+              debugPrint('Cloud sync practice scan fallback: $e');
+              return false;
+            });
+          }
+
+          SupabaseService.instance.syncUserModuleProgress(
+            userEmail: userEmail,
+            moduleId: moduleId,
+            progressPercent: percent,
+            historyDone: h,
+            characterDone: c,
+            galleryDone: g,
+            quizDone: q,
+            practiceDone: passed,
+          ).catchError((e) {
+            debugPrint('Cloud sync practice progress fallback: $e');
+            return false;
+          });
+        }
       } catch (_) {}
 
       // Tambahkan ke riwayat scan
