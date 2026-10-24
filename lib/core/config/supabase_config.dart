@@ -6,7 +6,7 @@ class SupabaseConfig {
 
   /// Anon Key (Public Key) Supabase
   /// Ambil dari Dashboard Supabase: Project Settings -> API -> Project API keys (anon public)
-  static const String anonKey = 'PASTE_YOUR_SUPABASE_ANON_KEY_HERE';
+  static const String anonKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImhtbHdqYWt0dHNjaGluZWl6eWlnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTI4MDI3NjUsImV4cCI6MjEwODM3ODc2NX0.ONhjEpMPTgAMcp5c_lpR8VnBOPWmTlFN1RTXMt_vrEs';
 
   /// Memeriksa apakah Supabase sudah memiliki API key yang valid
   static bool get isConfigured =>
