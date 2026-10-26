@@ -162,14 +162,17 @@ class _LoginScreenState extends State<LoginScreen> {
                           ),
                         ),
                         Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 14),
-                          child: Text(
-                            'K E N A L I   B A T I K M U',
-                            style: AppTheme.plusJakartaSans(
-                              fontSize: 11,
-                              fontWeight: FontWeight.bold,
-                              letterSpacing: 2.8,
-                              color: const Color(0xFF4A3828),
+                          padding: const EdgeInsets.symmetric(horizontal: 10),
+                          child: FittedBox(
+                            fit: BoxFit.scaleDown,
+                            child: Text(
+                              'K E N A L I   B A T I K M U',
+                              style: AppTheme.plusJakartaSans(
+                                fontSize: 11,
+                                fontWeight: FontWeight.bold,
+                                letterSpacing: 2.0,
+                                color: const Color(0xFF4A3828),
+                              ),
                             ),
                           ),
                         ),
@@ -400,12 +403,14 @@ class _LoginScreenState extends State<LoginScreen> {
                                 mainAxisAlignment:
                                     MainAxisAlignment.spaceBetween,
                                 children: [
-                                  Text(
-                                    'Kata Sandi',
-                                    style: AppTheme.plusJakartaSans(
-                                      fontSize: 14,
-                                      fontWeight: FontWeight.bold,
-                                      color: const Color(0xFF2C221A),
+                                  Flexible(
+                                    child: Text(
+                                      'Kata Sandi',
+                                      style: AppTheme.plusJakartaSans(
+                                        fontSize: 14,
+                                        fontWeight: FontWeight.bold,
+                                        color: const Color(0xFF2C221A),
+                                      ),
                                     ),
                                   ),
                                   GestureDetector(
@@ -553,12 +558,14 @@ class _LoginScreenState extends State<LoginScreen> {
                                           : null,
                                     ),
                                     const SizedBox(width: 10),
-                                    Text(
-                                      'Ingat saya di perangkat ini',
-                                      style: AppTheme.plusJakartaSans(
-                                        fontSize: 13.5,
-                                        color: const Color(0xFF4A3E34),
-                                        fontWeight: FontWeight.w500,
+                                    Expanded(
+                                      child: Text(
+                                        'Ingat saya di perangkat ini',
+                                        style: AppTheme.plusJakartaSans(
+                                          fontSize: 13.5,
+                                          color: const Color(0xFF4A3E34),
+                                          fontWeight: FontWeight.w500,
+                                        ),
                                       ),
                                     ),
                                   ],
