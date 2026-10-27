@@ -587,6 +587,34 @@ class _DashboardScreenState extends State<DashboardScreen> {
                               // ── Riwayat Belajar: modul yang memiliki riwayat aktivitas atau sedang dikerjakan ──
                               Builder(
                                 builder: (_) {
+                                  if (provider.modules.isEmpty) {
+                                    return Padding(
+                                      padding: const EdgeInsets.fromLTRB(16, 0, 16, 14),
+                                      child: Container(
+                                        height: 140,
+                                        decoration: BoxDecoration(
+                                          color: isDark ? AppTheme.darkSurface : const Color(0xFFFFFDF8),
+                                          borderRadius: BorderRadius.circular(20),
+                                          border: Border.all(
+                                            color: isDark ? AppTheme.darkBorder : const Color(0xFFE5D3B8),
+                                          ),
+                                        ),
+                                        child: Center(
+                                          child: SizedBox(
+                                            width: 24,
+                                            height: 24,
+                                            child: CircularProgressIndicator(
+                                              strokeWidth: 2,
+                                              valueColor: AlwaysStoppedAnimation<Color>(
+                                                isDark ? AppTheme.accentGold : AppTheme.primary,
+                                              ),
+                                            ),
+                                          ),
+                                        ),
+                                      ),
+                                    );
+                                  }
+
                                   final activeModules = provider.modules
                                       .where((m) =>
                                           m.progressPercent > 0 ||
@@ -626,7 +654,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
                                       .toList();
                                   final last = done.isNotEmpty
                                       ? done.last
-                                      : provider.modules.first;
+                                      : provider.modules.firstOrNull;
+                                  if (last == null) return const SizedBox.shrink();
                                   return KbModuleCard(
                                     module: last,
                                     isDark: isDark,
@@ -643,14 +672,19 @@ class _DashboardScreenState extends State<DashboardScreen> {
                                   mainAxisAlignment:
                                       MainAxisAlignment.spaceBetween,
                                   children: [
-                                    Text(
-                                      'Modul Kenali Batikmu',
-                                      style: AppTheme.satoshi(
-                                        fontSize: 18,
-                                        fontWeight: FontWeight.bold,
-                                        color: const Color(0xFF4A2F1D),
+                                    Expanded(
+                                      child: Text(
+                                        'Modul Kenali Batikmu',
+                                        style: AppTheme.satoshi(
+                                          fontSize: 18,
+                                          fontWeight: FontWeight.bold,
+                                          color: const Color(0xFF4A2F1D),
+                                        ),
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
                                       ),
                                     ),
+                                    const SizedBox(width: 8),
                                     GestureDetector(
                                       onTap: widget.onOpenModules,
                                       child: Text(
