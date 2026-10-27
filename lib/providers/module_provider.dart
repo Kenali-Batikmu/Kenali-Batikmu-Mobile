@@ -222,9 +222,11 @@ class ModuleProvider with ChangeNotifier {
     final index = _modules.indexWhere((m) => m.id == moduleId);
     if (index != -1) {
       final old = _modules[index];
+      final existingScore = old.quizScore ?? 0;
+      final bestScore = score > existingScore ? score : existingScore;
       final tempMod = old.copyWith(
-        quizDone: passed,
-        quizScore: score,
+        quizDone: true,
+        quizScore: bestScore,
       );
       final int percent = tempMod.calculateProgressPercent();
       _modules[index] = tempMod.copyWith(progressPercent: percent);

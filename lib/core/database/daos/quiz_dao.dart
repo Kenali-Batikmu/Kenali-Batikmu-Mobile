@@ -98,11 +98,13 @@ class QuizDao {
         passScore = rows.first['passing_score'] as int? ?? 70;
       }
 
-      int q = passed ? 1 : 0;
+      final int existingScore = rows.isNotEmpty ? (rows.first['quiz_score'] as int? ?? 0) : 0;
+      final int bestScore = score > existingScore ? score : existingScore;
+      const int q = 1; // Kuis telah dikerjakan
       int completedComponents = (h == 1 ? 1 : 0) +
           (c == 1 ? 1 : 0) +
           (g == 1 ? 1 : 0) +
-          (q == 1 && score >= passScore ? 1 : 0) +
+          (bestScore >= passScore ? 1 : 0) +
           (p == 1 && (pS ?? 0) >= passScore ? 1 : 0);
       int percent = (completedComponents * 20).clamp(0, 100);
       String status = percent >= 100 ? 'completed' : (percent > 0 ? 'in_progress' : 'not_started');
@@ -119,7 +121,7 @@ class QuizDao {
           'gallery_done': g,
           'quiz_done': q,
           'practice_done': p,
-          'quiz_score': score,
+          'quiz_score': bestScore,
           'practice_score': pS,
           'passing_score': passScore,
           'is_passed': isPassed,
@@ -133,7 +135,7 @@ class QuizDao {
             'status': status,
             'progress_percent': percent,
             'quiz_done': q,
-            'quiz_score': score,
+            'quiz_score': bestScore,
             'is_passed': isPassed,
             'last_accessed_at': now,
             if (percent >= 100) 'completed_at': now,

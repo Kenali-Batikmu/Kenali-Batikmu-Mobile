@@ -121,11 +121,15 @@ class AppProvider with ChangeNotifier {
 
   Future<void> _syncBackground() async {
     try {
-      await syncMasterDataFromCloud();
+      // 1. Unggah antrean offline terlebih dahulu ke Supabase
       await processOfflineQueue();
+      // 2. Sinkronkan master data dari cloud
+      await syncMasterDataFromCloud();
+      // 3. Tarik dan merge progres pengguna dari cloud
       if (currentUser != null) {
         await syncUserProgressFromServer();
       }
+      notifyListeners();
     } catch (e) {
       debugPrint('AppProvider _syncBackground error: $e');
     }

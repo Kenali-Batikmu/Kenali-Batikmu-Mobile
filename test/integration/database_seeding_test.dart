@@ -201,12 +201,12 @@ void main() {
       await provider.updatePillarProgress(2, 'gallery');
       expect(provider.modules.firstWhere((m) => m.id == 2).progressPercent, equals(60));
 
-      // 4. Kuis Teori di bawah KKM (< 70) -> tetap 60%
+      // 4. Kuis Teori di bawah KKM (< 70) -> quizDone true (agar tombol jadi Kerjakan Ulang), namun bobot tetap 60% karena belum lulus KKM
       await provider.saveQuizResult(2, 60, false);
       final mAfterFailQuiz = provider.modules.firstWhere((m) => m.id == 2);
-      expect(mAfterFailQuiz.quizDone, isFalse);
+      expect(mAfterFailQuiz.quizDone, isTrue, reason: 'Kuis yang sudah dikerjakan harus tercatat selesai agar UI menampilkan tombol Kerjakan Ulang');
       expect(mAfterFailQuiz.quizScore, equals(60));
-      expect(mAfterFailQuiz.progressPercent, equals(60));
+      expect(mAfterFailQuiz.progressPercent, equals(60), reason: 'Progres tetap 60% karena skor belum memenuhi KKM 70%');
 
       // 5. Kuis Teori Lulus (>= 70) -> 80%
       await provider.saveQuizResult(2, 80, true);

@@ -13,9 +13,17 @@ class SyncProvider with ChangeNotifier {
 
   void setupConnectivityListener(Future<void> Function() onReconnect) {
     _connectivitySub?.cancel();
+
+    // Inisialisasi status konektivitas saat awal aplikasi berjalan
+    Connectivity().checkConnectivity().then((results) {
+      _wasOffline = results.every((r) => r == ConnectivityResult.none);
+      debugPrint('SyncProvider initial state: offline=$_wasOffline');
+    }).catchError((_) {});
+
     _connectivitySub = Connectivity().onConnectivityChanged.listen((results) async {
       final isOffline = results.every((r) => r == ConnectivityResult.none);
-      if (_wasOffline && !isOffline) {
+      debugPrint('SyncProvider: Perubahan status jaringan (isOffline=$isOffline, wasOffline=$_wasOffline)');
+      if ((_wasOffline || isOffline == false) && !isOffline) {
         debugPrint('SyncProvider: Sinyal internet aktif kembali, memicu background sync antrean offline...');
         await onReconnect();
       }
@@ -175,7 +183,7 @@ class SyncProvider with ChangeNotifier {
 
     try {
       // 1. Sinkronkan riwayat kuis teori yang belum tersinkronkan
-      final pendingQuizzes = await DatabaseHelper.instance.getUnsyncedQuizAttempts(userId);
+      final pendingQuizzes = await DatabaseHelper.instance.getUnsyncedQuizAttempts(userId, userEmail: userEmail);
       for (var q in pendingQuizzes) {
         final success = await SupabaseService.instance.saveQuizAttempt(
           userEmail: userEmail,
@@ -190,7 +198,7 @@ class SyncProvider with ChangeNotifier {
       }
 
       // 2. Sinkronkan riwayat pindaian/praktikum yang belum tersinkronkan
-      final pendingScans = await DatabaseHelper.instance.getUnsyncedScans(userId);
+      final pendingScans = await DatabaseHelper.instance.getUnsyncedScans(userId, userEmail: userEmail);
       for (var s in pendingScans) {
         final success = await SupabaseService.instance.savePracticeScan(
           userEmail: userEmail,
@@ -206,7 +214,7 @@ class SyncProvider with ChangeNotifier {
       }
 
       // 3. Sinkronkan progres modul yang belum tersinkronkan
-      final pendingProgress = await DatabaseHelper.instance.getUnsyncedUserModuleProgress(userId);
+      final pendingProgress = await DatabaseHelper.instance.getUnsyncedUserModuleProgress(userId, userEmail: userEmail);
       for (var p in pendingProgress) {
         final success = await SupabaseService.instance.syncUserModuleProgress(
           userEmail: userEmail,
@@ -223,7 +231,8 @@ class SyncProvider with ChangeNotifier {
           isPassed: (p['is_passed'] as int? ?? 0) == 1,
         );
         if (success) {
-          await DatabaseHelper.instance.markUserModuleProgressSynced(userId, p['module_id'] as int);
+          final progressUserId = p['user_id'] as int? ?? userId;
+          await DatabaseHelper.instance.markUserModuleProgressSynced(progressUserId, p['module_id'] as int);
           syncedCount++;
         }
       }

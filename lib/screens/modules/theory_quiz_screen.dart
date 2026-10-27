@@ -40,7 +40,7 @@ class _TheoryQuizScreenState extends State<TheoryQuizScreen> {
     }
   }
 
-  void _submitQuiz() {
+  Future<void> _submitQuiz() async {
     if (_questions.isEmpty) return;
 
     int correct = 0;
@@ -61,7 +61,7 @@ class _TheoryQuizScreenState extends State<TheoryQuizScreen> {
     });
 
     final provider = Provider.of<AppProvider>(context, listen: false);
-    provider.saveQuizResult(widget.module.id, score, passed);
+    await provider.saveQuizResult(widget.module.id, score, passed);
   }
 
   @override

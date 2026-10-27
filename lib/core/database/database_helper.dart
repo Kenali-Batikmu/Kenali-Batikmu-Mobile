@@ -466,13 +466,14 @@ class DatabaseHelper {
       );
 
   // --- Offline Queue Delegation ---
-  Future<List<Map<String, dynamic>>> getUnsyncedQuizAttempts(int userId) =>
-      offlineQueueDao.getUnsyncedQuizAttempts(userId);
+  Future<List<Map<String, dynamic>>> getUnsyncedQuizAttempts(int userId, {String? userEmail}) =>
+      offlineQueueDao.getUnsyncedQuizAttempts(userId, userEmail: userEmail);
   Future<void> markQuizAttemptSynced(int id) => offlineQueueDao.markQuizAttemptSynced(id);
-  Future<List<Map<String, dynamic>>> getUnsyncedScans(int userId) => offlineQueueDao.getUnsyncedScans(userId);
+  Future<List<Map<String, dynamic>>> getUnsyncedScans(int userId, {String? userEmail}) =>
+      offlineQueueDao.getUnsyncedScans(userId, userEmail: userEmail);
   Future<void> markScanSynced(int id) => offlineQueueDao.markScanSynced(id);
-  Future<List<Map<String, dynamic>>> getUnsyncedUserModuleProgress(int userId) =>
-      offlineQueueDao.getUnsyncedUserModuleProgress(userId);
+  Future<List<Map<String, dynamic>>> getUnsyncedUserModuleProgress(int userId, {String? userEmail}) =>
+      offlineQueueDao.getUnsyncedUserModuleProgress(userId, userEmail: userEmail);
   Future<void> markUserModuleProgressSynced(int userId, int moduleId) =>
       offlineQueueDao.markUserModuleProgressSynced(userId, moduleId);
 }

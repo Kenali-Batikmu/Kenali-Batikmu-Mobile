@@ -48,16 +48,19 @@ class QuizProvider with ChangeNotifier {
       final prefs = await SharedPreferences.getInstance();
       final userKey = userEmail?.trim().toLowerCase() ?? 'guest';
       final userKeyPrefix = 'user_${userKey}_module_$moduleId';
-      await prefs.setBool('${userKeyPrefix}_quiz', passed);
+      await prefs.setBool('${userKeyPrefix}_quiz', true);
       await prefs.setInt('${userKeyPrefix}_quizScore', score);
 
-      await prefs.setBool('module_${moduleId}_quiz', passed);
+      await prefs.setBool('module_${moduleId}_quiz', true);
       await prefs.setInt('module_${moduleId}_quizScore', score);
+
+      final existingScore = module?.quizScore ?? 0;
+      final bestScore = score > existingScore ? score : existingScore;
 
       if (module != null) {
         final tempMod = module.copyWith(
-          quizDone: passed,
-          quizScore: score,
+          quizDone: true,
+          quizScore: bestScore,
         );
         final int percent = tempMod.calculateProgressPercent();
         final bool isPassed = tempMod.isCompleted;
@@ -69,9 +72,9 @@ class QuizProvider with ChangeNotifier {
           historyDone: module.historyDone,
           characterDone: module.characterDone,
           galleryDone: module.galleryDone,
-          quizDone: passed,
+          quizDone: true,
           practiceDone: module.practiceDone,
-          quizScore: score,
+          quizScore: bestScore,
           practiceScore: module.practiceScore,
           passingScore: module.passingScore,
           isPassed: isPassed,
@@ -94,7 +97,7 @@ class QuizProvider with ChangeNotifier {
           passed: passed,
         ).then((success) {
           if (success) {
-            DatabaseHelper.instance.getUnsyncedQuizAttempts(userId).then((list) {
+            DatabaseHelper.instance.getUnsyncedQuizAttempts(userId, userEmail: userEmail).then((list) {
               if (list.isNotEmpty) {
                 DatabaseHelper.instance.markQuizAttemptSynced(list.last['id'] as int);
               }
@@ -106,8 +109,8 @@ class QuizProvider with ChangeNotifier {
 
         if (module != null) {
           final tempMod = module.copyWith(
-            quizDone: passed,
-            quizScore: score,
+            quizDone: true,
+            quizScore: bestScore,
           );
           final int percent = tempMod.calculateProgressPercent();
           final bool isPassed = tempMod.isCompleted;
@@ -119,9 +122,9 @@ class QuizProvider with ChangeNotifier {
             historyDone: module.historyDone,
             characterDone: module.characterDone,
             galleryDone: module.galleryDone,
-            quizDone: passed,
+            quizDone: true,
             practiceDone: module.practiceDone,
-            quizScore: score,
+            quizScore: bestScore,
             practiceScore: module.practiceScore,
             passingScore: module.passingScore,
             isPassed: isPassed,

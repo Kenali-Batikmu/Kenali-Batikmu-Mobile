@@ -121,9 +121,9 @@ class _ModuleDetailScreenState extends State<ModuleDetailScreen> {
               clipBehavior: Clip.none,
               onPageChanged: (index) {
                 final provider = context.read<AppProvider>();
-                if (_activeStep == 0 && index > 0) provider.updatePillarProgress(widget.module.id, 'history');
-                if (_activeStep == 1 && index > 1) provider.updatePillarProgress(widget.module.id, 'character');
-                if (_activeStep == 2 && index > 2) provider.updatePillarProgress(widget.module.id, 'gallery');
+                if (index >= 1) provider.updatePillarProgress(widget.module.id, 'history');
+                if (index >= 2) provider.updatePillarProgress(widget.module.id, 'character');
+                if (index >= 3) provider.updatePillarProgress(widget.module.id, 'gallery');
 
                 // Jeda video secara otomatis saat user geser ke tab lain
                 if (index != 0) {

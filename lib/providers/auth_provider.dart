@@ -1,6 +1,8 @@
 import 'dart:io';
 import 'dart:math';
 import 'package:flutter/foundation.dart';
+import 'package:http/http.dart' as http;
+import 'package:path_provider/path_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../core/database/database_helper.dart';
 import '../core/services/email_service.dart';
@@ -51,34 +53,47 @@ class AuthProvider with ChangeNotifier {
     try {
       final prefs = await SharedPreferences.getInstance();
 
-      final savedPhoto = prefs.getString(_photoPrefKey);
-      if (savedPhoto != null && (savedPhoto.startsWith('http') || kIsWeb || File(savedPhoto).existsSync())) {
-        _savedPhotoPath = savedPhoto;
-      }
-
       final isLoggedIn = prefs.getBool('is_logged_in') ?? false;
       if (isLoggedIn && savedEmail != null && savedEmail.isNotEmpty) {
-        final dbUser = await DatabaseHelper.instance.getUserByEmail(savedEmail);
+        final cleanEmail = savedEmail.trim().toLowerCase();
+        final safeEmail = cleanEmail.replaceAll(RegExp(r'[^a-zA-Z0-9]'), '_');
+
+        // 1. Cek apakah ada file foto avatar permanen di direktori lokal perangkat
+        if (!kIsWeb) {
+          try {
+            final docsDir = await getApplicationDocumentsDirectory();
+            final localAvatarFile = File('${docsDir.path}/avatar_$safeEmail.jpg');
+            if (localAvatarFile.existsSync()) {
+              _savedPhotoPath = localAvatarFile.path;
+            }
+          } catch (_) {}
+        }
+
+        final dbUser = await DatabaseHelper.instance.getUserByEmail(cleanEmail);
         if (dbUser != null) {
           _currentUser = UserModel.fromMap(dbUser);
-          if (_currentUser?.profileImagePath != null && _currentUser!.profileImagePath!.isNotEmpty) {
+          if (_savedPhotoPath != null) {
+            _currentUser = _currentUser!.copyWith(profileImagePath: _savedPhotoPath);
+          } else if (_currentUser?.profileImagePath != null && _currentUser!.profileImagePath!.isNotEmpty) {
             _savedPhotoPath = _currentUser!.profileImagePath;
           }
         } else {
           // Coba ambil dari cloud Supabase jika terhubung
-          final supaUser = await SupabaseService.instance.getUserByEmail(savedEmail);
+          final supaUser = await SupabaseService.instance.getUserByEmail(cleanEmail);
           if (supaUser != null) {
             _currentUser = UserModel.fromMap(supaUser);
-            if (_currentUser?.profileImagePath != null && _currentUser!.profileImagePath!.isNotEmpty) {
+            if (_savedPhotoPath != null) {
+              _currentUser = _currentUser!.copyWith(profileImagePath: _savedPhotoPath);
+            } else if (_currentUser?.profileImagePath != null && _currentUser!.profileImagePath!.isNotEmpty) {
               _savedPhotoPath = _currentUser!.profileImagePath;
             }
             await DatabaseHelper.instance.insertUser(
               id: supaUser['id'] as int?,
               name: supaUser['name'] ?? '',
-              email: savedEmail,
+              email: cleanEmail,
               passwordHash: supaUser['password_hash'] ?? '',
               phone: supaUser['phone'],
-              profileImagePath: supaUser['profile_image_path'],
+              profileImagePath: _savedPhotoPath ?? supaUser['profile_image_path'],
             );
           } else {
             _currentUser = null;
@@ -87,6 +102,11 @@ class AuthProvider with ChangeNotifier {
             await prefs.remove('logged_user_name');
             await prefs.remove('logged_user_id');
           }
+        }
+
+        // 2. Jika foto berupa URL cloud dan belum tersimpan di lokal HP, unduh di background
+        if (!kIsWeb && _savedPhotoPath != null && _savedPhotoPath!.startsWith('http')) {
+          _cacheRemoteAvatarLocally(_savedPhotoPath!, safeEmail);
         }
       } else {
         _currentUser = null;
@@ -97,6 +117,30 @@ class AuthProvider with ChangeNotifier {
     } catch (e) {
       debugPrint('AuthProvider initSession error: $e');
     }
+  }
+
+  /// Unduh foto avatar dari cloud ke disk lokal agar selalu bisa dibuka saat offline
+  Future<void> _cacheRemoteAvatarLocally(String remoteUrl, String safeEmail) async {
+    try {
+      final docsDir = await getApplicationDocumentsDirectory();
+      final localFile = File('${docsDir.path}/avatar_$safeEmail.jpg');
+      final response = await http.get(Uri.parse(remoteUrl)).timeout(const Duration(seconds: 5));
+      if (response.statusCode == 200 && response.bodyBytes.isNotEmpty) {
+        await localFile.writeAsBytes(response.bodyBytes);
+        _savedPhotoPath = localFile.path;
+        if (_currentUser != null) {
+          _currentUser = _currentUser!.copyWith(profileImagePath: localFile.path);
+          await DatabaseHelper.instance.updateUserProfile(
+            userId: _currentUser!.id,
+            name: _currentUser!.name,
+            email: _currentUser!.email,
+            phone: _currentUser!.phone,
+            profileImagePath: localFile.path,
+          );
+          notifyListeners();
+        }
+      }
+    } catch (_) {}
   }
 
   void _applySavedPhoto() {
@@ -511,12 +555,29 @@ class AuthProvider with ChangeNotifier {
 
   Future<bool> setProfilePhoto(String path) async {
     try {
-      _savedPhotoPath = path;
+      final userEmail = _currentUser?.email;
+      String localPermanentPath = path;
+
+      // 1. Simpan foto ke direktori permanen lokal (1 file per pengguna: menimpa yang lama)
+      if (!kIsWeb && userEmail != null) {
+        try {
+          final docsDir = await getApplicationDocumentsDirectory();
+          final safeEmail = userEmail.trim().toLowerCase().replaceAll(RegExp(r'[^a-zA-Z0-9]'), '_');
+          final permanentFile = File('${docsDir.path}/avatar_$safeEmail.jpg');
+          final fileBytes = await File(path).readAsBytes();
+          await permanentFile.writeAsBytes(fileBytes);
+          localPermanentPath = permanentFile.path;
+        } catch (e) {
+          debugPrint('Gagal menyalin avatar ke direktori lokal: $e');
+        }
+      }
+
+      _savedPhotoPath = localPermanentPath;
       if (_currentUser != null) {
-        _currentUser = _currentUser!.copyWith(profileImagePath: path);
+        _currentUser = _currentUser!.copyWith(profileImagePath: localPermanentPath);
       }
       final prefs = await SharedPreferences.getInstance();
-      await prefs.setString(_photoPrefKey, path);
+      await prefs.setString(_photoPrefKey, localPermanentPath);
       notifyListeners();
 
       if (_currentUser != null) {
@@ -525,14 +586,14 @@ class AuthProvider with ChangeNotifier {
           name: _currentUser!.name,
           email: _currentUser!.email,
           phone: _currentUser!.phone,
-          profileImagePath: path,
+          profileImagePath: localPermanentPath,
         );
       }
 
-      final userEmail = _currentUser?.email;
+      // 2. Upload ke Supabase Storage (menimpa file lama di cloud)
       if (userEmail != null) {
         SupabaseService.instance.uploadAvatar(
-          filePath: path,
+          filePath: localPermanentPath,
           email: userEmail,
         ).then((publicUrl) async {
           if (publicUrl != null) {
@@ -556,7 +617,21 @@ class AuthProvider with ChangeNotifier {
   }
 
   Future<void> removeProfilePhoto() async {
+    final userEmail = _currentUser?.email;
     _savedPhotoPath = null;
+
+    // Hapus file avatar lokal jika ada
+    if (!kIsWeb && userEmail != null) {
+      try {
+        final docsDir = await getApplicationDocumentsDirectory();
+        final safeEmail = userEmail.trim().toLowerCase().replaceAll(RegExp(r'[^a-zA-Z0-9]'), '_');
+        final localFile = File('${docsDir.path}/avatar_$safeEmail.jpg');
+        if (localFile.existsSync()) {
+          localFile.deleteSync();
+        }
+      } catch (_) {}
+    }
+
     if (_currentUser != null) {
       _currentUser = UserModel(
         id: _currentUser!.id,
@@ -575,12 +650,15 @@ class AuthProvider with ChangeNotifier {
         profileImagePath: null,
       );
 
-      SupabaseService.instance.updateUserProfile(
-        email: _currentUser!.email,
-        name: _currentUser!.name,
-        phone: _currentUser!.phone,
-        profileImagePath: null,
-      ).catchError((_) => false);
+      if (userEmail != null) {
+        SupabaseService.instance.deleteAvatar(userEmail).catchError((_) => false);
+        SupabaseService.instance.updateUserProfile(
+          email: userEmail,
+          name: _currentUser!.name,
+          phone: _currentUser!.phone,
+          profileImagePath: null,
+        ).catchError((_) => false);
+      }
     }
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove(_photoPrefKey);

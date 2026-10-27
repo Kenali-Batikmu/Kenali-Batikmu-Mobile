@@ -9,10 +9,18 @@ class OfflineQueueDao {
   OfflineQueueDao(this._getDb);
 
   /// Ambil seluruh riwayat kuis teori yang belum tersinkronkan ke cloud
-  Future<List<Map<String, dynamic>>> getUnsyncedQuizAttempts(int userId) async {
+  Future<List<Map<String, dynamic>>> getUnsyncedQuizAttempts(int userId, {String? userEmail}) async {
     final db = await _getDb();
     if (db == null) return [];
     try {
+      if (userEmail != null && userEmail.trim().isNotEmpty) {
+        return await db.rawQuery('''
+          SELECT * FROM quiz_attempts 
+          WHERE is_synced = 0 
+            AND (user_id = ? OR user_id IN (SELECT id FROM users WHERE LOWER(email) = ?))
+          ORDER BY id ASC
+        ''', [userId, userEmail.trim().toLowerCase()]);
+      }
       return await db.query(
         'quiz_attempts',
         where: 'user_id = ? AND is_synced = 0',
@@ -42,10 +50,18 @@ class OfflineQueueDao {
   }
 
   /// Ambil seluruh pindaian/praktikum yang belum tersinkronkan ke cloud
-  Future<List<Map<String, dynamic>>> getUnsyncedScans(int userId) async {
+  Future<List<Map<String, dynamic>>> getUnsyncedScans(int userId, {String? userEmail}) async {
     final db = await _getDb();
     if (db == null) return [];
     try {
+      if (userEmail != null && userEmail.trim().isNotEmpty) {
+        return await db.rawQuery('''
+          SELECT * FROM scans 
+          WHERE is_synced = 0 
+            AND (user_id = ? OR user_id IN (SELECT id FROM users WHERE LOWER(email) = ?))
+          ORDER BY id ASC
+        ''', [userId, userEmail.trim().toLowerCase()]);
+      }
       return await db.query(
         'scans',
         where: 'user_id = ? AND is_synced = 0',
@@ -75,10 +91,17 @@ class OfflineQueueDao {
   }
 
   /// Ambil progres modul yang belum tersinkronkan ke cloud
-  Future<List<Map<String, dynamic>>> getUnsyncedUserModuleProgress(int userId) async {
+  Future<List<Map<String, dynamic>>> getUnsyncedUserModuleProgress(int userId, {String? userEmail}) async {
     final db = await _getDb();
     if (db == null) return [];
     try {
+      if (userEmail != null && userEmail.trim().isNotEmpty) {
+        return await db.rawQuery('''
+          SELECT * FROM user_module_progress 
+          WHERE is_synced = 0 
+            AND (user_id = ? OR user_id IN (SELECT id FROM users WHERE LOWER(email) = ?))
+        ''', [userId, userEmail.trim().toLowerCase()]);
+      }
       return await db.query(
         'user_module_progress',
         where: 'user_id = ? AND is_synced = 0',
