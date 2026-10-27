@@ -360,9 +360,10 @@ class _UniversalScanScreenState extends State<UniversalScanScreen>
   Future<void> _openModule(BuildContext ctx, int motifId) async {
     Navigator.pop(ctx);
     final provider = Provider.of<AppProvider>(context, listen: false);
+    if (provider.modules.isEmpty) return;
     final target = provider.modules.firstWhere(
       (m) => m.motifId == motifId,
-      orElse: () => provider.modules[0],
+      orElse: () => provider.modules.first,
     );
     await _stop();
     if (!mounted) return;

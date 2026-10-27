@@ -137,6 +137,7 @@ class SupabaseService {
   }
 
   /// Upload foto profil ke bucket 'avatars' di Supabase Storage
+  /// Upload foto profil ke bucket 'avatars' di Supabase Storage (1 foto per pengguna: menimpa yang lama)
   Future<String?> uploadAvatar({
     required String filePath,
     required String email,
@@ -148,7 +149,16 @@ class SupabaseService {
 
       final ext = filePath.split('.').last.toLowerCase();
       final cleanEmail = email.replaceAll(RegExp(r'[^a-zA-Z0-9]'), '_');
-      final fileName = 'avatar_${cleanEmail}_${DateTime.now().millisecondsSinceEpoch}.$ext';
+      final fileName = 'avatar_$cleanEmail.jpg';
+
+      // Bersihkan avatar lama dengan berbagai ekstensi agar storage bersih (1 foto per user)
+      try {
+        await client!.storage.from('avatars').remove([
+          'avatar_$cleanEmail.jpg',
+          'avatar_$cleanEmail.png',
+          'avatar_$cleanEmail.jpeg',
+        ]);
+      } catch (_) {}
 
       final fileBytes = await file.readAsBytes();
       await client!.storage.from('avatars').uploadBinary(
@@ -161,7 +171,7 @@ class SupabaseService {
       );
 
       final publicUrl = client!.storage.from('avatars').getPublicUrl(fileName);
-      debugPrint('Supabase Storage: Foto profil berhasil diupload: $publicUrl');
+      debugPrint('Supabase Storage: Foto profil berhasil diupload & ditimpa: $publicUrl');
       return publicUrl;
     } catch (e) {
       debugPrint('Supabase uploadAvatar error: $e');
@@ -169,7 +179,24 @@ class SupabaseService {
     }
   }
 
-  /// Upload foto pengerjaan praktikum ke bucket 'practices' di Supabase Storage
+  /// Hapus foto profil dari bucket 'avatars' di Supabase Storage
+  Future<bool> deleteAvatar(String email) async {
+    if (!isReady || client == null) return false;
+    try {
+      final cleanEmail = email.replaceAll(RegExp(r'[^a-zA-Z0-9]'), '_');
+      await client!.storage.from('avatars').remove([
+        'avatar_$cleanEmail.jpg',
+        'avatar_$cleanEmail.png',
+        'avatar_$cleanEmail.jpeg',
+      ]);
+      return true;
+    } catch (e) {
+      debugPrint('Supabase deleteAvatar error: $e');
+      return false;
+    }
+  }
+
+  /// Upload foto pengerjaan praktikum ke bucket 'practices' di Supabase Storage (1 foto per modul per pengguna)
   Future<String?> uploadPracticeImage({
     required String filePath,
     required String email,
@@ -182,7 +209,16 @@ class SupabaseService {
 
       final ext = filePath.split('.').last.toLowerCase();
       final cleanEmail = email.replaceAll(RegExp(r'[^a-zA-Z0-9]'), '_');
-      final fileName = 'practice_${cleanEmail}_mod$moduleId.$ext';
+      final fileName = 'practice_${cleanEmail}_mod$moduleId.jpg';
+
+      // Bersihkan pindaian praktikum lama untuk modul ini agar hemat storage
+      try {
+        await client!.storage.from('practices').remove([
+          'practice_${cleanEmail}_mod$moduleId.jpg',
+          'practice_${cleanEmail}_mod$moduleId.png',
+          'practice_${cleanEmail}_mod$moduleId.jpeg',
+        ]);
+      } catch (_) {}
 
       final fileBytes = await file.readAsBytes();
       await client!.storage.from('practices').uploadBinary(
@@ -195,7 +231,7 @@ class SupabaseService {
       );
 
       final publicUrl = client!.storage.from('practices').getPublicUrl(fileName);
-      debugPrint('Supabase Storage: Foto praktikum modul $moduleId berhasil diupload: $publicUrl');
+      debugPrint('Supabase Storage: Foto praktikum modul $moduleId berhasil diupload & ditimpa: $publicUrl');
       return publicUrl;
     } catch (e) {
       debugPrint('Supabase uploadPracticeImage error: $e');

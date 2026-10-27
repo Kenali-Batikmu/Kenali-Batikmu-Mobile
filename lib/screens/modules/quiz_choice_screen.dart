@@ -158,17 +158,25 @@ class QuizChoiceScreen extends StatelessWidget {
                       Container(
                         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                         decoration: BoxDecoration(
-                          color: currentMod.quizDone ? const Color(0xFFE8F5E9) : AppTheme.borderLight,
+                          color: (currentMod.quizDone || currentMod.quizScore != null)
+                              ? (((currentMod.quizScore ?? 0) >= currentMod.passingScore || currentMod.quizDone)
+                                  ? const Color(0xFFE8F5E9)
+                                  : const Color(0xFFFFF3E0))
+                              : AppTheme.borderLight,
                           borderRadius: BorderRadius.circular(10),
                         ),
                         child: Text(
-                          currentMod.quizDone
-                              ? 'Nilai Teori: ${currentMod.quizScore ?? 100}%'
+                          (currentMod.quizDone || currentMod.quizScore != null)
+                              ? 'Nilai Teori: ${currentMod.quizScore ?? 100}% (${((currentMod.quizScore ?? 0) >= currentMod.passingScore || currentMod.quizDone) ? "Lulus" : "Belum Lulus"})'
                               : 'Belum Dikerjakan',
                           style: AppTheme.inter(
                             fontSize: 12,
                             fontWeight: FontWeight.bold,
-                            color: currentMod.quizDone ? const Color(0xFF2E7D32) : AppTheme.textSecondary,
+                            color: (currentMod.quizDone || currentMod.quizScore != null)
+                                ? (((currentMod.quizScore ?? 0) >= currentMod.passingScore || currentMod.quizDone)
+                                    ? const Color(0xFF2E7D32)
+                                    : const Color(0xFFE65100))
+                                : AppTheme.textSecondary,
                           ),
                         ),
                       ),
@@ -186,11 +194,11 @@ class QuizChoiceScreen extends StatelessWidget {
                           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
                           minimumSize: const Size(130, 42),
                         ),
-                        child: const Row(
+                        child: Row(
                           children: [
-                            Text('Mulai Kuis Teori'),
-                            SizedBox(width: 4),
-                            Icon(Icons.arrow_forward_ios, size: 12),
+                            Text((currentMod.quizDone || currentMod.quizScore != null) ? 'Kerjakan Ulang' : 'Mulai Kuis Teori'),
+                            const SizedBox(width: 4),
+                            const Icon(Icons.arrow_forward_ios, size: 12),
                           ],
                         ),
                       ),

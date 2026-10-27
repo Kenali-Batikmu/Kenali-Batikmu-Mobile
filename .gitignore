@@ -80,3 +80,5 @@ DOCS/
 devtools_options.yaml
 .agents
 AGENTS.md
+
+*.md

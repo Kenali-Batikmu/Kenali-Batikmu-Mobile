@@ -45,8 +45,12 @@ class KbHeaderBar extends StatelessWidget {
 
   static ImageProvider? avatarImage(String? path) {
     if (path == null || path.isEmpty) return null;
-    if (kIsWeb || path.startsWith('http')) return NetworkImage(path);
-    return FileImage(File(path));
+    if (path.startsWith('http')) return NetworkImage(path);
+    if (!kIsWeb) {
+      final file = File(path);
+      if (file.existsSync()) return FileImage(file);
+    }
+    return null;
   }
 
   @override
@@ -163,7 +167,13 @@ class KbHeaderBar extends StatelessWidget {
                 border: Border.all(color: AppTheme.accentGold, width: 2),
                 boxShadow: softShadow,
                 image: img != null
-                    ? DecorationImage(image: img, fit: BoxFit.cover)
+                    ? DecorationImage(
+                        image: img,
+                        fit: BoxFit.cover,
+                        onError: (e, s) {
+                          debugPrint('KbHeaderBar: Fallback avatar: $e');
+                        },
+                      )
                     : null,
               ),
               child: img == null

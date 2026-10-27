@@ -154,8 +154,12 @@ class ProfileScreen extends StatelessWidget {
   // ---------------------------------------------------------------------------
   ImageProvider? _avatarImage(String? path) {
     if (path == null || path.isEmpty) return null;
-    if (kIsWeb || path.startsWith('http')) return NetworkImage(path);
-    return FileImage(File(path));
+    if (path.startsWith('http')) return NetworkImage(path);
+    if (!kIsWeb) {
+      final file = File(path);
+      if (file.existsSync()) return FileImage(file);
+    }
+    return null;
   }
 
   Future<void> _pickPhoto(BuildContext context, ImageSource source) async {
@@ -405,12 +409,20 @@ class ProfileScreen extends StatelessWidget {
                                         color: AppTheme.primary,
                                         shape: BoxShape.circle,
                                         border: Border.all(color: AppTheme.accentGold, width: 3),
-                                        image: avatarImage != null ? DecorationImage(image: avatarImage, fit: BoxFit.cover) : null,
+                                        image: avatarImage != null
+                                            ? DecorationImage(
+                                                image: avatarImage,
+                                                fit: BoxFit.cover,
+                                                onError: (e, s) {
+                                                  debugPrint('ProfileScreen: Fallback avatar offline: $e');
+                                                },
+                                              )
+                                            : null,
                                       ),
                                       child: avatarImage == null
                                           ? Center(
                                               child: Text(
-                                                (user?.name.isNotEmpty ?? false) ? user!.name[0].toUpperCase() : 'S',
+                                                (user?.name.isNotEmpty ?? false) ? user!.name[0].toUpperCase() : 'K',
                                                 style: const TextStyle(color: Colors.white, fontSize: 40, fontWeight: FontWeight.bold),
                                               ),
                                             )
