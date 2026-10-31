@@ -57,7 +57,35 @@ class ModuleDao {
     if (db == null || modules.isEmpty) return 0;
     try {
       final batch = db.batch();
+      const defaultCovers = {
+        1: 'assets/images/modules/Batik-Betawi.jpeg',
+        2: 'assets/images/modules/Batik-Bokor-Kencono.jpeg',
+        3: 'assets/images/modules/Batik-Buketan.jpeg',
+        4: 'assets/images/modules/Batik-Dayak.jpeg',
+        5: 'assets/images/modules/Batik-Jlamprang.jpeg',
+        6: 'assets/images/modules/Batik-Kawung.jpeg',
+        7: 'assets/images/modules/Batik-Liong.jpeg',
+        8: 'assets/images/modules/Batik-Mega-Mendung.jpeg',
+        9: 'assets/images/modules/Batik-Parang.jpeg',
+        10: 'assets/images/modules/Batik-Sekar-Jagad.jpeg',
+        11: 'assets/images/modules/Batik-SidoLuhur.jpeg',
+        12: 'assets/images/modules/Batik-SidoMukti.jpeg',
+        13: 'assets/images/modules/Batik-SidoMulyo.jpeg',
+        14: 'assets/images/modules/Batik-Singa-Barong.jpeg',
+        15: 'assets/images/modules/Batik-Srikaton.jpeg',
+        16: 'assets/images/modules/Batik-Tribusono.jpeg',
+        17: 'assets/images/modules/Batik-Tujuh-Rupa.jpeg',
+        18: 'assets/images/modules/Batik-Truntum.jpeg',
+        19: 'assets/images/modules/Batik-Wahyu-Tumurun.jpeg',
+        20: 'assets/images/modules/Batik-Wirasat.jpeg',
+      };
+
       for (var m in modules) {
+        final id = m['id'] as int?;
+        final cover = (m['cover_image'] != null && (m['cover_image'] as String).isNotEmpty)
+            ? m['cover_image']
+            : defaultCovers[id];
+
         batch.insert(
           'modules',
           {
@@ -65,7 +93,7 @@ class ModuleDao {
             'motif_id': m['motif_id'],
             'title': m['title'],
             'description': m['description'],
-            'cover_image': m['cover_image'],
+            'cover_image': cover,
             'video_url': m['video_url'],
             'passing_score': m['passing_score'] ?? 70,
             'order_no': m['order_no'],

@@ -71,12 +71,33 @@ class KbModuleCard extends StatelessWidget {
         clipBehavior: Clip.none,
         children: [
           Positioned.fill(
-            child: Container(
-              color: _kBrown,
-              child: const CustomPaint(
-                painter: _KawungPainter(color: _kBatik, opacity: 0.75),
-              ),
-            ),
+            child: module.coverImage != null
+                ? Stack(
+                    children: [
+                      // Gambar batik sebagai background header
+                      Positioned.fill(
+                        child: Image.asset(
+                          module.coverImage!,
+                          fit: BoxFit.cover,
+                        ),
+                      ),
+                      // Overlay gelap supaya teks & motif kawung tetap terbaca
+                      Positioned.fill(
+                        child: Container(
+                          color: _kBrown.withValues(alpha: 0.62),
+                          child: const CustomPaint(
+                            painter: _KawungPainter(color: _kBatik, opacity: 0.45),
+                          ),
+                        ),
+                      ),
+                    ],
+                  )
+                : Container(
+                    color: _kBrown,
+                    child: const CustomPaint(
+                      painter: _KawungPainter(color: _kBatik, opacity: 0.75),
+                    ),
+                  ),
           ),
           Padding(
             padding: const EdgeInsets.fromLTRB(18, 14, 18, 0),

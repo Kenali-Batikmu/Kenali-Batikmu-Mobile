@@ -188,7 +188,44 @@ class DatabaseHelper {
     try {
       await db.execute('CREATE UNIQUE INDEX IF NOT EXISTS idx_scans_user_module_kuismu ON scans(user_id, module_id) WHERE scan_type = \'kuismu\'');
     } catch (_) {}
+
+    // Patch cover_image untuk semua 20 modul batik dari assets lokal
+    // Setiap kali app dibuka, pastikan path cover_image sudah benar (UPSERT aman)
+    const moduleCoverImages = {
+      1:  'assets/images/modules/Batik-Betawi.jpeg',
+      2:  'assets/images/modules/Batik-Bokor-Kencono.jpeg',
+      3:  'assets/images/modules/Batik-Buketan.jpeg',
+      4:  'assets/images/modules/Batik-Dayak.jpeg',
+      5:  'assets/images/modules/Batik-Jlamprang.jpeg',
+      6:  'assets/images/modules/Batik-Kawung.jpeg',
+      7:  'assets/images/modules/Batik-Liong.jpeg',
+      8:  'assets/images/modules/Batik-Mega-Mendung.jpeg',
+      9:  'assets/images/modules/Batik-Parang.jpeg',
+      10: 'assets/images/modules/Batik-Sekar-Jagad.jpeg',
+      11: 'assets/images/modules/Batik-SidoLuhur.jpeg',
+      12: 'assets/images/modules/Batik-SidoMukti.jpeg',
+      13: 'assets/images/modules/Batik-SidoMulyo.jpeg',
+      14: 'assets/images/modules/Batik-Singa-Barong.jpeg',
+      15: 'assets/images/modules/Batik-Srikaton.jpeg',
+      16: 'assets/images/modules/Batik-Tribusono.jpeg',
+      17: 'assets/images/modules/Batik-Tujuh-Rupa.jpeg',
+      18: 'assets/images/modules/Batik-Truntum.jpeg',
+      19: 'assets/images/modules/Batik-Wahyu-Tumurun.jpeg',
+      20: 'assets/images/modules/Batik-Wirasat.jpeg',
+    };
+    for (final entry in moduleCoverImages.entries) {
+      try {
+        // UPDATE tanpa kondisi — selalu perbarui ke path standar modules/
+        await db.rawUpdate(
+          'UPDATE modules SET cover_image = ? WHERE id = ?',
+          [entry.value, entry.key],
+        );
+      } catch (e) {
+        debugPrint('DatabaseHelper _ensureSeedData cover patch: $e');
+      }
+    }
   }
+
 
   Future<void> _createDB(Database db, int version) async {
     await db.execute('''
