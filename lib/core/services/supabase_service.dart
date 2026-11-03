@@ -107,6 +107,28 @@ class SupabaseService {
     }
   }
 
+  /// Menyinkronkan hash kata sandi (setelah upgrade format) ke Supabase
+  Future<bool> updateUserPassword({
+    required String email,
+    required String passwordHash,
+  }) async {
+    if (!isReady || client == null) return false;
+    try {
+      await client!
+          .from('users')
+          .update({
+            'password_hash': passwordHash,
+            'updated_at': DateTime.now().toIso8601String(),
+          })
+          .eq('email', email.trim().toLowerCase());
+      debugPrint('Supabase sync: Hash sandi $email diperbarui');
+      return true;
+    } catch (e) {
+      debugPrint('Supabase updateUserPassword error: $e');
+      return false;
+    }
+  }
+
   /// Perbarui profil pengguna di Supabase
   Future<bool> updateUserProfile({
     required String email,

@@ -313,6 +313,32 @@ class DatabaseHelper {
     // Pastikan master data kurikulum lengkap sebelum dipakai layar modul
     await ensureMasterContent(db);
 
+    // Migrasi kredensial akun bawaan (hanya bila hash masih bawaan/ belum diubah
+    // pengguna). Kata sandi pengguna yang sudah diganti tidak akan disentuh.
+    const shippedDemoHashes = {
+      'sekar@batikmu.id': r'scrypt$16384$8$1$zbrWPS+S0/jlqYeDvOGmnA==$fow1obJAcTSUZYYj3k0NgxSOCZfJQUiCrG8bO/BR+iM=',
+      'kenalibatikmu@gmail.com': r'scrypt$16384$8$1$AmBBs0TFWg2EGcznFFrCAw==$ka/YpHQY7l7o7oBAtW9Wm4sa0mR7UgO7W352NoGDSCw=',
+    };
+    const refreshedDemoHashes = {
+      'sekar@batikmu.id': r'scrypt$16384$8$1$9c0R6c5+ShvUikyZ5Crtng==$bt+8mFGo294+k9PoZ3YmWg6d3N8fjfIX9bcNZ0HSTXc=',
+      'kenalibatikmu@gmail.com': r'scrypt$16384$8$1$WTIJ0QDb0wecvsfiMAvuKA==$BFuIufSKQ6TDsLh/8EdzENd2yG/N0VfMz40HCDbwoAk=',
+    };
+    for (final entry in shippedDemoHashes.entries) {
+      try {
+        await db.update(
+          'users',
+          {
+            'password_hash': refreshedDemoHashes[entry.key],
+            'updated_at': DateTime.now().toIso8601String(),
+          },
+          where: 'email = ? AND password_hash = ?',
+          whereArgs: [entry.key, entry.value],
+        );
+      } catch (e) {
+        debugPrint('DatabaseHelper demo credential patch: $e');
+      }
+    }
+
     // Patch cover_image untuk semua 20 modul batik dari assets lokal
     // Setiap kali app dibuka, pastikan path cover_image sudah benar (UPSERT aman)
     const moduleCoverImages = {
