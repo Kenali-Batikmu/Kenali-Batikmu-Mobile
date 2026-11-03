@@ -505,7 +505,7 @@ class KbModuleCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final num progress = module.progressPercent;
     final isDone = progress >= 100;
-    final isWorking = module.id == 3 || (progress > 0 && progress < 100);
+    final isWorking = progress > 0 && progress < 100;
 
     final bodyColor = isDark ? AppTheme.darkSurface : const Color(0xFFFFFDF8);
     final borderColor = isWorking
@@ -636,11 +636,11 @@ class KbModuleCard extends StatelessWidget {
     final fraction = (progress / 100).clamp(0.0, 1.0).toDouble();
 
     final theory = isDone
-        ? (module.id == 1 ? 'Nilai Teori: 80%' : 'Nilai Teori: 100%')
-        : (module.quizDone ? 'Nilai Teori: 80%' : 'Nilai Teori: 0%');
+        ? (module.quizScore != null ? 'Nilai Teori: %' : 'Nilai Teori: 100%')
+        : (module.quizDone ? (module.quizScore != null ? 'Nilai Teori: %' : 'Nilai Teori: 80%') : 'Nilai Teori: 0%');
     final practice = isDone
-        ? 'Nilai Praktikum: 100%'
-        : (module.practiceDone ? 'Nilai Praktikum: 70%' : 'Nilai Praktikum: 0%');
+        ? (module.practiceScore != null ? 'Nilai Praktikum: %' : 'Nilai Praktikum: 100%')
+        : (module.practiceDone ? (module.practiceScore != null ? 'Nilai Praktikum: %' : 'Nilai Praktikum: 70%') : 'Nilai Praktikum: 0%');
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
