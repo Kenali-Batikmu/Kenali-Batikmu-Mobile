@@ -212,11 +212,10 @@ class ModuleDao {
     final db = await _getDb();
     if (db == null) return null;
     try {
-      // Ambil asal daerah dari motif
       final motifRows = await db.rawQuery('''
-        SELECT b.name, b.origin_region 
-        FROM batik_motifs b 
-        JOIN modules m ON m.motif_id = b.id 
+        SELECT b.name, b.origin_region
+        FROM batik_motifs b
+        JOIN modules m ON m.motif_id = b.id
         WHERE m.id = ? LIMIT 1
       ''', [moduleId]);
 
@@ -227,7 +226,17 @@ class ModuleDao {
         motifName = motifRows.first['name'] as String? ?? 'Batik Nusantara';
       }
 
-      // Ambil konten 3 pilar
+      final videoRows = await db.query(
+        'modules',
+        columns: ['video_url'],
+        where: 'id = ?',
+        whereArgs: [moduleId],
+        limit: 1,
+      );
+      final videoUrl = videoRows.isNotEmpty
+          ? (videoRows.first['video_url'] as String? ?? '').trim()
+          : '';
+
       final contents = await db.query(
         'module_contents',
         where: 'module_id = ?',
@@ -235,19 +244,51 @@ class ModuleDao {
         orderBy: 'order_no ASC',
       );
 
-      String sejarahBody = '';
-      String karakterBody = '';
-      for (var c in contents) {
-        final p = c['pillar'] as String;
-        final b = c['body'] as String;
-        if (p == 'sejarah_filosofi') {
-          sejarahBody = b;
-        } else if (p == 'karakteristik') {
-          karakterBody = b;
-        }
+      final sejarahRows = contents.where((c) => c['pillar'] == 'sejarah_filosofi').toList();
+      final karakterRows = contents.where((c) => c['pillar'] == 'karakteristik').toList();
+
+      String bodyAt(List<Map<String, Object?>> rows, int index) {
+        if (index < rows.length) return (rows[index]['body'] as String?) ?? '';
+        return '';
       }
 
-      // Ambil foto galeri
+      String sejarahByTitle(String title, int index) {
+        for (final row in sejarahRows) {
+          if (((row['title'] as String?) ?? '').trim() == title) {
+            return (row['body'] as String?) ?? '';
+          }
+        }
+        return bodyAt(sejarahRows, index);
+      }
+
+      KarakteristikDetailModel detailAt(int index, String defaultTitle, String defaultBadge) {
+        if (index < karakterRows.length) {
+          final row = karakterRows[index];
+          return KarakteristikDetailModel(
+            title: (row['title'] as String?) ?? defaultTitle,
+            desc: (row['body'] as String?) ?? '',
+            badge: ((row['badge'] as String?) ?? '').trim().isEmpty
+                ? defaultBadge
+                : (row['badge'] as String).trim(),
+            image: '',
+          );
+        }
+        return KarakteristikDetailModel(
+          title: defaultTitle,
+          desc: '',
+          badge: defaultBadge,
+          image: '',
+        );
+      }
+
+      final pakemList = <PakemModel>[
+        for (final row in karakterRows.skip(4))
+          PakemModel(
+            title: (row['title'] as String?) ?? '',
+            desc: (row['body'] as String?) ?? '',
+          ),
+      ];
+
       final galleryRows = await db.query(
         'module_gallery_images',
         where: 'module_id = ?',
@@ -269,54 +310,33 @@ class ModuleDao {
         ];
       }
 
+      final sejarahBody = sejarahByTitle('Hakikat & Simbol', 0);
+
       return ModuleContentModel(
         origin: origin,
-        estimatedTime: '10 Menit',
         sejarahDanFilosofi: SejarahFilosofiModel(
-          youtubeUrl: 'https://www.youtube.com/watch?v=fq4N0hgOWzU',
+          youtubeUrl: videoUrl,
           deskripsiUtama: sejarahBody.isNotEmpty
               ? sejarahBody
               : 'Pelajari sejarah dan nilai luhur yang terkandung dalam motif $motifName.',
-          asalDaerah: origin,
-          maknaFilosofis: 'Mengajarkan nilai kesabaran, keluhuran budi, dan harmoni dengan alam.',
-          penggunaan: 'Dikenakan dalam upacara adat tradisi, perayaan resmi, maupun busana kontemporer.',
+          asalDaerah: sejarahByTitle('Asal Daerah & Sejarah', 1).isNotEmpty
+              ? sejarahByTitle('Asal Daerah & Sejarah', 1)
+              : origin,
+          maknaFilosofis: sejarahByTitle('Makna Filosofis Simbolik', 2).isNotEmpty
+              ? sejarahByTitle('Makna Filosofis Simbolik', 2)
+              : 'Mengajarkan nilai kesabaran, keluhuran budi, dan harmoni dengan alam.',
+          penggunaan: sejarahByTitle('Penggunaan Tradisional & Pakem', 3).isNotEmpty
+              ? sejarahByTitle('Penggunaan Tradisional & Pakem', 3)
+              : 'Dikenakan dalam upacara adat tradisi, perayaan resmi, maupun busana kontemporer.',
         ),
         karakteristik: KarakteristikModel(
-          deskripsi: karakterBody.isNotEmpty
-              ? karakterBody
+          deskripsi: bodyAt(karakterRows, 0).isNotEmpty
+              ? bodyAt(karakterRows, 0)
               : 'Karakteristik khas motif $motifName dengan sapuan canting presisi.',
-          strukturUtama: KarakteristikDetailModel(
-            title: 'Struktur Utama Motif',
-            desc: 'Garis kontur ornamen pokok mencerminkan identitas $motifName.',
-            badge: 'Struktur Utama',
-            image: '',
-          ),
-          ornamen: KarakteristikDetailModel(
-            title: 'Isen-isen Tradisional',
-            desc: 'Ornamen isen halus pengisi bidang kain secara berulang.',
-            badge: 'Isen-Isen',
-            image: '',
-          ),
-          warna: KarakteristikDetailModel(
-            title: 'Pewarnaan Khas',
-            desc: 'Kombinasi warna alami soga, indigo, maupun cerah pesisiran.',
-            badge: 'Pewarnaan',
-            image: '',
-          ),
-          pakemList: [
-            PakemModel(
-              title: '1. Konsistensi Tarikan Canting',
-              desc: 'Garis lilin malam harus stabil dan tembus ke balik kain mori.',
-            ),
-            PakemModel(
-              title: '2. Kerapian Ornamen Berulang',
-              desc: 'Pola geometris atau flora tersusun harmonis mengikuti proporsi pakem.',
-            ),
-            PakemModel(
-              title: '3. Harmoni Warna Tradisional',
-              desc: 'Menggunakan perpaduan warna yang selaras dengan filosofi motif daerah asalnya.',
-            ),
-          ],
+          strukturUtama: detailAt(1, 'Struktur Utama Motif', 'Struktur Utama'),
+          ornamen: detailAt(2, 'Isen-isen Tradisional', 'Isen-Isen'),
+          warna: detailAt(3, 'Pewarnaan Khas', 'Pewarnaan'),
+          pakemList: pakemList,
         ),
         galeri: galeri,
       );

@@ -32,7 +32,7 @@ class PillarHistoryView extends StatelessWidget {
   /// pesisir Pekalongan/Lasem, Betawi, dan Dayak tidak memakai paugeran larangan keraton)
   String get _motifBadgeLabel {
     final t = module.title.toLowerCase();
-    if (t.contains('sido') || t.contains('wahyu') || t.contains('parang') || t.contains('kawung')) {
+    if (t.contains('sido') || t.contains('wahyu') || t.contains('parang') || t.contains('kawung') || t.contains('truntum')) {
       return 'Motif Larangan Keraton Mataram';
     }
     if (t.contains('singa barong')) return 'Motif Kraton Cirebon';
