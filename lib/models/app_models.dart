@@ -187,6 +187,7 @@ class ModuleContentModel {
   final SejarahFilosofiModel sejarahDanFilosofi;
   final KarakteristikModel karakteristik;
   final List<GaleriModel> galeri;
+  final List<String> sumberRujukan;
 
   ModuleContentModel({
     required this.origin,
@@ -194,6 +195,7 @@ class ModuleContentModel {
     required this.sejarahDanFilosofi,
     required this.karakteristik,
     required this.galeri,
+    this.sumberRujukan = const [],
   }) : _customEstimatedTime = estimatedTime;
 
   /// Menghitung total kata dari seluruh teks materi di modul (Sejarah, Filosofi, Karakteristik, Pakem, & Galeri)
@@ -249,12 +251,14 @@ class ModuleContentModel {
 
   factory ModuleContentModel.fromMap(Map<String, dynamic> map) {
     var galeriData = map['galeri'] as List? ?? [];
+    var sumberData = map['sumberRujukan'] as List? ?? [];
     return ModuleContentModel(
       origin: map['origin'] ?? '',
       estimatedTime: map['estimatedTime'] as String?,
       sejarahDanFilosofi: SejarahFilosofiModel.fromMap(map['sejarahDanFilosofi'] ?? {}),
       karakteristik: KarakteristikModel.fromMap(map['karakteristik'] ?? {}),
       galeri: galeriData.map((e) => GaleriModel.fromMap(e)).toList(),
+      sumberRujukan: sumberData.map((e) => e.toString()).toList(),
     );
   }
 }

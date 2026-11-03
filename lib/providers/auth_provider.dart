@@ -180,12 +180,15 @@ class AuthProvider with ChangeNotifier {
       final supaUser = await SupabaseService.instance.getUserByEmail(cleanEmail);
       if (supaUser != null) {
         userRecord = Map<String, dynamic>.from(supaUser);
-        if (!kIsWeb) {
+        final cloudHash = (supaUser['password_hash'] as String?)?.trim() ?? '';
+        // Hash dari cloud hanya dipakai bila benar-benar ada. Jangan pernah
+        // menyusun hash dari kata sandi yang baru diketik (celah keamanan).
+        if (!kIsWeb && cloudHash.isNotEmpty) {
           await DatabaseHelper.instance.insertUser(
             id: supaUser['id'] as int?,
             name: supaUser['name'] ?? '',
             email: cleanEmail,
-            passwordHash: supaUser['password_hash'] ?? PasswordHasher.hashPassword(cleanPass),
+            passwordHash: cloudHash,
             phone: supaUser['phone'],
             profileImagePath: supaUser['profile_image_path'],
           );
@@ -210,13 +213,39 @@ class AuthProvider with ChangeNotifier {
       return false;
     }
 
-    // 4. Validasi Password Asli (Salted SHA-256)
-    final storedHash = userRecord['password_hash'] as String?;
-    if (storedHash == null || storedHash.isEmpty || !PasswordHasher.verify(cleanPass, storedHash)) {
+    // 4. Validasi kata sandi (mendukung scrypt maupun hash warisan SHA-256)
+    var storedHash = userRecord['password_hash'] as String?;
+    var isPasswordValid = storedHash != null &&
+        storedHash.isNotEmpty &&
+        PasswordHasher.verify(cleanPass, storedHash);
+
+    // 4b. Jika hash dari cloud sudah basi, coba hash lokal sebagai cadangan
+    if (!isPasswordValid && !kIsWeb) {
+      final localRecord = await DatabaseHelper.instance.getUserByEmail(cleanEmail);
+      final localHash = (localRecord?['password_hash'] as String?)?.trim();
+      if (localHash != null &&
+          localHash.isNotEmpty &&
+          PasswordHasher.verify(cleanPass, localHash)) {
+        isPasswordValid = true;
+        storedHash = localHash;
+        // Sinkronkan hash lokal yang valid ke cloud agar tidak berulang
+        await SupabaseService.instance.updateUserPassword(
+          email: cleanEmail,
+          passwordHash: localHash,
+        );
+      }
+    }
+
+    if (!isPasswordValid) {
       _errorMessage = 'Kata sandi salah. Silakan periksa kembali.';
       _isLoading = false;
       notifyListeners();
       return false;
+    }
+
+    // 5. Tingkatkan hash lama ke parameter terbaru tanpa mengubah kata sandi pengguna
+    if (PasswordHasher.needsRehash(storedHash!)) {
+      await _upgradePasswordHash(cleanEmail, cleanPass);
     }
 
     final rawName = (userRecord['name'] as String? ?? '').trim();
@@ -293,6 +322,24 @@ class AuthProvider with ChangeNotifier {
     } catch (_) {}
 
     return true;
+  }
+
+  /// Meningkatkan hash kata sandi lama ke parameter scrypt terbaru.
+  /// Dipanggil hanya setelah verifikasi kata sandi berhasil.
+  Future<void> _upgradePasswordHash(String email, String plainPassword) async {
+    try {
+      final upgraded = PasswordHasher.hashPassword(plainPassword);
+      _inMemoryPasswordHashes[email] = upgraded;
+      if (!kIsWeb) {
+        await DatabaseHelper.instance.updateUserPassword(email, upgraded);
+      }
+      await SupabaseService.instance.updateUserPassword(
+        email: email,
+        passwordHash: upgraded,
+      );
+    } catch (e) {
+      debugPrint('AuthProvider _upgradePasswordHash error: $e');
+    }
   }
 
   Future<bool> register(String name, String email, String password) async {

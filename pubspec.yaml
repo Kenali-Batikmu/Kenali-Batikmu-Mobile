@@ -31,20 +31,14 @@ dependencies:
   flutter:
     sdk: flutter
 
-  # The following adds the Cupertino Icons font to your application.
-  # Use with the CupertinoIcons class for iOS style icons.
-  cupertino_icons: ^1.0.8
   google_fonts: ^9.0.0
   shared_preferences: ^2.5.5
   sqflite: ^2.4.4
   path: ^1.9.1
   provider: ^6.1.5+1
-  intl: ^0.20.3
-  flutter_svg: ^2.3.0
   sqflite_common_ffi: ^2.4.3
-  sqflite_common_ffi_web: ^1.2.0
   crypto: ^3.0.6
-  youtube_player_iframe: ^5.2.1
+  webview_flutter: ^4.14.1
   url_launcher: ^6.3.2
   image_picker: ^1.1.2
   path_provider: ^2.1.5
@@ -54,6 +48,8 @@ dependencies:
   connectivity_plus: ^6.1.4
   tflite_flutter: ^0.12.1
   image: ^4.12.0
+  pointycastle: ^4.0.0
+  webview_flutter_android: ^4.14.1
 
 dev_dependencies:
   flutter_test:
@@ -80,9 +76,7 @@ flutter:
   assets:
     - assets/images/
     - assets/images/leaf/
-    - assets/images/modules/
-    - assets/images/motifs/
-    - assets/images/gallery/
+    - assets/images/batik/
     - assets/database/
     - assets/models/
 

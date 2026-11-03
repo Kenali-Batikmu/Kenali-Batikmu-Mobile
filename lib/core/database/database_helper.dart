@@ -37,6 +37,9 @@ class DatabaseHelper {
     try {
       final db = await _initDB('kenali_batikmu.db');
       _database = db;
+      // Dijalankan setelah database benar-benar terbuka (di luar callback
+      // onOpen) agar operasi transaksi tidak bertabrakan dengan proses open.
+      await ensureMasterContent(db);
       _initCompleter!.complete(db);
       return db;
     } catch (e) {
@@ -99,7 +102,7 @@ class DatabaseHelper {
 
     return await openDatabase(
       path,
-      version: 4,
+      version: 7,
       onCreate: _createDB,
       onUpgrade: (db, oldVersion, newVersion) async {
         if (oldVersion < 3) {
@@ -161,6 +164,150 @@ class DatabaseHelper {
     }
   }
 
+  /// Menjaga integritas master data kurikulum (20 modul, konten pilar, galeri).
+  /// Dijalankan pada onOpen agar tidak berada di dalam transaksi onUpgrade,
+  /// sehingga aman membuka berkas asset sementara.
+  Future<void> ensureMasterContent([Database? target]) async {
+    final db = target ?? await database;
+    if (db == null) return;
+    try {
+      // Penanda kurasi terbaru: setiap modul wajib punya blok "Sumber & Rujukan",
+      // foto pada kartu karakteristik, dan 5 foto galeri. Data lama (versi dev)
+      // bisa punya ratusan baris konten tanpa penanda ini, sehingga jumlah baris
+      // saja tidak cukup untuk menentukan kelengkapan data.
+      final moduleCount = Sqflite.firstIntValue(
+            await db.rawQuery('SELECT COUNT(*) FROM modules'),
+          ) ??
+          0;
+      final sumberCount = Sqflite.firstIntValue(
+            await db.rawQuery(
+              "SELECT COUNT(*) FROM module_contents WHERE title = 'Sumber & Rujukan'",
+            ),
+          ) ??
+          0;
+      final galleryCount = Sqflite.firstIntValue(
+            await db.rawQuery(
+              'SELECT COUNT(*) FROM module_gallery_images '
+              'WHERE image_url IS NOT NULL AND TRIM(image_url) <> ?',
+              [''],
+            ),
+          ) ??
+          0;
+      var karakterImageCount = 0;
+      try {
+        karakterImageCount = Sqflite.firstIntValue(
+              await db.rawQuery(
+                'SELECT COUNT(*) FROM module_contents '
+                'WHERE pillar = ? AND image_url IS NOT NULL AND TRIM(image_url) <> ?',
+                ['karakteristik', ''],
+              ),
+            ) ??
+            0;
+      } catch (_) {
+        // Kolom image_url belum ada pada database versi lama
+        karakterImageCount = 0;
+      }
+
+      final isComplete = moduleCount >= 20 &&
+          sumberCount >= 20 &&
+          galleryCount >= 100 &&
+          karakterImageCount >= 60;
+      if (isComplete) return;
+
+      debugPrint(
+        'DatabaseHelper: master data belum lengkap (modul=$moduleCount, '
+        'rujukan=$sumberCount, galeri=$galleryCount, gambarKarakter=$karakterImageCount). '
+        'Menyegarkan dari asset...',
+      );
+
+      final dbPath = await getDatabasesPath();
+      final tempPath = join(dbPath, 'kenali_batikmu_seed_content.db');
+      final ByteData data = await rootBundle.load('assets/database/kenali_batikmu.db');
+      final List<int> bytes = data.buffer.asUint8List(data.offsetInBytes, data.lengthInBytes);
+      final tempFile = File(tempPath);
+      await tempFile.writeAsBytes(bytes, flush: true);
+
+      List<Map<String, Object?>> seedModules = [];
+      List<Map<String, Object?>> seedMotifs = [];
+      List<Map<String, Object?>> seedContents = [];
+      List<Map<String, Object?>> seedGallery = [];
+
+      final seedDb = await openReadOnlyDatabase(tempPath);
+      try {
+        seedModules = await seedDb.query('modules');
+        seedMotifs = await seedDb.query('batik_motifs');
+        seedContents = await seedDb.query('module_contents');
+        seedGallery = await seedDb.query('module_gallery_images');
+      } finally {
+        await seedDb.close();
+        if (tempFile.existsSync()) {
+          tempFile.deleteSync();
+        }
+      }
+
+      if (seedModules.isEmpty || seedContents.isEmpty) {
+        debugPrint('DatabaseHelper: asset master data kosong, penyegaran dibatalkan.');
+        return;
+      }
+
+      await db.transaction((txn) async {
+        // Skema lama belum memiliki kolom gambar pendukung karakteristik
+        try {
+          await txn.execute('ALTER TABLE module_contents ADD COLUMN image_url TEXT');
+        } catch (_) {}
+
+        await txn.rawUpdate('UPDATE modules SET order_no = order_no + 1000');
+
+        for (final m in seedModules) {
+          await txn.update(
+            'modules',
+            {
+              'title': m['title'],
+              'description': m['description'],
+              'cover_image': m['cover_image'],
+              'video_url': m['video_url'],
+              'passing_score': m['passing_score'],
+              'order_no': m['order_no'],
+            },
+            where: 'id = ?',
+            whereArgs: [m['id']],
+          );
+        }
+
+        for (final m in seedMotifs) {
+          await txn.update(
+            'batik_motifs',
+            {
+              'name': m['name'],
+              'origin_region': m['origin_region'],
+              'short_description': m['short_description'],
+              'thumbnail_url': m['thumbnail_url'],
+            },
+            where: 'id = ?',
+            whereArgs: [m['id']],
+          );
+        }
+
+        await txn.delete('module_contents');
+        for (final c in seedContents) {
+          await txn.insert('module_contents', c);
+        }
+
+        await txn.delete('module_gallery_images');
+        for (final g in seedGallery) {
+          await txn.insert('module_gallery_images', g);
+        }
+      });
+
+      debugPrint(
+        'DatabaseHelper: master data disegarkan '
+        '(${seedModules.length} modul, ${seedContents.length} konten, ${seedGallery.length} galeri).',
+      );
+    } catch (e) {
+      debugPrint('DatabaseHelper _ensureMasterContent error: $e');
+    }
+  }
+
   Future<void> _ensureSeedData(Database db) async {
     // Pastikan kolom is_synced tersedia di tabel transaksi lokal untuk antrean offline
     for (var table in ['quiz_attempts', 'scans', 'user_module_progress']) {
@@ -184,34 +331,65 @@ class DatabaseHelper {
       } catch (_) {}
     }
 
+    // Kolom gambar pendukung kartu karakteristik (struktur, ornamen, warna)
+    try {
+      await db.execute('ALTER TABLE module_contents ADD COLUMN image_url TEXT');
+    } catch (_) {}
+
     // Pastikan hanya ada 1 baris rekaman kuis praktikum per modul per user (Storage Hygiene)
     try {
       await db.execute('CREATE UNIQUE INDEX IF NOT EXISTS idx_scans_user_module_kuismu ON scans(user_id, module_id) WHERE scan_type = \'kuismu\'');
     } catch (_) {}
 
+    // Migrasi kredensial akun bawaan (hanya bila hash masih bawaan/ belum diubah
+    // pengguna). Kata sandi pengguna yang sudah diganti tidak akan disentuh.
+    const shippedDemoHashes = {
+      'sekar@batikmu.id': r'scrypt$16384$8$1$zbrWPS+S0/jlqYeDvOGmnA==$fow1obJAcTSUZYYj3k0NgxSOCZfJQUiCrG8bO/BR+iM=',
+      'kenalibatikmu@gmail.com': r'scrypt$16384$8$1$AmBBs0TFWg2EGcznFFrCAw==$ka/YpHQY7l7o7oBAtW9Wm4sa0mR7UgO7W352NoGDSCw=',
+    };
+    const refreshedDemoHashes = {
+      'sekar@batikmu.id': r'scrypt$16384$8$1$9c0R6c5+ShvUikyZ5Crtng==$bt+8mFGo294+k9PoZ3YmWg6d3N8fjfIX9bcNZ0HSTXc=',
+      'kenalibatikmu@gmail.com': r'scrypt$16384$8$1$WTIJ0QDb0wecvsfiMAvuKA==$BFuIufSKQ6TDsLh/8EdzENd2yG/N0VfMz40HCDbwoAk=',
+    };
+    for (final entry in shippedDemoHashes.entries) {
+      try {
+        await db.update(
+          'users',
+          {
+            'password_hash': refreshedDemoHashes[entry.key],
+            'updated_at': DateTime.now().toIso8601String(),
+          },
+          where: 'email = ? AND password_hash = ?',
+          whereArgs: [entry.key, entry.value],
+        );
+      } catch (e) {
+        debugPrint('DatabaseHelper demo credential patch: $e');
+      }
+    }
+
     // Patch cover_image untuk semua 20 modul batik dari assets lokal
     // Setiap kali app dibuka, pastikan path cover_image sudah benar (UPSERT aman)
     const moduleCoverImages = {
-      1:  'assets/images/modules/Batik-Betawi.jpeg',
-      2:  'assets/images/modules/Batik-Bokor-Kencono.jpeg',
-      3:  'assets/images/modules/Batik-Buketan.jpeg',
-      4:  'assets/images/modules/Batik-Dayak.jpeg',
-      5:  'assets/images/modules/Batik-Jlamprang.jpeg',
-      6:  'assets/images/modules/Batik-Kawung.jpeg',
-      7:  'assets/images/modules/Batik-Liong.jpeg',
-      8:  'assets/images/modules/Batik-Mega-Mendung.jpeg',
-      9:  'assets/images/modules/Batik-Parang.jpeg',
-      10: 'assets/images/modules/Batik-Sekar-Jagad.jpeg',
-      11: 'assets/images/modules/Batik-SidoLuhur.jpeg',
-      12: 'assets/images/modules/Batik-SidoMukti.jpeg',
-      13: 'assets/images/modules/Batik-SidoMulyo.jpeg',
-      14: 'assets/images/modules/Batik-Singa-Barong.jpeg',
-      15: 'assets/images/modules/Batik-Srikaton.jpeg',
-      16: 'assets/images/modules/Batik-Tribusono.jpeg',
-      17: 'assets/images/modules/Batik-Tujuh-Rupa.jpeg',
-      18: 'assets/images/modules/Batik-Truntum.jpeg',
-      19: 'assets/images/modules/Batik-Wahyu-Tumurun.jpeg',
-      20: 'assets/images/modules/Batik-Wirasat.jpeg',
+      1:  'assets/images/batik/betawi_cover.jpg',
+      2:  'assets/images/batik/bokor_kencono_cover.jpg',
+      3:  'assets/images/batik/buketan_cover.jpg',
+      4:  'assets/images/batik/dayak_cover.jpg',
+      5:  'assets/images/batik/jlamprang_cover.jpg',
+      6:  'assets/images/batik/kawung_cover.jpg',
+      7:  'assets/images/batik/liong_cover.jpg',
+      8:  'assets/images/batik/mega_mendung_cover.jpg',
+      9:  'assets/images/batik/parang_cover.jpg',
+      10: 'assets/images/batik/sekarjagad_cover.jpg',
+      11: 'assets/images/batik/sidoluhur_cover.jpg',
+      12: 'assets/images/batik/sidomukti_cover.jpg',
+      13: 'assets/images/batik/sidomulyo_cover.jpg',
+      14: 'assets/images/batik/singa_barong_cover.jpg',
+      15: 'assets/images/batik/srikaton_cover.jpg',
+      16: 'assets/images/batik/tribusono_cover.jpg',
+      17: 'assets/images/batik/tujuh_rupa_cover.jpg',
+      18: 'assets/images/batik/tuntrum_cover.jpg',
+      19: 'assets/images/batik/wahyu_tumurun_cover.jpg',
+      20: 'assets/images/batik/wirasat_cover.jpg',
     };
     for (final entry in moduleCoverImages.entries) {
       try {
@@ -222,6 +400,41 @@ class DatabaseHelper {
         );
       } catch (e) {
         debugPrint('DatabaseHelper _ensureSeedData cover patch: $e');
+      }
+    }
+
+    // Pastikan tautan video edukasi tiap modul tidak pernah kosong akibat
+    // sinkronisasi cloud (nilai NULL dari server tidak boleh menghapus data kurasi lokal)
+    const moduleVideoUrls = {
+      1: 'https://www.youtube.com/watch?v=rfa_O5Bv1iw',
+      2: 'https://www.youtube.com/watch?v=jtdrACMdNjg',
+      3: 'https://www.youtube.com/watch?v=Q_j5qLDAGPo',
+      4: 'https://www.youtube.com/watch?v=7QTSrCcc3iU',
+      5: 'https://www.youtube.com/watch?v=0Isdn3f5SXE',
+      6: 'https://www.youtube.com/watch?v=wMo4s5Ja4e4',
+      7: 'https://www.youtube.com/watch?v=RtRIOeKEWi0',
+      8: 'https://www.youtube.com/watch?v=aetXWgzqI88',
+      9: 'https://www.youtube.com/watch?v=iyh4W5en-hk',
+      10: 'https://www.youtube.com/watch?v=EBfSz2tlmqQ',
+      11: 'https://www.youtube.com/watch?v=fCXqQKYqsX4',
+      12: 'https://www.youtube.com/watch?v=8sBgN7Mvz_A',
+      13: 'https://www.youtube.com/watch?v=dqzFIu002NM',
+      14: 'https://www.youtube.com/watch?v=GN1C21aeYHo',
+      15: 'https://www.youtube.com/watch?v=5WA38GD0HUg',
+      16: 'https://www.youtube.com/watch?v=o8bI9dauR0Q',
+      17: 'https://www.youtube.com/watch?v=_aVvMX2dXCE',
+      18: 'https://www.youtube.com/watch?v=zoC_dYfpdiA',
+      19: 'https://www.youtube.com/watch?v=Cq6NxsuzXfc',
+      20: 'https://www.youtube.com/watch?v=ek-N7hAX1R8',
+    };
+    for (final entry in moduleVideoUrls.entries) {
+      try {
+        await db.rawUpdate(
+          'UPDATE modules SET video_url = ? WHERE id = ? AND (video_url IS NULL OR TRIM(video_url) = ?)',
+          [entry.value, entry.key, ''],
+        );
+      } catch (e) {
+        debugPrint('DatabaseHelper _ensureSeedData video patch: $e');
       }
     }
   }

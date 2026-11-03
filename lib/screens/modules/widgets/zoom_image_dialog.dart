@@ -2,7 +2,16 @@ import 'package:flutter/material.dart';
 import '../../../core/theme/app_theme.dart';
 
 /// Menampilkan dialog perbesaran detail motif batik
-void showZoomImageDialog(BuildContext context, bool isDark) {
+void showZoomImageDialog(
+  BuildContext context,
+  bool isDark, {
+  String? imageUrl,
+  String? title,
+  String? subtitle,
+}) {
+  final imageToDisplay = (imageUrl != null && imageUrl.isNotEmpty) ? imageUrl : '';
+  final dialogTitle = (title != null && title.isNotEmpty) ? title : 'Detail Motif Batik';
+
   showDialog(
     context: context,
     builder: (ctx) {
@@ -14,13 +23,16 @@ void showZoomImageDialog(BuildContext context, bool isDark) {
             padding: const EdgeInsets.all(20),
             child: Column(
               mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
                     Expanded(
                       child: Text(
-                        'Detail Motif Batik',
+                        dialogTitle,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
                         style: AppTheme.satoshi(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.white),
                       ),
                     ),
@@ -32,6 +44,15 @@ void showZoomImageDialog(BuildContext context, bool isDark) {
                     ),
                   ],
                 ),
+                if (subtitle != null && subtitle.isNotEmpty) ...[
+                  const SizedBox(height: 4),
+                  Text(
+                    subtitle,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: AppTheme.inter(fontSize: 12, color: Colors.white70),
+                  ),
+                ],
                 const SizedBox(height: 16),
                 Container(
                   height: 320,
@@ -41,10 +62,24 @@ void showZoomImageDialog(BuildContext context, bool isDark) {
                     borderRadius: BorderRadius.circular(18),
                     border: Border.all(color: AppTheme.accentGold.withValues(alpha: 0.6)),
                   ),
+                  clipBehavior: Clip.antiAlias,
                   child: Stack(
                     alignment: Alignment.center,
                     children: [
-                      Icon(Icons.waves, size: 160, color: Colors.white.withValues(alpha: 0.2)),
+                      if (imageToDisplay.isNotEmpty)
+                        InteractiveViewer(
+                          panEnabled: true,
+                          minScale: 1.0,
+                          maxScale: 3.5,
+                          child: Image.asset(
+                            imageToDisplay,
+                            fit: BoxFit.contain,
+                            width: double.infinity,
+                            height: 320,
+                          ),
+                        )
+                      else
+                        Icon(Icons.waves, size: 160, color: Colors.white.withValues(alpha: 0.2)),
                     ],
                   ),
                 ),

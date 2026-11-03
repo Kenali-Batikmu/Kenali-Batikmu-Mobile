@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:youtube_player_iframe/youtube_player_iframe.dart';
 import '../../core/theme/app_theme.dart';
+import '../../core/utils/youtube_link.dart';
 import '../../models/app_models.dart';
 import '../../providers/app_provider.dart';
 import 'widgets/zoom_image_dialog.dart';
@@ -23,7 +23,7 @@ class ModuleDetailScreen extends StatefulWidget {
 class _ModuleDetailScreenState extends State<ModuleDetailScreen> {
   late int _activeStep;
   late PageController _pageController;
-  YoutubePlayerController? _youtubeController;
+  String? _youtubeVideoId;
 
   @override
   void initState() {
@@ -41,41 +41,14 @@ class _ModuleDetailScreenState extends State<ModuleDetailScreen> {
     }
 
     _pageController = PageController(initialPage: _activeStep);
-    _initYoutubePlayer();
-  }
-
-  void _initYoutubePlayer() {
-    final youtubeUrl = widget.module.content?.sejarahDanFilosofi.youtubeUrl;
-
-    // Jika tidak disetting / kosong / hanya whitespace, biarkan controller null (tidak ada border video)
-    if (youtubeUrl == null || youtubeUrl.trim().isEmpty) {
-      _youtubeController = null;
-      return;
-    }
-
-    final parsedId = YoutubePlayerController.convertUrlToId(youtubeUrl.trim());
-    if (parsedId == null || parsedId.trim().isEmpty) {
-      _youtubeController = null;
-      return;
-    }
-
-    _youtubeController = YoutubePlayerController.fromVideoId(
-      videoId: parsedId.trim(),
-      params: const YoutubePlayerParams(
-        showControls: true,
-        showFullscreenButton: true,
-        mute: false,
-        loop: false,
-        enableJavaScript: true,
-        origin: 'https://www.youtube-nocookie.com',
-      ),
+    _youtubeVideoId = YoutubeLink.extractVideoId(
+      widget.module.content?.sejarahDanFilosofi.youtubeUrl,
     );
   }
 
   @override
   void dispose() {
     _pageController.dispose();
-    _youtubeController?.close();
     super.dispose();
   }
 
@@ -125,11 +98,6 @@ class _ModuleDetailScreenState extends State<ModuleDetailScreen> {
                 if (index >= 2) provider.updatePillarProgress(widget.module.id, 'character');
                 if (index >= 3) provider.updatePillarProgress(widget.module.id, 'gallery');
 
-                // Jeda video secara otomatis saat user geser ke tab lain
-                if (index != 0) {
-                  _youtubeController?.pauseVideo();
-                }
-
                 setState(() => _activeStep = index);
               },
               children: [
@@ -137,8 +105,16 @@ class _ModuleDetailScreenState extends State<ModuleDetailScreen> {
                   child: SingleChildScrollView(
                     child: PillarHistoryView(
                       module: widget.module,
-                      youtubeController: _youtubeController,
-                      onZoomImage: () => showZoomImageDialog(context, isDark),
+                      youtubeVideoId: _youtubeVideoId ?? '',
+                      onZoomImage: (imageUrl, subtitle) {
+                        showZoomImageDialog(
+                          context,
+                          isDark,
+                          imageUrl: imageUrl,
+                          title: widget.module.title,
+                          subtitle: subtitle,
+                        );
+                      },
                       isDark: isDark,
                     ),
                   ),
@@ -147,6 +123,15 @@ class _ModuleDetailScreenState extends State<ModuleDetailScreen> {
                   child: SingleChildScrollView(
                     child: PillarCharacterView(
                       module: widget.module,
+                      onZoomImage: (imageUrl, subtitle) {
+                        showZoomImageDialog(
+                          context,
+                          isDark,
+                          imageUrl: imageUrl,
+                          title: widget.module.title,
+                          subtitle: subtitle,
+                        );
+                      },
                       isDark: isDark,
                     ),
                   ),
@@ -155,7 +140,15 @@ class _ModuleDetailScreenState extends State<ModuleDetailScreen> {
                   child: SingleChildScrollView(
                     child: PillarGalleryView(
                       module: widget.module,
-                      onZoomImage: () => showZoomImageDialog(context, isDark),
+                      onZoomImage: (imageUrl, subtitle) {
+                        showZoomImageDialog(
+                          context,
+                          isDark,
+                          imageUrl: imageUrl,
+                          title: widget.module.title,
+                          subtitle: subtitle,
+                        );
+                      },
                       isDark: isDark,
                     ),
                   ),

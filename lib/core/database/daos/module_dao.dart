@@ -56,52 +56,80 @@ class ModuleDao {
     final db = await _getDb();
     if (db == null || modules.isEmpty) return 0;
     try {
-      final batch = db.batch();
       const defaultCovers = {
-        1: 'assets/images/modules/Batik-Betawi.jpeg',
-        2: 'assets/images/modules/Batik-Bokor-Kencono.jpeg',
-        3: 'assets/images/modules/Batik-Buketan.jpeg',
-        4: 'assets/images/modules/Batik-Dayak.jpeg',
-        5: 'assets/images/modules/Batik-Jlamprang.jpeg',
-        6: 'assets/images/modules/Batik-Kawung.jpeg',
-        7: 'assets/images/modules/Batik-Liong.jpeg',
-        8: 'assets/images/modules/Batik-Mega-Mendung.jpeg',
-        9: 'assets/images/modules/Batik-Parang.jpeg',
-        10: 'assets/images/modules/Batik-Sekar-Jagad.jpeg',
-        11: 'assets/images/modules/Batik-SidoLuhur.jpeg',
-        12: 'assets/images/modules/Batik-SidoMukti.jpeg',
-        13: 'assets/images/modules/Batik-SidoMulyo.jpeg',
-        14: 'assets/images/modules/Batik-Singa-Barong.jpeg',
-        15: 'assets/images/modules/Batik-Srikaton.jpeg',
-        16: 'assets/images/modules/Batik-Tribusono.jpeg',
-        17: 'assets/images/modules/Batik-Tujuh-Rupa.jpeg',
-        18: 'assets/images/modules/Batik-Truntum.jpeg',
-        19: 'assets/images/modules/Batik-Wahyu-Tumurun.jpeg',
-        20: 'assets/images/modules/Batik-Wirasat.jpeg',
+        1: 'assets/images/batik/betawi_cover.jpg',
+        2: 'assets/images/batik/bokor_kencono_cover.jpg',
+        3: 'assets/images/batik/buketan_cover.jpg',
+        4: 'assets/images/batik/dayak_cover.jpg',
+        5: 'assets/images/batik/jlamprang_cover.jpg',
+        6: 'assets/images/batik/kawung_cover.jpg',
+        7: 'assets/images/batik/liong_cover.jpg',
+        8: 'assets/images/batik/mega_mendung_cover.jpg',
+        9: 'assets/images/batik/parang_cover.jpg',
+        10: 'assets/images/batik/sekarjagad_cover.jpg',
+        11: 'assets/images/batik/sidoluhur_cover.jpg',
+        12: 'assets/images/batik/sidomukti_cover.jpg',
+        13: 'assets/images/batik/sidomulyo_cover.jpg',
+        14: 'assets/images/batik/singa_barong_cover.jpg',
+        15: 'assets/images/batik/srikaton_cover.jpg',
+        16: 'assets/images/batik/tribusono_cover.jpg',
+        17: 'assets/images/batik/tujuh_rupa_cover.jpg',
+        18: 'assets/images/batik/tuntrum_cover.jpg',
+        19: 'assets/images/batik/wahyu_tumurun_cover.jpg',
+        20: 'assets/images/batik/wirasat_cover.jpg',
       };
+
+      final existingRows = await db.query('modules');
+      final existingById = <int, Map<String, Object?>>{
+        for (final row in existingRows) (row['id'] as int): row,
+      };
+
+      String? nonEmpty(dynamic value) {
+        final text = value?.toString().trim() ?? '';
+        return text.isEmpty ? null : text;
+      }
 
       for (var m in modules) {
         final id = m['id'] as int?;
-        final cover = (m['cover_image'] != null && (m['cover_image'] as String).isNotEmpty)
-            ? m['cover_image']
-            : defaultCovers[id];
+        if (id == null) continue;
+        final existing = existingById[id];
 
-        batch.insert(
+        // Data kurasi lokal (judul, deskripsi, cover, video) tidak boleh
+        // ditimpa oleh cloud yang masih kosong/basi. Cloud hanya dipakai
+        // untuk modul yang belum ada di perangkat.
+        if (existing != null) {
+          final incomingScore = m['passing_score'];
+          if (incomingScore is int && incomingScore != existing['passing_score']) {
+            await db.update(
+              'modules',
+              {'passing_score': incomingScore},
+              where: 'id = ?',
+              whereArgs: [id],
+            );
+          }
+          continue;
+        }
+
+        final incomingVideo = nonEmpty(m['video_url']);
+        final incomingCover = nonEmpty(m['cover_image']);
+        final title = nonEmpty(m['title']) ?? 'Modul $id';
+        final description = nonEmpty(m['description']) ?? '';
+
+        await db.insert(
           'modules',
           {
-            'id': m['id'],
-            'motif_id': m['motif_id'],
-            'title': m['title'],
-            'description': m['description'],
-            'cover_image': cover,
-            'video_url': m['video_url'],
+            'id': id,
+            'motif_id': m['motif_id'] ?? id,
+            'title': title,
+            'description': description,
+            'cover_image': incomingCover ?? defaultCovers[id],
+            'video_url': incomingVideo,
             'passing_score': m['passing_score'] ?? 70,
-            'order_no': m['order_no'],
+            'order_no': m['order_no'] ?? id,
           },
           conflictAlgorithm: ConflictAlgorithm.replace,
         );
       }
-      await batch.commit(noResult: true);
       return modules.length;
     } catch (e) {
       debugPrint('ModuleDao upsertModules error: $e');
@@ -212,11 +240,10 @@ class ModuleDao {
     final db = await _getDb();
     if (db == null) return null;
     try {
-      // Ambil asal daerah dari motif
       final motifRows = await db.rawQuery('''
-        SELECT b.name, b.origin_region 
-        FROM batik_motifs b 
-        JOIN modules m ON m.motif_id = b.id 
+        SELECT b.name, b.origin_region
+        FROM batik_motifs b
+        JOIN modules m ON m.motif_id = b.id
         WHERE m.id = ? LIMIT 1
       ''', [moduleId]);
 
@@ -227,7 +254,20 @@ class ModuleDao {
         motifName = motifRows.first['name'] as String? ?? 'Batik Nusantara';
       }
 
-      // Ambil konten 3 pilar
+      final videoRows = await db.query(
+        'modules',
+        columns: ['video_url', 'cover_image'],
+        where: 'id = ?',
+        whereArgs: [moduleId],
+        limit: 1,
+      );
+      final videoUrl = videoRows.isNotEmpty
+          ? (videoRows.first['video_url'] as String? ?? '').trim()
+          : '';
+      final coverImage = videoRows.isNotEmpty
+          ? (videoRows.first['cover_image'] as String? ?? '').trim()
+          : '';
+
       final contents = await db.query(
         'module_contents',
         where: 'module_id = ?',
@@ -235,19 +275,35 @@ class ModuleDao {
         orderBy: 'order_no ASC',
       );
 
-      String sejarahBody = '';
-      String karakterBody = '';
-      for (var c in contents) {
-        final p = c['pillar'] as String;
-        final b = c['body'] as String;
-        if (p == 'sejarah_filosofi') {
-          sejarahBody = b;
-        } else if (p == 'karakteristik') {
-          karakterBody = b;
+      final sejarahRows = contents.where((c) => c['pillar'] == 'sejarah_filosofi').toList();
+      final karakterRows = contents.where((c) => c['pillar'] == 'karakteristik').toList();
+      final sumberRujukan = <String>[];
+      for (final row in sejarahRows) {
+        if (((row['title'] as String?) ?? '').trim() == 'Sumber & Rujukan') {
+          sumberRujukan.addAll(
+            (((row['body'] as String?) ?? '')
+                    .split('\n')
+                    .map((e) => e.trim())
+                    .where((e) => e.isNotEmpty))
+                .toList(),
+          );
         }
       }
 
-      // Ambil foto galeri
+      String bodyAt(List<Map<String, Object?>> rows, int index) {
+        if (index < rows.length) return (rows[index]['body'] as String?) ?? '';
+        return '';
+      }
+
+      String sejarahByTitle(String title, int index) {
+        for (final row in sejarahRows) {
+          if (((row['title'] as String?) ?? '').trim() == title) {
+            return (row['body'] as String?) ?? '';
+          }
+        }
+        return bodyAt(sejarahRows, index);
+      }
+
       final galleryRows = await db.query(
         'module_gallery_images',
         where: 'module_id = ?',
@@ -264,61 +320,79 @@ class ModuleDao {
 
       if (galeri.isEmpty) {
         galeri = [
-          GaleriModel(imageUrl: '', caption: 'Proses Canting $motifName'),
-          GaleriModel(imageUrl: '', caption: 'Kain Batik Klasik $motifName'),
+          GaleriModel(
+            imageUrl: coverImage,
+            caption: 'Kain Batik $motifName',
+          ),
         ];
       }
 
+      String fallbackImageAt(int position) {
+        if (galeri.length > position && galeri[position].imageUrl.isNotEmpty) {
+          return galeri[position].imageUrl;
+        }
+        return coverImage;
+      }
+
+      KarakteristikDetailModel detailAt(int index, String defaultTitle, String defaultBadge) {
+        if (index < karakterRows.length) {
+          final row = karakterRows[index];
+          final storedImage = ((row['image_url'] as String?) ?? '').trim();
+          return KarakteristikDetailModel(
+            title: (row['title'] as String?) ?? defaultTitle,
+            desc: (row['body'] as String?) ?? '',
+            badge: ((row['badge'] as String?) ?? '').trim().isEmpty
+                ? defaultBadge
+                : (row['badge'] as String).trim(),
+            image: storedImage.isNotEmpty ? storedImage : fallbackImageAt(index),
+          );
+        }
+        return KarakteristikDetailModel(
+          title: defaultTitle,
+          desc: '',
+          badge: defaultBadge,
+          image: fallbackImageAt(index),
+        );
+      }
+
+      final pakemList = <PakemModel>[
+        for (final row in karakterRows.skip(4))
+          PakemModel(
+            title: (row['title'] as String?) ?? '',
+            desc: (row['body'] as String?) ?? '',
+          ),
+      ];
+
+      final sejarahBody = sejarahByTitle('Hakikat & Simbol', 0);
+
       return ModuleContentModel(
         origin: origin,
-        estimatedTime: '10 Menit',
         sejarahDanFilosofi: SejarahFilosofiModel(
-          youtubeUrl: 'https://www.youtube.com/watch?v=fq4N0hgOWzU',
+          youtubeUrl: videoUrl,
           deskripsiUtama: sejarahBody.isNotEmpty
               ? sejarahBody
               : 'Pelajari sejarah dan nilai luhur yang terkandung dalam motif $motifName.',
-          asalDaerah: origin,
-          maknaFilosofis: 'Mengajarkan nilai kesabaran, keluhuran budi, dan harmoni dengan alam.',
-          penggunaan: 'Dikenakan dalam upacara adat tradisi, perayaan resmi, maupun busana kontemporer.',
+          asalDaerah: sejarahByTitle('Asal Daerah & Sejarah', 1).isNotEmpty
+              ? sejarahByTitle('Asal Daerah & Sejarah', 1)
+              : origin,
+          maknaFilosofis: sejarahByTitle('Makna Filosofis Simbolik', 2).isNotEmpty
+              ? sejarahByTitle('Makna Filosofis Simbolik', 2)
+              : 'Mengajarkan nilai kesabaran, keluhuran budi, dan harmoni dengan alam.',
+          penggunaan: sejarahByTitle('Penggunaan Tradisional & Pakem', 3).isNotEmpty
+              ? sejarahByTitle('Penggunaan Tradisional & Pakem', 3)
+              : 'Dikenakan dalam upacara adat tradisi, perayaan resmi, maupun busana kontemporer.',
         ),
         karakteristik: KarakteristikModel(
-          deskripsi: karakterBody.isNotEmpty
-              ? karakterBody
+          deskripsi: bodyAt(karakterRows, 0).isNotEmpty
+              ? bodyAt(karakterRows, 0)
               : 'Karakteristik khas motif $motifName dengan sapuan canting presisi.',
-          strukturUtama: KarakteristikDetailModel(
-            title: 'Struktur Utama Motif',
-            desc: 'Garis kontur ornamen pokok mencerminkan identitas $motifName.',
-            badge: 'Struktur Utama',
-            image: '',
-          ),
-          ornamen: KarakteristikDetailModel(
-            title: 'Isen-isen Tradisional',
-            desc: 'Ornamen isen halus pengisi bidang kain secara berulang.',
-            badge: 'Isen-Isen',
-            image: '',
-          ),
-          warna: KarakteristikDetailModel(
-            title: 'Pewarnaan Khas',
-            desc: 'Kombinasi warna alami soga, indigo, maupun cerah pesisiran.',
-            badge: 'Pewarnaan',
-            image: '',
-          ),
-          pakemList: [
-            PakemModel(
-              title: '1. Konsistensi Tarikan Canting',
-              desc: 'Garis lilin malam harus stabil dan tembus ke balik kain mori.',
-            ),
-            PakemModel(
-              title: '2. Kerapian Ornamen Berulang',
-              desc: 'Pola geometris atau flora tersusun harmonis mengikuti proporsi pakem.',
-            ),
-            PakemModel(
-              title: '3. Harmoni Warna Tradisional',
-              desc: 'Menggunakan perpaduan warna yang selaras dengan filosofi motif daerah asalnya.',
-            ),
-          ],
+          strukturUtama: detailAt(1, 'Struktur Utama Motif', 'Struktur Utama'),
+          ornamen: detailAt(2, 'Isen-isen Tradisional', 'Isen-Isen'),
+          warna: detailAt(3, 'Pewarnaan Khas', 'Pewarnaan'),
+          pakemList: pakemList,
         ),
         galeri: galeri,
+        sumberRujukan: sumberRujukan,
       );
     } catch (e) {
       debugPrint('ModuleDao getModuleContent error: $e');
