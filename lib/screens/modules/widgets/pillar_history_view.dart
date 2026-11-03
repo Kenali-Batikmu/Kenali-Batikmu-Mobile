@@ -1,30 +1,22 @@
-import 'package:flutter/foundation.dart';
-import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
-import 'package:youtube_player_iframe/youtube_player_iframe.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../models/app_models.dart';
 import 'expansion_card.dart';
 import 'inapp_youtube_player.dart';
+import 'inline_youtube_player.dart';
 
 /// Halaman Pilar 1: Teori, Sejarah & Makna Filosofis Motif Batik
 class PillarHistoryView extends StatelessWidget {
   final ModuleModel module;
-  final YoutubePlayerController? youtubeController;
   final String youtubeVideoId;
-  final bool youtubeFailed;
-  final Object? youtubePlayerKey;
   final void Function(String imageUrl, String subtitle) onZoomImage;
   final bool isDark;
 
   const PillarHistoryView({
     super.key,
     required this.module,
-    required this.youtubeController,
     this.youtubeVideoId = '',
-    this.youtubeFailed = false,
-    this.youtubePlayerKey,
     required this.onZoomImage,
     required this.isDark,
   });
@@ -165,26 +157,16 @@ class PillarHistoryView extends StatelessWidget {
           ),
           const SizedBox(height: 16),
 
-          if (youtubeController != null && !youtubeFailed)
-            ClipRRect(
-              borderRadius: BorderRadius.circular(16),
-              child: YoutubePlayer(
-                key: youtubePlayerKey != null ? ValueKey(youtubePlayerKey) : null,
-                controller: youtubeController!,
-                keepAlive: true,
-                gestureRecognizers: const <Factory<OneSequenceGestureRecognizer>>{
-                  Factory<OneSequenceGestureRecognizer>(EagerGestureRecognizer.new),
-                },
-              ),
-            )
-          else if (youtubeVideoId.isNotEmpty)
-            _buildVideoFallback(context),
-          if (sejarah.youtubeUrl.isNotEmpty) ...[
+          if (youtubeVideoId.isNotEmpty) ...[
+            InlineYoutubePlayer(
+              videoId: youtubeVideoId,
+              title: module.title,
+              onOpenFullscreen: () => _openInAppPlayer(context),
+            ),
             const SizedBox(height: 10),
             _buildYoutubeButton(sejarah.youtubeUrl),
             const SizedBox(height: 20),
           ],
-
 
           // Section Hakikat & Simbol
           Text(
@@ -242,72 +224,6 @@ class PillarHistoryView extends StatelessWidget {
     );
   }
 
-  Widget _buildVideoFallback(BuildContext context) {
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(16),
-      child: GestureDetector(
-        onTap: () => _openInAppPlayer(context),
-        child: Stack(
-          alignment: Alignment.center,
-          children: [
-            AspectRatio(
-              aspectRatio: 16 / 9,
-              child: Image.network(
-                YoutubePlayerController.getThumbnail(
-                  videoId: youtubeVideoId,
-                  quality: ThumbnailQuality.high,
-                  webp: true,
-                ),
-                fit: BoxFit.cover,
-                errorBuilder: (context, error, stack) {
-                  final cover = module.coverImage;
-                  if (cover != null && cover.isNotEmpty) {
-                    return Image.asset(cover, fit: BoxFit.cover);
-                  }
-                  return Container(
-                    color: isDark ? AppTheme.darkSurface : const Color(0xFF2B2020),
-                    child: const Center(
-                      child: Icon(Icons.ondemand_video_rounded, color: Colors.white70, size: 40),
-                    ),
-                  );
-                },
-              ),
-            ),
-            Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Container(
-                  padding: const EdgeInsets.all(14),
-                  decoration: BoxDecoration(
-                    color: Colors.black.withValues(alpha: 0.55),
-                    shape: BoxShape.circle,
-                  ),
-                  child: const Icon(Icons.play_arrow_rounded, color: Colors.white, size: 34),
-                ),
-                const SizedBox(height: 8),
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                  decoration: BoxDecoration(
-                    color: Colors.black.withValues(alpha: 0.55),
-                    borderRadius: BorderRadius.circular(20),
-                  ),
-                  child: Text(
-                    'Putar di aplikasi',
-                    style: AppTheme.inter(
-                      fontSize: 11,
-                      fontWeight: FontWeight.w600,
-                      color: Colors.white,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
   Widget _buildYoutubeButton(String youtubeUrl) {
     return Material(
       color: isDark ? AppTheme.darkSurface : const Color(0xFFFBF7F2),
@@ -341,7 +257,7 @@ class PillarHistoryView extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      'Buka di Aplikasi YouTube',
+                      'Buka di YouTube',
                       style: AppTheme.satoshi(
                         fontSize: 13,
                         fontWeight: FontWeight.bold,
@@ -350,7 +266,7 @@ class PillarHistoryView extends StatelessWidget {
                     ),
                     const SizedBox(height: 2),
                     Text(
-                      'Tonton video pembahasan motif ini di YouTube',
+                      'Cadangan bila video tidak muncul di dalam aplikasi',
                       style: AppTheme.inter(fontSize: 11, color: AppTheme.textSecondary),
                     ),
                   ],

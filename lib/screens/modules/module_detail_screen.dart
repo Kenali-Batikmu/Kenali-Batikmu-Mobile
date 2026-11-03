@@ -1,8 +1,5 @@
-import 'dart:async';
-
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:webview_flutter/webview_flutter.dart' show WebViewCookieManager;
 import 'package:youtube_player_iframe/youtube_player_iframe.dart';
 import '../../core/theme/app_theme.dart';
 import '../../models/app_models.dart';
@@ -26,18 +23,7 @@ class ModuleDetailScreen extends StatefulWidget {
 class _ModuleDetailScreenState extends State<ModuleDetailScreen> {
   late int _activeStep;
   late PageController _pageController;
-  YoutubePlayerController? _youtubeController;
-  StreamSubscription<YoutubePlayerValue>? _youtubeStateSub;
-  Timer? _youtubeWatchdog;
-  bool _youtubeFailed = false;
-  bool _youtubeRetried = false;
-  int _youtubeGeneration = 0;
   String? _youtubeVideoId;
-
-  /// Batas waktu (detik) menunggu player benar-benar siap memutar video.
-  /// Galat internal YouTube (mis. "An error occurred", playback error) tidak
-  /// selalu dilaporkan lewat API controller, sehingga perlu pengawas waktu.
-  static const int _youtubeReadyTimeoutSeconds = 8;
 
   @override
   void initState() {
@@ -55,69 +41,7 @@ class _ModuleDetailScreenState extends State<ModuleDetailScreen> {
     }
 
     _pageController = PageController(initialPage: _activeStep);
-    _initYoutubePlayer();
-  }
-
-  void _initYoutubePlayer() {
     _youtubeVideoId = _parseYoutubeId(widget.module.content?.sejarahDanFilosofi.youtubeUrl);
-    _youtubeFailed = false;
-
-    // Jika tidak disetting / kosong / hanya whitespace, biarkan controller null (tidak ada border video)
-    if (_youtubeVideoId == null) {
-      _youtubeController = null;
-      return;
-    }
-
-    _youtubeController = YoutubePlayerController.fromVideoId(
-      videoId: _youtubeVideoId!,
-      params: const YoutubePlayerParams(
-        showControls: true,
-        showFullscreenButton: true,
-        mute: false,
-        loop: false,
-        enableJavaScript: true,
-        // Origin wajib sama dengan domain embed agar YouTube mengirim
-        // header Referer yang valid (mencegah galat pemutaran di WebView).
-        origin: 'https://www.youtube.com',
-      ),
-    );
-
-    _youtubeStateSub = _youtubeController!.listen((value) {
-      final isPlaying = value.playerState == PlayerState.playing ||
-          value.playerState == PlayerState.buffering ||
-          value.playerState == PlayerState.paused;
-      if (isPlaying && _youtubeWatchdog != null) {
-        _youtubeWatchdog!.cancel();
-        _youtubeWatchdog = null;
-      }
-
-      if (value.error == YoutubeError.none) return;
-      if (_youtubeFailed) return;
-
-      // Percobaan pertama gagal: buat ulang player dengan cookie WebView bersih
-      if (!_youtubeRetried) {
-        _youtubeRetried = true;
-        _recreateYoutubePlayer();
-        return;
-      }
-
-      _markYoutubeFailed();
-    });
-
-    _youtubeWatchdog?.cancel();
-    _youtubeWatchdog = Timer(const Duration(seconds: _youtubeReadyTimeoutSeconds), () {
-      if (!mounted || _youtubeFailed) return;
-      if (_youtubeController?.value.playerState == PlayerState.playing) return;
-      _markYoutubeFailed();
-    });
-  }
-
-  void _markYoutubeFailed() {
-    _youtubeWatchdog?.cancel();
-    _youtubeWatchdog = null;
-    if (mounted && !_youtubeFailed) {
-      setState(() => _youtubeFailed = true);
-    }
   }
 
   String? _parseYoutubeId(String? youtubeUrl) {
@@ -127,31 +51,9 @@ class _ModuleDetailScreenState extends State<ModuleDetailScreen> {
     return parsedId.trim();
   }
 
-  void _recreateYoutubePlayer() {
-    final oldController = _youtubeController;
-    final oldSub = _youtubeStateSub;
-
-    _youtubeStateSub = null;
-    _youtubeController = null;
-    _youtubeGeneration++;
-
-    WebViewCookieManager().clearCookies();
-    _initYoutubePlayer();
-
-    WidgetsBinding.instance.addPostFrameCallback((_) async {
-      await oldSub?.cancel();
-      await oldController?.close();
-    });
-
-    if (mounted) setState(() {});
-  }
-
   @override
   void dispose() {
-    _youtubeWatchdog?.cancel();
-    _youtubeStateSub?.cancel();
     _pageController.dispose();
-    _youtubeController?.close();
     super.dispose();
   }
 
@@ -201,11 +103,6 @@ class _ModuleDetailScreenState extends State<ModuleDetailScreen> {
                 if (index >= 2) provider.updatePillarProgress(widget.module.id, 'character');
                 if (index >= 3) provider.updatePillarProgress(widget.module.id, 'gallery');
 
-                // Jeda video secara otomatis saat user geser ke tab lain
-                if (index != 0) {
-                  _youtubeController?.pauseVideo();
-                }
-
                 setState(() => _activeStep = index);
               },
               children: [
@@ -213,10 +110,7 @@ class _ModuleDetailScreenState extends State<ModuleDetailScreen> {
                   child: SingleChildScrollView(
                     child: PillarHistoryView(
                       module: widget.module,
-                      youtubeController: _youtubeController,
                       youtubeVideoId: _youtubeVideoId ?? '',
-                      youtubeFailed: _youtubeFailed,
-                      youtubePlayerKey: ValueKey('youtube-$_youtubeGeneration'),
                       onZoomImage: (imageUrl, subtitle) {
                         showZoomImageDialog(
                           context,
