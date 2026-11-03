@@ -37,6 +37,9 @@ class DatabaseHelper {
     try {
       final db = await _initDB('kenali_batikmu.db');
       _database = db;
+      // Dijalankan setelah database benar-benar terbuka (di luar callback
+      // onOpen) agar operasi transaksi tidak bertabrakan dengan proses open.
+      await ensureMasterContent(db);
       _initCompleter!.complete(db);
       return db;
     } catch (e) {
@@ -309,9 +312,6 @@ class DatabaseHelper {
     try {
       await db.execute('CREATE UNIQUE INDEX IF NOT EXISTS idx_scans_user_module_kuismu ON scans(user_id, module_id) WHERE scan_type = \'kuismu\'');
     } catch (_) {}
-
-    // Pastikan master data kurikulum lengkap sebelum dipakai layar modul
-    await ensureMasterContent(db);
 
     // Migrasi kredensial akun bawaan (hanya bila hash masih bawaan/ belum diubah
     // pengguna). Kata sandi pengguna yang sudah diganti tidak akan disentuh.

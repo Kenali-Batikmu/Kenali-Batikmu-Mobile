@@ -13,6 +13,13 @@ void main() {
       // Simulasikan kondisi perangkat yang datanya terhapus saat upgrade gagal
       await db!.delete('module_contents');
       await db.delete('module_gallery_images');
+      await db.update('modules', {'title': 'Mengenal Batik Lama', 'video_url': null});
+      await db.insert('module_gallery_images', {
+        'module_id': 1,
+        'image_url': '',
+        'caption': 'Lama',
+        'order_no': 1,
+      });
 
       final emptyContents = await db.rawQuery('SELECT COUNT(*) AS c FROM module_contents');
       expect(emptyContents.first['c'], equals(0));
@@ -23,9 +30,44 @@ void main() {
       final gallery = await db.rawQuery(
         "SELECT COUNT(*) AS c FROM module_gallery_images WHERE image_url IS NOT NULL AND TRIM(image_url) <> ''",
       );
+      final title = await db.rawQuery('SELECT title FROM modules WHERE id = 1');
+      final video = await db.rawQuery('SELECT video_url FROM modules WHERE id = 1');
 
       expect(contents.first['c'], greaterThanOrEqualTo(240));
       expect(gallery.first['c'], greaterThanOrEqualTo(100));
+      expect(title.first['title'], equals('Batik Betawi'));
+      expect(video.first['video_url'], isNotEmpty);
+    });
+
+    test('sinkronisasi cloud tidak menimpa data kurasi lokal', () async {
+      final db = await DatabaseHelper.instance.database;
+      await DatabaseHelper.instance.ensureMasterContent();
+
+      final before = await db!.rawQuery(
+        'SELECT title, cover_image, video_url FROM modules WHERE id = 9',
+      );
+
+      // Payload cloud lama: judul generik, cover/video kosong
+      await DatabaseHelper.instance.upsertModules([
+        {
+          'id': 9,
+          'motif_id': 9,
+          'title': 'Mengenal Batik Parang',
+          'description': 'Deskripsi lama',
+          'cover_image': '',
+          'video_url': null,
+          'passing_score': 70,
+          'order_no': 19,
+        },
+      ]);
+
+      final after = await db.rawQuery(
+        'SELECT title, cover_image, video_url FROM modules WHERE id = 9',
+      );
+
+      expect(after.first['title'], equals(before.first['title']));
+      expect(after.first['cover_image'], equals(before.first['cover_image']));
+      expect(after.first['video_url'], equals(before.first['video_url']));
     });
 
     test('setiap modul memiliki konten lengkap, pakem, gambar, dan galeri', () async {

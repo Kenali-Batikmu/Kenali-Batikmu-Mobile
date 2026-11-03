@@ -94,32 +94,38 @@ class ModuleDao {
         if (id == null) continue;
         final existing = existingById[id];
 
+        // Data kurasi lokal (judul, deskripsi, cover, video) tidak boleh
+        // ditimpa oleh cloud yang masih kosong/basi. Cloud hanya dipakai
+        // untuk modul yang belum ada di perangkat.
+        if (existing != null) {
+          final incomingScore = m['passing_score'];
+          if (incomingScore is int && incomingScore != existing['passing_score']) {
+            await db.update(
+              'modules',
+              {'passing_score': incomingScore},
+              where: 'id = ?',
+              whereArgs: [id],
+            );
+          }
+          continue;
+        }
+
         final incomingVideo = nonEmpty(m['video_url']);
         final incomingCover = nonEmpty(m['cover_image']);
-
-        final video = incomingVideo ??
-            nonEmpty(existing?['video_url']);
-        final cover = incomingCover ??
-            nonEmpty(existing?['cover_image']) ??
-            defaultCovers[id];
-        final title = nonEmpty(m['title']) ??
-            nonEmpty(existing?['title']) ??
-            'Modul $id';
-        final description = nonEmpty(m['description']) ??
-            nonEmpty(existing?['description']) ??
-            '';
+        final title = nonEmpty(m['title']) ?? 'Modul $id';
+        final description = nonEmpty(m['description']) ?? '';
 
         await db.insert(
           'modules',
           {
             'id': id,
-            'motif_id': m['motif_id'] ?? existing?['motif_id'] ?? id,
+            'motif_id': m['motif_id'] ?? id,
             'title': title,
             'description': description,
-            'cover_image': cover,
-            'video_url': video,
-            'passing_score': m['passing_score'] ?? existing?['passing_score'] ?? 70,
-            'order_no': m['order_no'] ?? existing?['order_no'] ?? id,
+            'cover_image': incomingCover ?? defaultCovers[id],
+            'video_url': incomingVideo,
+            'passing_score': m['passing_score'] ?? 70,
+            'order_no': m['order_no'] ?? id,
           },
           conflictAlgorithm: ConflictAlgorithm.replace,
         );
