@@ -26,7 +26,7 @@ class KbModuleCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final num progress = module.progressPercent;
     final isDone = progress >= 100;
-    final isWorking = module.id == 3 || (progress > 0 && progress < 100);
+    final isWorking = progress > 0 && progress < 100;
 
     final bodyColor = isDark ? AppTheme.darkSurface : const Color(0xFFFFFDF8);
     final borderColor = isWorking
