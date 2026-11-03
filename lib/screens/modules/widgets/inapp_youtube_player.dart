@@ -29,11 +29,10 @@ class _InAppYoutubePlayerScreenState extends State<InAppYoutubePlayerScreen> {
   @override
   void initState() {
     super.initState();
-    final isDark = Theme.of(context).brightness == Brightness.dark;
 
     _controller = WebViewController()
       ..setJavaScriptMode(JavaScriptMode.unrestricted)
-      ..setBackgroundColor(isDark ? AppTheme.darkBackground : Colors.white)
+      ..setBackgroundColor(Colors.black)
       ..setNavigationDelegate(
         NavigationDelegate(
           onPageStarted: (_) {
