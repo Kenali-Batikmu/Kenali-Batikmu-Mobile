@@ -113,9 +113,6 @@ class DatabaseHelper {
             }
           } catch (_) {}
         }
-        if (oldVersion < 5) {
-          await _reseedMasterContent(db);
-        }
         if (oldVersion < 6) {
           await _reseedMasterContent(db);
         }
