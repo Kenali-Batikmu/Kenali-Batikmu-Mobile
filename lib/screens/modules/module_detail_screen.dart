@@ -28,10 +28,16 @@ class _ModuleDetailScreenState extends State<ModuleDetailScreen> {
   late PageController _pageController;
   YoutubePlayerController? _youtubeController;
   StreamSubscription<YoutubePlayerValue>? _youtubeStateSub;
+  Timer? _youtubeWatchdog;
   bool _youtubeFailed = false;
   bool _youtubeRetried = false;
   int _youtubeGeneration = 0;
   String? _youtubeVideoId;
+
+  /// Batas waktu (detik) menunggu player benar-benar siap memutar video.
+  /// Galat internal YouTube (mis. "An error occurred", playback error) tidak
+  /// selalu dilaporkan lewat API controller, sehingga perlu pengawas waktu.
+  static const int _youtubeReadyTimeoutSeconds = 8;
 
   @override
   void initState() {
@@ -70,11 +76,21 @@ class _ModuleDetailScreenState extends State<ModuleDetailScreen> {
         mute: false,
         loop: false,
         enableJavaScript: true,
-        origin: 'https://www.youtube-nocookie.com',
+        // Origin wajib sama dengan domain embed agar YouTube mengirim
+        // header Referer yang valid (mencegah galat pemutaran di WebView).
+        origin: 'https://www.youtube.com',
       ),
     );
 
     _youtubeStateSub = _youtubeController!.listen((value) {
+      final isPlaying = value.playerState == PlayerState.playing ||
+          value.playerState == PlayerState.buffering ||
+          value.playerState == PlayerState.paused;
+      if (isPlaying && _youtubeWatchdog != null) {
+        _youtubeWatchdog!.cancel();
+        _youtubeWatchdog = null;
+      }
+
       if (value.error == YoutubeError.none) return;
       if (_youtubeFailed) return;
 
@@ -85,8 +101,23 @@ class _ModuleDetailScreenState extends State<ModuleDetailScreen> {
         return;
       }
 
-      if (mounted) setState(() => _youtubeFailed = true);
+      _markYoutubeFailed();
     });
+
+    _youtubeWatchdog?.cancel();
+    _youtubeWatchdog = Timer(const Duration(seconds: _youtubeReadyTimeoutSeconds), () {
+      if (!mounted || _youtubeFailed) return;
+      if (_youtubeController?.value.playerState == PlayerState.playing) return;
+      _markYoutubeFailed();
+    });
+  }
+
+  void _markYoutubeFailed() {
+    _youtubeWatchdog?.cancel();
+    _youtubeWatchdog = null;
+    if (mounted && !_youtubeFailed) {
+      setState(() => _youtubeFailed = true);
+    }
   }
 
   String? _parseYoutubeId(String? youtubeUrl) {
@@ -117,6 +148,7 @@ class _ModuleDetailScreenState extends State<ModuleDetailScreen> {
 
   @override
   void dispose() {
+    _youtubeWatchdog?.cancel();
     _youtubeStateSub?.cancel();
     _pageController.dispose();
     _youtubeController?.close();
@@ -202,6 +234,15 @@ class _ModuleDetailScreenState extends State<ModuleDetailScreen> {
                   child: SingleChildScrollView(
                     child: PillarCharacterView(
                       module: widget.module,
+                      onZoomImage: (imageUrl, subtitle) {
+                        showZoomImageDialog(
+                          context,
+                          isDark,
+                          imageUrl: imageUrl,
+                          title: widget.module.title,
+                          subtitle: subtitle,
+                        );
+                      },
                       isDark: isDark,
                     ),
                   ),
