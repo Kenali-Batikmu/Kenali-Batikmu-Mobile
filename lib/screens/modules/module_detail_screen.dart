@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:youtube_player_iframe/youtube_player_iframe.dart';
 import '../../core/theme/app_theme.dart';
+import '../../core/utils/youtube_link.dart';
 import '../../models/app_models.dart';
 import '../../providers/app_provider.dart';
 import 'widgets/zoom_image_dialog.dart';
@@ -41,14 +41,9 @@ class _ModuleDetailScreenState extends State<ModuleDetailScreen> {
     }
 
     _pageController = PageController(initialPage: _activeStep);
-    _youtubeVideoId = _parseYoutubeId(widget.module.content?.sejarahDanFilosofi.youtubeUrl);
-  }
-
-  String? _parseYoutubeId(String? youtubeUrl) {
-    if (youtubeUrl == null || youtubeUrl.trim().isEmpty) return null;
-    final parsedId = YoutubePlayerController.convertUrlToId(youtubeUrl.trim());
-    if (parsedId == null || parsedId.trim().isEmpty) return null;
-    return parsedId.trim();
+    _youtubeVideoId = YoutubeLink.extractVideoId(
+      widget.module.content?.sejarahDanFilosofi.youtubeUrl,
+    );
   }
 
   @override

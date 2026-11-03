@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../../core/utils/youtube_link.dart';
 import '../../../models/app_models.dart';
 import 'expansion_card.dart';
 import 'inapp_youtube_player.dart';
@@ -164,7 +165,7 @@ class PillarHistoryView extends StatelessWidget {
               onOpenFullscreen: () => _openInAppPlayer(context),
             ),
             const SizedBox(height: 10),
-            _buildYoutubeButton(sejarah.youtubeUrl),
+            _buildYoutubeButton(),
             const SizedBox(height: 20),
           ],
 
@@ -224,13 +225,13 @@ class PillarHistoryView extends StatelessWidget {
     );
   }
 
-  Widget _buildYoutubeButton(String youtubeUrl) {
+  Widget _buildYoutubeButton() {
     return Material(
       color: isDark ? AppTheme.darkSurface : const Color(0xFFFBF7F2),
       borderRadius: BorderRadius.circular(14),
       child: InkWell(
         borderRadius: BorderRadius.circular(14),
-        onTap: () => _openExternal(youtubeUrl),
+        onTap: _openInBrowser,
         child: Container(
           padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
           decoration: BoxDecoration(
@@ -295,11 +296,15 @@ class PillarHistoryView extends StatelessWidget {
     );
   }
 
-  Future<void> _openExternal(String url) async {
-    final uri = Uri.tryParse(url);
-    if (uri == null) return;
+  /// Membuka video di aplikasi YouTube/browser sebagai jalur cadangan.
+  Future<void> _openInBrowser() async {
+    final videoId = YoutubeLink.extractVideoId(youtubeVideoId);
+    if (videoId == null) return;
     try {
-      await launchUrl(uri, mode: LaunchMode.externalApplication);
+      await launchUrl(
+        YoutubeLink.watchUri(videoId),
+        mode: LaunchMode.externalApplication,
+      );
     } catch (_) {}
   }
 }
