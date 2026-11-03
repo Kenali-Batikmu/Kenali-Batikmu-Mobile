@@ -256,13 +256,16 @@ class ModuleDao {
 
       final videoRows = await db.query(
         'modules',
-        columns: ['video_url'],
+        columns: ['video_url', 'cover_image'],
         where: 'id = ?',
         whereArgs: [moduleId],
         limit: 1,
       );
       final videoUrl = videoRows.isNotEmpty
           ? (videoRows.first['video_url'] as String? ?? '').trim()
+          : '';
+      final coverImage = videoRows.isNotEmpty
+          ? (videoRows.first['cover_image'] as String? ?? '').trim()
           : '';
 
       final contents = await db.query(
@@ -301,34 +304,6 @@ class ModuleDao {
         return bodyAt(sejarahRows, index);
       }
 
-      KarakteristikDetailModel detailAt(int index, String defaultTitle, String defaultBadge) {
-        if (index < karakterRows.length) {
-          final row = karakterRows[index];
-          return KarakteristikDetailModel(
-            title: (row['title'] as String?) ?? defaultTitle,
-            desc: (row['body'] as String?) ?? '',
-            badge: ((row['badge'] as String?) ?? '').trim().isEmpty
-                ? defaultBadge
-                : (row['badge'] as String).trim(),
-            image: (row['image_url'] as String?) ?? '',
-          );
-        }
-        return KarakteristikDetailModel(
-          title: defaultTitle,
-          desc: '',
-          badge: defaultBadge,
-          image: '',
-        );
-      }
-
-      final pakemList = <PakemModel>[
-        for (final row in karakterRows.skip(4))
-          PakemModel(
-            title: (row['title'] as String?) ?? '',
-            desc: (row['body'] as String?) ?? '',
-          ),
-      ];
-
       final galleryRows = await db.query(
         'module_gallery_images',
         where: 'module_id = ?',
@@ -345,10 +320,48 @@ class ModuleDao {
 
       if (galeri.isEmpty) {
         galeri = [
-          GaleriModel(imageUrl: '', caption: 'Proses Canting $motifName'),
-          GaleriModel(imageUrl: '', caption: 'Kain Batik Klasik $motifName'),
+          GaleriModel(
+            imageUrl: coverImage,
+            caption: 'Kain Batik $motifName',
+          ),
         ];
       }
+
+      String fallbackImageAt(int position) {
+        if (galeri.length > position && galeri[position].imageUrl.isNotEmpty) {
+          return galeri[position].imageUrl;
+        }
+        return coverImage;
+      }
+
+      KarakteristikDetailModel detailAt(int index, String defaultTitle, String defaultBadge) {
+        if (index < karakterRows.length) {
+          final row = karakterRows[index];
+          final storedImage = ((row['image_url'] as String?) ?? '').trim();
+          return KarakteristikDetailModel(
+            title: (row['title'] as String?) ?? defaultTitle,
+            desc: (row['body'] as String?) ?? '',
+            badge: ((row['badge'] as String?) ?? '').trim().isEmpty
+                ? defaultBadge
+                : (row['badge'] as String).trim(),
+            image: storedImage.isNotEmpty ? storedImage : fallbackImageAt(index),
+          );
+        }
+        return KarakteristikDetailModel(
+          title: defaultTitle,
+          desc: '',
+          badge: defaultBadge,
+          image: fallbackImageAt(index),
+        );
+      }
+
+      final pakemList = <PakemModel>[
+        for (final row in karakterRows.skip(4))
+          PakemModel(
+            title: (row['title'] as String?) ?? '',
+            desc: (row['body'] as String?) ?? '',
+          ),
+      ];
 
       final sejarahBody = sejarahByTitle('Hakikat & Simbol', 0);
 

@@ -102,7 +102,7 @@ class DatabaseHelper {
 
     return await openDatabase(
       path,
-      version: 6,
+      version: 7,
       onCreate: _createDB,
       onUpgrade: (db, oldVersion, newVersion) async {
         if (oldVersion < 3) {
@@ -171,12 +171,18 @@ class DatabaseHelper {
     final db = target ?? await database;
     if (db == null) return;
     try {
+      // Penanda kurasi terbaru: setiap modul wajib punya blok "Sumber & Rujukan",
+      // foto pada kartu karakteristik, dan 5 foto galeri. Data lama (versi dev)
+      // bisa punya ratusan baris konten tanpa penanda ini, sehingga jumlah baris
+      // saja tidak cukup untuk menentukan kelengkapan data.
       final moduleCount = Sqflite.firstIntValue(
             await db.rawQuery('SELECT COUNT(*) FROM modules'),
           ) ??
           0;
-      final contentCount = Sqflite.firstIntValue(
-            await db.rawQuery('SELECT COUNT(*) FROM module_contents'),
+      final sumberCount = Sqflite.firstIntValue(
+            await db.rawQuery(
+              "SELECT COUNT(*) FROM module_contents WHERE title = 'Sumber & Rujukan'",
+            ),
           ) ??
           0;
       final galleryCount = Sqflite.firstIntValue(
@@ -187,14 +193,31 @@ class DatabaseHelper {
             ),
           ) ??
           0;
-
-      if (moduleCount >= 20 && contentCount >= 240 && galleryCount >= 100) {
-        return;
+      var karakterImageCount = 0;
+      try {
+        karakterImageCount = Sqflite.firstIntValue(
+              await db.rawQuery(
+                'SELECT COUNT(*) FROM module_contents '
+                'WHERE pillar = ? AND image_url IS NOT NULL AND TRIM(image_url) <> ?',
+                ['karakteristik', ''],
+              ),
+            ) ??
+            0;
+      } catch (_) {
+        // Kolom image_url belum ada pada database versi lama
+        karakterImageCount = 0;
       }
 
+      final isComplete = moduleCount >= 20 &&
+          sumberCount >= 20 &&
+          galleryCount >= 100 &&
+          karakterImageCount >= 60;
+      if (isComplete) return;
+
       debugPrint(
-        'DatabaseHelper: master data belum lengkap '
-        '(modul=$moduleCount, konten=$contentCount, galeri=$galleryCount). Menyegarkan dari asset...',
+        'DatabaseHelper: master data belum lengkap (modul=$moduleCount, '
+        'rujukan=$sumberCount, galeri=$galleryCount, gambarKarakter=$karakterImageCount). '
+        'Menyegarkan dari asset...',
       );
 
       final dbPath = await getDatabasesPath();
@@ -228,6 +251,11 @@ class DatabaseHelper {
       }
 
       await db.transaction((txn) async {
+        // Skema lama belum memiliki kolom gambar pendukung karakteristik
+        try {
+          await txn.execute('ALTER TABLE module_contents ADD COLUMN image_url TEXT');
+        } catch (_) {}
+
         await txn.rawUpdate('UPDATE modules SET order_no = order_no + 1000');
 
         for (final m in seedModules) {

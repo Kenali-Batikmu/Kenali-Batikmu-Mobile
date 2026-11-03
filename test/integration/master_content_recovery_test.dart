@@ -6,6 +6,68 @@ void main() {
   setupTestEnvironment();
 
   group('Master Content Self-Healing (regresi konten kosong di perangkat)', () {
+    test('memulihkan data versi lama (253 konten tanpa rujukan & tanpa foto)', () async {
+      final db = await DatabaseHelper.instance.database;
+      await DatabaseHelper.instance.ensureMasterContent();
+
+      // Tiru kondisi database lama: konten banyak tetapi tanpa penanda kurasi
+      await db!.delete('module_contents', where: "title = 'Sumber & Rujukan'");
+      await db.update('module_contents', {'image_url': null});
+      await db.update('module_gallery_images', {'image_url': null});
+
+      final oldSumber = await db.rawQuery(
+        "SELECT COUNT(*) AS c FROM module_contents WHERE title = 'Sumber & Rujukan'",
+      );
+      final oldGallery = await db.rawQuery(
+        "SELECT COUNT(*) AS c FROM module_gallery_images WHERE image_url IS NOT NULL AND TRIM(image_url) <> ''",
+      );
+      expect(oldSumber.first['c'], equals(0));
+      expect(oldGallery.first['c'], equals(0));
+
+      await DatabaseHelper.instance.ensureMasterContent();
+
+      final sumber = await db.rawQuery(
+        "SELECT COUNT(*) AS c FROM module_contents WHERE title = 'Sumber & Rujukan'",
+      );
+      final gallery = await db.rawQuery(
+        "SELECT COUNT(*) AS c FROM module_gallery_images WHERE image_url IS NOT NULL AND TRIM(image_url) <> ''",
+      );
+      final karakterImages = await db.rawQuery(
+        "SELECT COUNT(*) AS c FROM module_contents WHERE pillar = 'karakteristik' AND image_url IS NOT NULL AND TRIM(image_url) <> ''",
+      );
+
+      expect(sumber.first['c'], equals(20));
+      expect(gallery.first['c'], greaterThanOrEqualTo(100));
+      expect(karakterImages.first['c'], greaterThanOrEqualTo(60));
+    });
+
+    test('DAO tetap menampilkan foto walau galeri belum tersegarkan', () async {
+      final db = await DatabaseHelper.instance.database;
+      await DatabaseHelper.instance.ensureMasterContent();
+
+      // Kosongkan galeri satu modul untuk menguji jalur cadangan
+      await db!.delete('module_gallery_images', where: 'module_id = ?', whereArgs: [4]);
+      await db.update(
+        'module_contents',
+        {'image_url': null},
+        where: 'module_id = ?',
+        whereArgs: [4],
+      );
+
+      final modules = await DatabaseHelper.instance.getAllModules();
+      final dayak = modules.firstWhere((m) => m.id == 4);
+      final content = dayak.content;
+
+      expect(content, isNotNull);
+      expect(content!.galeri, isNotEmpty);
+      expect(content.galeri.first.imageUrl, isNotEmpty,
+          reason: 'galeri harus memakai cover modul sebagai cadangan');
+      expect(content.karakteristik.strukturUtama.image, isNotEmpty,
+          reason: 'kartu karakteristik harus tetap punya foto');
+      expect(content.karakteristik.ornamen.image, isNotEmpty);
+      expect(content.karakteristik.warna.image, isNotEmpty);
+    });
+
     test('memulihkan konten pilar dan galeri yang hilang dari asset', () async {
       final db = await DatabaseHelper.instance.database;
       expect(db, isNotNull);
