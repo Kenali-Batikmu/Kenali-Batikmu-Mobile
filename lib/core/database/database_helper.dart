@@ -113,9 +113,6 @@ class DatabaseHelper {
             }
           } catch (_) {}
         }
-        if (oldVersion < 6) {
-          await _reseedMasterContent(db);
-        }
         await _ensureSeedData(db);
         await _ensureQuizQuestionsSeeded(db);
       },
@@ -164,24 +161,74 @@ class DatabaseHelper {
     }
   }
 
-  /// Memuat ulang master data (modul, motif, konten pilar, galeri) dari asset
-  /// tanpa menghapus akun maupun progres belajar pengguna.
-  Future<void> _reseedMasterContent(Database db) async {
+  /// Menjaga integritas master data kurikulum (20 modul, konten pilar, galeri).
+  /// Dijalankan pada onOpen agar tidak berada di dalam transaksi onUpgrade,
+  /// sehingga aman membuka berkas asset sementara.
+  Future<void> ensureMasterContent([Database? target]) async {
+    final db = target ?? await database;
+    if (db == null) return;
     try {
+      final moduleCount = Sqflite.firstIntValue(
+            await db.rawQuery('SELECT COUNT(*) FROM modules'),
+          ) ??
+          0;
+      final contentCount = Sqflite.firstIntValue(
+            await db.rawQuery('SELECT COUNT(*) FROM module_contents'),
+          ) ??
+          0;
+      final galleryCount = Sqflite.firstIntValue(
+            await db.rawQuery(
+              'SELECT COUNT(*) FROM module_gallery_images '
+              'WHERE image_url IS NOT NULL AND TRIM(image_url) <> ?',
+              [''],
+            ),
+          ) ??
+          0;
+
+      if (moduleCount >= 20 && contentCount >= 240 && galleryCount >= 100) {
+        return;
+      }
+
+      debugPrint(
+        'DatabaseHelper: master data belum lengkap '
+        '(modul=$moduleCount, konten=$contentCount, galeri=$galleryCount). Menyegarkan dari asset...',
+      );
+
       final dbPath = await getDatabasesPath();
-      final tempPath = join(dbPath, 'kenali_batikmu_reseed_temp.db');
+      final tempPath = join(dbPath, 'kenali_batikmu_seed_content.db');
       final ByteData data = await rootBundle.load('assets/database/kenali_batikmu.db');
       final List<int> bytes = data.buffer.asUint8List(data.offsetInBytes, data.lengthInBytes);
       final tempFile = File(tempPath);
       await tempFile.writeAsBytes(bytes, flush: true);
 
+      List<Map<String, Object?>> seedModules = [];
+      List<Map<String, Object?>> seedMotifs = [];
+      List<Map<String, Object?>> seedContents = [];
+      List<Map<String, Object?>> seedGallery = [];
+
       final seedDb = await openReadOnlyDatabase(tempPath);
       try {
-        await db.execute('UPDATE modules SET order_no = order_no + 1000');
+        seedModules = await seedDb.query('modules');
+        seedMotifs = await seedDb.query('batik_motifs');
+        seedContents = await seedDb.query('module_contents');
+        seedGallery = await seedDb.query('module_gallery_images');
+      } finally {
+        await seedDb.close();
+        if (tempFile.existsSync()) {
+          tempFile.deleteSync();
+        }
+      }
 
-        final modules = await seedDb.query('modules');
-        for (final m in modules) {
-          await db.update(
+      if (seedModules.isEmpty || seedContents.isEmpty) {
+        debugPrint('DatabaseHelper: asset master data kosong, penyegaran dibatalkan.');
+        return;
+      }
+
+      await db.transaction((txn) async {
+        await txn.rawUpdate('UPDATE modules SET order_no = order_no + 1000');
+
+        for (final m in seedModules) {
+          await txn.update(
             'modules',
             {
               'title': m['title'],
@@ -196,9 +243,8 @@ class DatabaseHelper {
           );
         }
 
-        final motifs = await seedDb.query('batik_motifs');
-        for (final m in motifs) {
-          await db.update(
+        for (final m in seedMotifs) {
+          await txn.update(
             'batik_motifs',
             {
               'name': m['name'],
@@ -211,27 +257,23 @@ class DatabaseHelper {
           );
         }
 
-        await db.delete('module_contents');
-        final contents = await seedDb.query('module_contents');
-        for (final c in contents) {
-          await db.insert('module_contents', c);
+        await txn.delete('module_contents');
+        for (final c in seedContents) {
+          await txn.insert('module_contents', c);
         }
 
-        await db.delete('module_gallery_images');
-        final gallery = await seedDb.query('module_gallery_images');
-        for (final g in gallery) {
-          await db.insert('module_gallery_images', g);
+        await txn.delete('module_gallery_images');
+        for (final g in seedGallery) {
+          await txn.insert('module_gallery_images', g);
         }
+      });
 
-        debugPrint('DatabaseHelper: Master data 20 modul berhasil disegarkan dari asset.');
-      } finally {
-        await seedDb.close();
-        if (tempFile.existsSync()) {
-          tempFile.deleteSync();
-        }
-      }
+      debugPrint(
+        'DatabaseHelper: master data disegarkan '
+        '(${seedModules.length} modul, ${seedContents.length} konten, ${seedGallery.length} galeri).',
+      );
     } catch (e) {
-      debugPrint('DatabaseHelper _reseedMasterContent error: $e');
+      debugPrint('DatabaseHelper _ensureMasterContent error: $e');
     }
   }
 
@@ -258,10 +300,18 @@ class DatabaseHelper {
       } catch (_) {}
     }
 
+    // Kolom gambar pendukung kartu karakteristik (struktur, ornamen, warna)
+    try {
+      await db.execute('ALTER TABLE module_contents ADD COLUMN image_url TEXT');
+    } catch (_) {}
+
     // Pastikan hanya ada 1 baris rekaman kuis praktikum per modul per user (Storage Hygiene)
     try {
       await db.execute('CREATE UNIQUE INDEX IF NOT EXISTS idx_scans_user_module_kuismu ON scans(user_id, module_id) WHERE scan_type = \'kuismu\'');
     } catch (_) {}
+
+    // Pastikan master data kurikulum lengkap sebelum dipakai layar modul
+    await ensureMasterContent(db);
 
     // Patch cover_image untuk semua 20 modul batik dari assets lokal
     // Setiap kali app dibuka, pastikan path cover_image sudah benar (UPSERT aman)

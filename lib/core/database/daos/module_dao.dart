@@ -304,7 +304,7 @@ class ModuleDao {
             badge: ((row['badge'] as String?) ?? '').trim().isEmpty
                 ? defaultBadge
                 : (row['badge'] as String).trim(),
-            image: '',
+            image: (row['image_url'] as String?) ?? '',
           );
         }
         return KarakteristikDetailModel(
