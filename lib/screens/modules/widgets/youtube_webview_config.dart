@@ -6,31 +6,22 @@ import 'package:webview_flutter_android/webview_flutter_android.dart';
 
 /// Konfigurasi pemutaran YouTube di dalam WebView aplikasi.
 ///
-/// **Mengapa perlu halaman perantara?**
-/// YouTube menolak pemutaran tertanam bila halaman tidak memiliki origin yang
-/// sah. WebView aplikasi tidak memiliki domain sehingga selalu berakhir dengan:
-/// - galat **152** bila origin/referer tidak valid atau `null`,
-/// - galat **153** bila referer tidak dikirim sama sekali.
+/// **Penyebab galat yang sudah diuji langsung ke endpoint YouTube:**
+/// - `origin`/`Referer` = `https://www.youtube.com` → **152-4**
+///   (YouTube menolak origin yang mengacu ke dirinya sendiri)
+/// - `Referer` tidak dikirim sama sekali → **153**
+/// - `origin`/`Referer` domain HTTPS lain (contoh: `example.com`) → **OK**
+///   dengan `playableInEmbed=true`
 ///
-/// Karena itu pemutar memuat `docs/player.html` dari CDN statis yang menyajikan
-/// berkas dengan `Content-Type: text/html` (origin HTTPS sungguhan), sehingga
-/// iframe YouTube menerima referer yang sah dan dapat diputar.
-///
-/// Bila semua sumber gagal, pemutar beralih ke halaman tonton mobile YouTube
-/// agar video tetap dapat ditonton tanpa meninggalkan aplikasi.
+/// Karena itu halaman pemutar dimuat dengan `loadHtmlString` dan `baseUrl`
+/// berupa domain HTTPS netral (`example.com`, domain yang memang dicadangkan
+/// untuk contoh/dokumentasi). Dengan begitu iframe memperoleh Referer yang sah
+/// tanpa memerlukan hosting tambahan.
 class YoutubeWebViewConfig {
   YoutubeWebViewConfig._();
 
-  /// Halaman perantara yang menyajikan `docs/player.html` sebagai HTML.
-  /// Gunakan cabang yang masih aktif; perbarui bila nama cabang berubah.
-  static const List<String> embedPageTemplates = [
-    'https://raw.githack.com/Kenali-Batikmu/Kenali-Batikmu-Mobile/hafizh/docs/player.html?v={id}',
-    'https://rawcdn.githack.com/Kenali-Batikmu/Kenali-Batikmu-Mobile/hafizh/docs/player.html?v={id}',
-  ];
-
-  /// Cadangan terakhir: halaman tonton mobile resmi YouTube.
-  static const String mobileWatchTemplate =
-      'https://m.youtube.com/watch?v={id}';
+  /// Origin netral untuk base URL sekaligus Referer iframe.
+  static const String origin = 'https://example.com';
 
   /// User-Agent peramban Chrome Android asli. UA bawaan WebView mengandung
   /// penanda "wv" yang membuat YouTube menolak pemutaran (galat 152).
@@ -38,15 +29,69 @@ class YoutubeWebViewConfig {
       'Mozilla/5.0 (Linux; Android 13; Pixel 7) AppleWebKit/537.36 '
       '(KHTML, like Gecko) Chrome/121.0.0.0 Mobile Safari/537.36';
 
-  static int get embedSourceCount => embedPageTemplates.length;
+  /// Nama kanal JavaScript yang melaporkan kegagalan pemutaran ke Flutter.
+  static const String bridgeChannel = 'BatikmuYoutube';
 
-  static Uri embedPageUri(int index, String videoId) => Uri.parse(
-        embedPageTemplates[index].replaceAll('{id}', videoId),
-      );
+  /// Cadangan terakhir bila pemutaran tertanam tetap gagal: halaman tonton
+  /// mobile YouTube (tetap di dalam aplikasi).
+  static Uri mobileWatchUri(String videoId) =>
+      Uri.parse('https://m.youtube.com/watch?v=$videoId');
 
-  static Uri mobileWatchUri(String videoId) => Uri.parse(
-        mobileWatchTemplate.replaceAll('{id}', videoId),
-      );
+  static String buildPlayerHtml(String videoId) {
+    final embedUrl = 'https://www.youtube.com/embed/$videoId'
+        '?playsinline=1&rel=0&modestbranding=1&fs=1&origin=$origin';
+    return '''
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport"
+        content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <style>
+    html, body { margin: 0; padding: 0; height: 100%; background: #000; overflow: hidden; }
+    iframe { position: absolute; inset: 0; width: 100%; height: 100%; border: 0; }
+  </style>
+</head>
+<body>
+  <iframe
+    src="$embedUrl"
+    title="Video pembahasan motif batik"
+    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+    allowfullscreen
+    referrerpolicy="origin">
+  </iframe>
+  <script>
+    // YouTube mengirim pesan 'onError' (mis. galat 101/150) lewat postMessage.
+    // Pesan itu diteruskan ke Flutter agar pemutar dapat beralih ke cadangan.
+    (function () {
+      var reported = false;
+      function report(reason) {
+        if (reported) return;
+        reported = true;
+        try {
+          if (window.$bridgeChannel && window.$bridgeChannel.postMessage) {
+            window.$bridgeChannel.postMessage(reason);
+          }
+        } catch (e) {}
+      }
+      window.addEventListener('message', function (event) {
+        var data = event.data;
+        if (typeof data !== 'string') return;
+        if (data.indexOf('onError') !== -1) report('playback-error');
+      });
+      // Jaring pengaman: bila iframe tetap kosong setelah 10 detik.
+      setTimeout(function () {
+        var frame = document.querySelector('iframe');
+        if (!frame || !frame.src || frame.src.indexOf('about:blank') === 0) {
+          report('not-loaded');
+        }
+      }, 10000);
+    })();
+  </script>
+</body>
+</html>
+''';
+  }
 
   /// Menyiapkan pengaturan WebView sebelum halaman dimuat.
   static Future<void> prepare(WebViewController controller) async {
@@ -69,17 +114,16 @@ class YoutubeWebViewConfig {
     }
   }
 
-  /// Memuat halaman perantara ke-[index].
-  static Future<void> loadEmbedPage(
-    WebViewController controller,
-    int index,
-    String videoId,
-  ) async {
+  /// Memuat pemutar YouTube untuk [videoId] langsung di dalam aplikasi.
+  static Future<void> load(WebViewController controller, String videoId) async {
     await prepare(controller);
-    await controller.loadRequest(embedPageUri(index, videoId));
+    await controller.loadHtmlString(
+      buildPlayerHtml(videoId),
+      baseUrl: origin,
+    );
   }
 
-  /// Memuat halaman tonton mobile YouTube sebagai cadangan terakhir.
+  /// Memuat halaman tonton mobile YouTube sebagai cadangan.
   static Future<void> loadMobileWatch(
     WebViewController controller,
     String videoId,

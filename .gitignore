@@ -82,7 +82,3 @@ devtools_options.yaml
 AGENTS.md
 
 *.md
-
-# Halaman perantara pemutar YouTube untuk GitHub Pages
-!docs/
-!docs/player.html

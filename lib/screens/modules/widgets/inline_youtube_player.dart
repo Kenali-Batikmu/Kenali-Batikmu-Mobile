@@ -6,12 +6,10 @@ import 'youtube_webview_config.dart';
 
 /// Pemutar YouTube yang berjalan langsung di dalam aplikasi.
 ///
-/// Urutan sumber yang dicoba:
-/// 1. halaman perantara `docs/player.html` (origin HTTPS sah → embed diterima),
-/// 2. cermin CDN kedua bila yang pertama gagal,
-/// 3. halaman tonton mobile YouTube sebagai cadangan terakhir.
-///
-/// Jadi video tetap dapat diputar tanpa membuka aplikasi YouTube.
+/// Memuat iframe YouTube lewat `loadHtmlString` dengan `baseUrl` domain HTTPS
+/// netral, sehingga iframe menerima Referer yang sah (penyebab galat 152/153).
+/// Bila pemutaran tertanam gagal, pemutar beralih ke halaman tonton mobile
+/// YouTube agar video tetap dapat ditonton tanpa meninggalkan aplikasi.
 class InlineYoutubePlayer extends StatefulWidget {
   final String videoId;
   final String title;
@@ -37,7 +35,9 @@ class _InlineYoutubePlayerState extends State<InlineYoutubePlayer> {
   bool _isLoading = true;
   bool _hasError = false;
   bool _usingMobileWatch = false;
-  int _sourceIndex = 0;
+
+  /// Batas waktu memuat halaman sebelum dianggap gagal.
+  static const Duration _loadTimeout = Duration(seconds: 15);
 
   @override
   void initState() {
@@ -50,6 +50,13 @@ class _InlineYoutubePlayerState extends State<InlineYoutubePlayer> {
       ..setJavaScriptMode(JavaScriptMode.unrestricted)
       ..setUserAgent(YoutubeWebViewConfig.browserUserAgent)
       ..setBackgroundColor(Colors.black)
+      ..addJavaScriptChannel(
+        YoutubeWebViewConfig.bridgeChannel,
+        onMessageReceived: (message) {
+          // Dilaporkan dari dalam halaman bila YouTube menolak pemutaran.
+          _fallbackToMobileWatch();
+        },
+      )
       ..setNavigationDelegate(
         NavigationDelegate(
           onPageStarted: (_) {
@@ -58,56 +65,57 @@ class _InlineYoutubePlayerState extends State<InlineYoutubePlayer> {
           onPageFinished: (_) {
             if (mounted) setState(() => _isLoading = false);
           },
-          onHttpError: (error) {
-            final uri = error.request?.uri;
-            if (uri == null) return;
-            // Hanya kegagalan memuat halaman perantara yang ditindaklanjuti.
-            if (!uri.host.contains('githack.com')) return;
-            _advanceSource();
-          },
           onWebResourceError: (error) {
             if (error.isForMainFrame != true) return;
-            final failingUrl = error.url ?? '';
-            // Kegagalan sumber daya di dalam halaman embed diabaikan;
-            // yang ditangani hanya kegagalan navigasi halaman perantara.
-            if (failingUrl.contains('githack.com')) {
-              _advanceSource();
-              return;
-            }
-            if (_usingMobileWatch) {
-              _showError();
-            }
+            // Gagal memuat halaman utama: coba halaman tonton mobile.
+            _fallbackToMobileWatch();
           },
         ),
       );
 
     _controller = controller;
-    _loadCurrentSource();
+    _load();
   }
 
-  /// Pindah ke sumber berikutnya, lalu ke halaman tonton mobile, lalu galat.
-  Future<void> _advanceSource() async {
-    if (!mounted) return;
+  Future<void> _load() async {
+    if (mounted) {
+      setState(() {
+        _isLoading = true;
+        _hasError = false;
+      });
+    }
+    _usingMobileWatch = false;
 
-    if (!_usingMobileWatch &&
-        _sourceIndex + 1 < YoutubeWebViewConfig.embedSourceCount) {
-      _sourceIndex++;
-      await _loadCurrentSource();
+    final controller = _controller;
+    if (controller == null) return;
+
+    try {
+      await YoutubeWebViewConfig.load(controller, widget.videoId);
+    } catch (_) {
+      await _fallbackToMobileWatch();
       return;
     }
 
-    if (!_usingMobileWatch) {
-      _usingMobileWatch = true;
-      try {
-        await YoutubeWebViewConfig.loadMobileWatch(
-          _controller!,
-          widget.videoId,
-        );
-        return;
-      } catch (_) {}
-    }
+    // Halaman HTML lokal selalu "selesai" dimuat, sehingga kegagalan pemutaran
+    // tidak terdeteksi oleh event navigasi. Pengawas waktu dipakai sebagai
+    // jaring pengaman bila halaman tidak pernah selesai dimuat.
+    await Future<void>.delayed(_loadTimeout);
+    if (!mounted || _hasError || !_isLoading) return;
+    await _fallbackToMobileWatch();
+  }
 
-    _showError();
+  Future<void> _fallbackToMobileWatch() async {
+    if (!mounted) return;
+    if (_usingMobileWatch) {
+      _showError();
+      return;
+    }
+    _usingMobileWatch = true;
+    try {
+      await YoutubeWebViewConfig.loadMobileWatch(_controller!, widget.videoId);
+    } catch (_) {
+      _showError();
+    }
   }
 
   void _showError() {
@@ -116,33 +124,6 @@ class _InlineYoutubePlayerState extends State<InlineYoutubePlayer> {
       _isLoading = false;
       _hasError = true;
     });
-  }
-
-  Future<void> _loadCurrentSource() async {
-    if (mounted) {
-      setState(() {
-        _isLoading = true;
-        _hasError = false;
-      });
-    }
-    try {
-      final controller = _controller;
-      if (controller == null) return;
-      await YoutubeWebViewConfig.loadEmbedPage(
-        controller,
-        _sourceIndex,
-        widget.videoId,
-      );
-    } catch (_) {
-      await _advanceSource();
-    }
-  }
-
-  /// Memuat ulang dari sumber pertama (dipakai tombol coba lagi).
-  Future<void> _retry() async {
-    _sourceIndex = 0;
-    _usingMobileWatch = false;
-    await _loadCurrentSource();
   }
 
   @override
@@ -214,7 +195,7 @@ class _InlineYoutubePlayerState extends State<InlineYoutubePlayer> {
 
   Widget _buildErrorState(bool isDark) {
     return GestureDetector(
-      onTap: _retry,
+      onTap: _load,
       child: Stack(
         fit: StackFit.expand,
         children: [
