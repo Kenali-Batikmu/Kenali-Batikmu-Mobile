@@ -5,7 +5,7 @@ import '../../../models/app_models.dart';
 /// Halaman Pilar 3: Galeri Dokumentasi Visual Karya & Arsip Kain Tradisional
 class PillarGalleryView extends StatelessWidget {
   final ModuleModel module;
-  final VoidCallback onZoomImage;
+  final void Function(String imageUrl, String subtitle) onZoomImage;
   final bool isDark;
 
   const PillarGalleryView({
@@ -39,7 +39,13 @@ class PillarGalleryView extends StatelessWidget {
 
           // Banner Hero Galeri
           GestureDetector(
-            onTap: onZoomImage,
+            onTap: () {
+              final heroImg = (galeriList.isNotEmpty && galeriList[0].imageUrl.isNotEmpty)
+                  ? galeriList[0].imageUrl
+                  : module.coverImage;
+              final heroCap = galeriList.isNotEmpty ? galeriList[0].caption : 'Arsip Kain Batik Tulis';
+              onZoomImage(heroImg ?? '', heroCap);
+            },
             child: Container(
               height: 190,
               width: double.infinity,
@@ -98,7 +104,7 @@ class PillarGalleryView extends StatelessWidget {
 
   Widget _buildGaleriItem(String label, String imageUrl) {
     return GestureDetector(
-      onTap: onZoomImage,
+      onTap: () => onZoomImage(imageUrl, label),
       child: Container(
         decoration: BoxDecoration(
           color: const Color(0xFF2B231D),

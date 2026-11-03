@@ -11,16 +11,39 @@ import 'expansion_card.dart';
 class PillarHistoryView extends StatelessWidget {
   final ModuleModel module;
   final YoutubePlayerController? youtubeController;
-  final VoidCallback onZoomImage;
+  final String youtubeVideoId;
+  final bool youtubeFailed;
+  final Object? youtubePlayerKey;
+  final void Function(String imageUrl, String subtitle) onZoomImage;
   final bool isDark;
 
   const PillarHistoryView({
     super.key,
     required this.module,
     required this.youtubeController,
+    this.youtubeVideoId = '',
+    this.youtubeFailed = false,
+    this.youtubePlayerKey,
     required this.onZoomImage,
     required this.isDark,
   });
+
+  /// Badge motif disesuaikan asal-usul tiap batik (bukan semua 'larangan':
+  /// pesisir Pekalongan/Lasem, Betawi, dan Dayak tidak memakai paugeran larangan keraton)
+  String get _motifBadgeLabel {
+    final t = module.title.toLowerCase();
+    if (t.contains('sido') || t.contains('wahyu') || t.contains('parang') || t.contains('kawung')) {
+      return 'Motif Larangan Keraton Mataram';
+    }
+    if (t.contains('singa barong')) return 'Motif Kraton Cirebon';
+    if (t.contains('mega mendung')) return 'Motif Klasik Cirebon';
+    if (t.contains('tujuh rupa') || t.contains('jlamprang')) return 'Motif Klasik Pesisir Pekalongan';
+    if (t.contains('buketan')) return 'Motif Pesisir Indo-Eropa Pekalongan';
+    if (t.contains('betawi')) return 'Motif Khas Betawi';
+    if (t.contains('dayak') || t.contains('benang bintik')) return 'Motif Khas Kalimantan Tengah';
+    if (t.contains('liong')) return 'Motif Klasik Pesisiran';
+    return 'Motif Klasik Nusantara';
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -46,30 +69,42 @@ class PillarHistoryView extends StatelessWidget {
               children: [
                 Positioned.fill(
                   child: module.coverImage != null
-                      ? ClipRRect(
-                          borderRadius: BorderRadius.circular(24),
-                          child: Image.asset(module.coverImage!, fit: BoxFit.cover),
+                      ? GestureDetector(
+                          onTap: () => onZoomImage(module.coverImage!, 'Foto Utama Motif Batik'),
+                          child: ClipRRect(
+                            borderRadius: BorderRadius.circular(24),
+                            child: Image.asset(module.coverImage!, fit: BoxFit.cover),
+                          ),
                         )
                       : Center(child: Icon(Icons.waves, size: 90, color: Colors.white.withValues(alpha: 0.18))),
                 ),
                 Positioned(
                   top: 14,
                   left: 14,
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                    decoration: BoxDecoration(
-                      color: Colors.black.withValues(alpha: 0.5),
-                      borderRadius: BorderRadius.circular(20),
-                    ),
-                    child: const Row(
-                      children: [
-                        Icon(Icons.star, color: AppTheme.accentGold, size: 14),
-                        SizedBox(width: 4),
-                        Text(
-                          'Motif Klasik Larangan',
-                          style: TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold),
-                        ),
-                      ],
+                  child: GestureDetector(
+                    onTap: module.coverImage != null
+                        ? () => onZoomImage(module.coverImage!, 'Foto Utama Motif Batik')
+                        : null,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: Colors.black.withValues(alpha: 0.5),
+                        borderRadius: BorderRadius.circular(20),
+                      ),
+                      child: Row(
+                        children: [
+                          const Icon(Icons.star, color: AppTheme.accentGold, size: 14),
+                          const SizedBox(width: 4),
+                          Flexible(
+                            child: Text(
+                              _motifBadgeLabel,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold),
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
                   ),
                 ),
@@ -77,7 +112,10 @@ class PillarHistoryView extends StatelessWidget {
                   bottom: 14,
                   right: 14,
                   child: GestureDetector(
-                    onTap: onZoomImage,
+                    onTap: () => onZoomImage(
+                      module.coverImage ?? '',
+                      'Foto Utama Motif Batik',
+                    ),
                     child: Container(
                       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                       decoration: BoxDecoration(
@@ -126,10 +164,11 @@ class PillarHistoryView extends StatelessWidget {
           ),
           const SizedBox(height: 16),
 
-          if (youtubeController != null) ...[
+          if (youtubeController != null && !youtubeFailed) ...[
             ClipRRect(
               borderRadius: BorderRadius.circular(16),
               child: YoutubePlayer(
+                key: youtubePlayerKey != null ? ValueKey(youtubePlayerKey) : null,
                 controller: youtubeController!,
                 keepAlive: true,
                 gestureRecognizers: const <Factory<OneSequenceGestureRecognizer>>{
@@ -207,6 +246,55 @@ class PillarHistoryView extends StatelessWidget {
                 ),
               ),
             const SizedBox(height: 20),
+          ],
+
+          if (youtubeFailed && youtubeVideoId.isNotEmpty) ...[
+            ClipRRect(
+              borderRadius: BorderRadius.circular(16),
+              child: GestureDetector(
+                onTap: () async {
+                  if (sejarah.youtubeUrl.isEmpty) return;
+                  final uri = Uri.tryParse(sejarah.youtubeUrl);
+                  if (uri != null) {
+                    try {
+                      await launchUrl(uri, mode: LaunchMode.externalApplication);
+                    } catch (_) {}
+                  }
+                },
+                child: Stack(
+                  alignment: Alignment.center,
+                  children: [
+                    AspectRatio(
+                      aspectRatio: 16 / 9,
+                      child: Image.network(
+                        YoutubePlayerController.getThumbnail(
+                          videoId: youtubeVideoId,
+                          quality: ThumbnailQuality.high,
+                          webp: true,
+                        ),
+                        fit: BoxFit.cover,
+                        errorBuilder: (context, error, stack) => Container(
+                          color: isDark ? AppTheme.darkSurface : const Color(0xFF2B2020),
+                          child: const Center(
+                            child: Icon(
+                              Icons.ondemand_video_rounded,
+                              color: Colors.white70,
+                              size: 40,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                    const Icon(
+                      Icons.play_circle_filled_rounded,
+                      color: Colors.white70,
+                      size: 50,
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            const SizedBox(height: 10),
           ],
 
           // Section Hakikat & Simbol
