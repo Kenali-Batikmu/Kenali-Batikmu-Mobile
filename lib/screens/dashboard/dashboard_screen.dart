@@ -5,9 +5,9 @@ import 'package:provider/provider.dart';
 
 import '../../core/theme/app_theme.dart';
 import '../../providers/app_provider.dart';
+import '../../widgets/kb_header_bar.dart';
 import '../../widgets/kb_module_card.dart';
 import '../modules/module_detail_screen.dart';
-import '../../services/search_history_service.dart';
 
 class DashboardScreen extends StatefulWidget {
   final VoidCallback onOpenModules;
@@ -34,15 +34,25 @@ class _DashboardScreenState extends State<DashboardScreen> {
   int _currentHeroPage = _initialPage;
   bool _isScrolledPast = false;
 
-  // Foto untuk kartu modul. Ganti dengan nama file fotomu.
+  // Foto untuk kartu modul.
   static const List<String> _motifPhotos = [
-    'assets/images/motif_1.jpg',
-    'assets/images/motif_2.jpg',
-    'assets/images/motif_3.jpg',
-    'assets/images/motif_4.jpg',
-    'assets/images/motif_5.jpg',
-    'assets/images/motif_6.jpg',
+    'assets/images/batik_parang_kusumo.jpg',
+    'assets/images/batik_mega.jpg',
+    'assets/images/batik_parang.jpg',
+    'assets/images/batik_kawung.jpg',
+    'assets/images/batik_indo.jpg',
+    'assets/images/hero_sekar.png',
   ];
+
+  String _getPhotoForModule(String title, int idx) {
+    final lower = title.toLowerCase();
+    if (lower.contains('parang kusumo') || lower.contains('kusumo')) {
+      return 'assets/images/batik_parang_kusumo.jpg';
+    } else if (lower.contains('mega') || lower.contains('mendung')) {
+      return 'assets/images/batik_mega.jpg';
+    }
+    return _motifPhotos[idx % _motifPhotos.length];
+  }
 
   @override
   void initState() {
@@ -83,32 +93,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
     super.dispose();
   }
 
-  // ── Modal pencarian ──────────────────────────────────────────────────────
-  void _showSearchSheet(BuildContext context, bool isDark) {
-    showGeneralDialog(
-      context: context,
-      barrierDismissible: true,
-      barrierLabel: 'Tutup pencarian',
-      barrierColor: Colors.black54,
-      transitionDuration: const Duration(milliseconds: 280),
-      transitionBuilder: (ctx, anim, secondAnim, child) {
-        return SlideTransition(
-          position: Tween<Offset>(
-            begin: const Offset(0, -1),
-            end: Offset.zero,
-          ).animate(CurvedAnimation(parent: anim, curve: Curves.easeOut)),
-          child: child,
-        );
-      },
-      pageBuilder: (ctx, anim, secondAnim) {
-        return _SearchModalContent(
-          isDark: isDark,
-          onOpenModules: widget.onOpenModules,
-        );
-      },
-    );
-  }
-
   // ── Kartu Hero PageView Full-Bleed ───────────────────────────────────────
   Widget _buildHeroHeader(
     BuildContext context,
@@ -143,6 +127,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                         'Batik Indonesia diakui UNESCO sebagai Warisan Budaya Takbenda sejak 2009.',
                     tag: 'WARISAN BUDAYA',
                     icon: Icons.public_rounded,
+                    imagePath: 'assets/images/batik_indo.jpg',
                   );
                 case 2:
                   return _buildBatikSlide(
@@ -151,6 +136,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                         'Motif tertua yang melambangkan kekuatan dan keteguhan hati.',
                     tag: 'MOTIF BATIK',
                     icon: Icons.waves_rounded,
+                    imagePath: 'assets/images/batik_parang.jpg',
                   );
                 case 3:
                 default:
@@ -160,6 +146,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                         'Pola lingkaran yang melambangkan kesucian dan keadilan.',
                     tag: 'MOTIF BATIK',
                     icon: Icons.grain_rounded,
+                    imagePath: 'assets/images/batik_kawung.jpg',
                   );
               }
             },
@@ -304,18 +291,29 @@ class _DashboardScreenState extends State<DashboardScreen> {
     required String description,
     String? tag,
     IconData? icon,
+    String? imagePath,
   }) {
+    const fallback = CustomPaint(
+      painter: _KawungHeroPainter(
+        color: Color(0xFFE8C98A),
+        opacity: 0.18,
+      ),
+    );
+
     return Stack(
       fit: StackFit.expand,
       children: [
         Container(
           color: const Color(0xFF2E1911),
-          child: const CustomPaint(
-            painter: _KawungHeroPainter(
-              color: Color(0xFFE8C98A),
-              opacity: 0.18,
-            ),
-          ),
+          child: imagePath == null
+              ? fallback
+              : Image.asset(
+                  imagePath,
+                  fit: BoxFit.cover,
+                  width: double.infinity,
+                  height: double.infinity,
+                  errorBuilder: (context, error, stackTrace) => fallback,
+                ),
         ),
         Positioned.fill(
           child: Container(
@@ -324,16 +322,16 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 begin: Alignment.topCenter,
                 end: Alignment.bottomCenter,
                 colors: [
-                  Colors.black.withValues(alpha: 0.08),
-                  Colors.black.withValues(alpha: 0.45),
-                  Colors.black.withValues(alpha: 0.88),
+                  Colors.black.withValues(alpha: 0.15),
+                  Colors.black.withValues(alpha: 0.40),
+                  Colors.black.withValues(alpha: 0.85),
                 ],
                 stops: const [0.15, 0.55, 1.0],
               ),
             ),
           ),
         ),
-        if (icon != null)
+        if (icon != null && imagePath == null)
           Positioned(
             top: 75,
             right: 24,
@@ -527,7 +525,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
     final firstName = (user?.name.isNotEmpty ?? false)
         ? user!.name.split(' ').first
-        : 'Sekar';
+        : (user?.email.split('@').first ?? 'Kawan');
 
     return Scaffold(
       backgroundColor: bgColor,
@@ -586,20 +584,54 @@ class _DashboardScreenState extends State<DashboardScreen> {
                               ),
                               const SizedBox(height: 14),
 
-                              // ── Riwayat Belajar: modul yang sedang dikerjakan ──
+                              // ── Riwayat Belajar: modul yang memiliki riwayat aktivitas atau sedang dikerjakan ──
                               Builder(
                                 builder: (_) {
-                                  final inProgress = provider.modules
-                                      .where((m) =>
-                                          m.progressPercent > 0 &&
-                                          m.progressPercent < 100)
-                                      .toList()
-                                    ..sort((a, b) => b.progressPercent
-                                        .compareTo(a.progressPercent));
+                                  if (provider.modules.isEmpty) {
+                                    return Padding(
+                                      padding: const EdgeInsets.fromLTRB(16, 0, 16, 14),
+                                      child: Container(
+                                        height: 140,
+                                        decoration: BoxDecoration(
+                                          color: isDark ? AppTheme.darkSurface : const Color(0xFFFFFDF8),
+                                          borderRadius: BorderRadius.circular(20),
+                                          border: Border.all(
+                                            color: isDark ? AppTheme.darkBorder : const Color(0xFFE5D3B8),
+                                          ),
+                                        ),
+                                        child: Center(
+                                          child: SizedBox(
+                                            width: 24,
+                                            height: 24,
+                                            child: CircularProgressIndicator(
+                                              strokeWidth: 2,
+                                              valueColor: AlwaysStoppedAnimation<Color>(
+                                                isDark ? AppTheme.accentGold : AppTheme.primary,
+                                              ),
+                                            ),
+                                          ),
+                                        ),
+                                      ),
+                                    );
+                                  }
 
-                                  if (inProgress.isNotEmpty) {
+                                  final activeModules = provider.modules
+                                      .where((m) =>
+                                          m.progressPercent > 0 ||
+                                          m.quizScore != null ||
+                                          m.practiceScore != null ||
+                                          m.quizDone ||
+                                          m.practiceDone)
+                                      .toList()
+                                    ..sort((a, b) {
+                                      if (a.progressPercent < 100 && b.progressPercent >= 100) return -1;
+                                      if (a.progressPercent >= 100 && b.progressPercent < 100) return 1;
+                                      return b.progressPercent.compareTo(a.progressPercent);
+                                    });
+
+                                  if (activeModules.isNotEmpty) {
                                     return _RiwayatSlider(
-                                      modules: inProgress.take(5).toList(),
+                                      modules: activeModules.take(5).toList(),
                                       isDark: isDark,
                                     );
                                   }
@@ -622,7 +654,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
                                       .toList();
                                   final last = done.isNotEmpty
                                       ? done.last
-                                      : provider.modules.first;
+                                      : provider.modules.firstOrNull;
+                                  if (last == null) return const SizedBox.shrink();
                                   return KbModuleCard(
                                     module: last,
                                     isDark: isDark,
@@ -639,14 +672,19 @@ class _DashboardScreenState extends State<DashboardScreen> {
                                   mainAxisAlignment:
                                       MainAxisAlignment.spaceBetween,
                                   children: [
-                                    Text(
-                                      'Modul Kenali Batikmu',
-                                      style: AppTheme.satoshi(
-                                        fontSize: 18,
-                                        fontWeight: FontWeight.bold,
-                                        color: const Color(0xFF4A2F1D),
+                                    Expanded(
+                                      child: Text(
+                                        'Modul Kenali Batikmu',
+                                        style: AppTheme.satoshi(
+                                          fontSize: 18,
+                                          fontWeight: FontWeight.bold,
+                                          color: const Color(0xFF4A2F1D),
+                                        ),
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
                                       ),
                                     ),
+                                    const SizedBox(width: 8),
                                     GestureDetector(
                                       onTap: widget.onOpenModules,
                                       child: Text(
@@ -684,8 +722,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
                                   itemBuilder: (ctx, idx) {
                                     final m = provider.modules[idx];
                                     return _buildPhotoCard(
-                                      imagePath: _motifPhotos[
-                                          idx % _motifPhotos.length],
+                                      imagePath:
+                                          _getPhotoForModule(m.title, idx),
                                       title: m.title.split('\n').first,
                                       subtitle: 'Modul ${m.orderNo}',
                                       onTap: () {
@@ -733,7 +771,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                       ]
                     : null,
               ),
-              child: _buildTopBar(context, isDark),
+              child: _buildTopBar(context),
             ),
           ),
         ],
@@ -741,475 +779,16 @@ class _DashboardScreenState extends State<DashboardScreen> {
     );
   }
 
-  List<BoxShadow> get _softShadow => [
-        BoxShadow(
-          color: Colors.black.withValues(alpha: 0.10),
-          blurRadius: 10,
-          offset: const Offset(0, 3),
-        ),
-      ];
-
-  Widget _buildTopBar(BuildContext context, bool isDark) {
-    final surface = isDark ? AppTheme.darkSurface : Colors.white;
-    const iconColor = Color(0xFF8A6D56);
-    final provider = context.read<AppProvider>();
+  // ── Top bar: logo di kiri, avatar profil di kanan (menggunakan KbHeaderBar) ──
+  Widget _buildTopBar(BuildContext context) {
+    final provider = context.watch<AppProvider>();
     final user = provider.currentUser;
 
-    return Padding(
+    return KbHeaderBar(
+      user: user,
+      onOpenProfile: widget.onOpenProfile,
+      showSearch: false,
       padding: const EdgeInsets.symmetric(horizontal: 16),
-      child: Row(
-        children: [
-          Container(
-            width: 44,
-            height: 44,
-            decoration: BoxDecoration(
-              color: Colors.white,
-              shape: BoxShape.circle,
-              boxShadow: _softShadow,
-            ),
-            child: ClipOval(
-              child: Image.asset(
-                'assets/images/kb_logo.jpeg',
-                fit: BoxFit.cover,
-              ),
-            ),
-          ),
-          const SizedBox(width: 10),
-          Expanded(
-            child: GestureDetector(
-              onTap: () => _showSearchSheet(context, isDark),
-              child: Container(
-                height: 44,
-                padding: const EdgeInsets.symmetric(horizontal: 14),
-                decoration: BoxDecoration(
-                  color: surface,
-                  borderRadius: BorderRadius.circular(22),
-                  boxShadow: _softShadow,
-                ),
-                child: Row(
-                  children: [
-                    const Icon(Icons.search_rounded,
-                        color: iconColor, size: 20),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: Text(
-                        'Cari motif atau modul batik...',
-                        style: AppTheme.inter(
-                          fontSize: 13,
-                          color: const Color(0xFFA59284),
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ),
-          const SizedBox(width: 10),
-          GestureDetector(
-            onTap: widget.onOpenProfile,
-            child: Container(
-              width: 42,
-              height: 42,
-              decoration: BoxDecoration(
-                color: AppTheme.primary,
-                shape: BoxShape.circle,
-                border: Border.all(color: AppTheme.accentGold, width: 2),
-                boxShadow: [
-                  BoxShadow(
-                    color: AppTheme.primary.withValues(alpha: 0.2),
-                    blurRadius: 8,
-                    offset: const Offset(0, 4),
-                  ),
-                ],
-              ),
-              child: Center(
-                child: Text(
-                  (user?.name.isNotEmpty ?? false)
-                      ? user!.name[0].toUpperCase()
-                      : 'S',
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 17,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-// ── Modal pencarian ───────────────────────────────────────────────────────────
-class _SearchModalContent extends StatefulWidget {
-  final bool isDark;
-  final VoidCallback onOpenModules;
-
-  const _SearchModalContent({
-    required this.isDark,
-    required this.onOpenModules,
-  });
-
-  @override
-  State<_SearchModalContent> createState() => _SearchModalContentState();
-}
-
-class _SearchModalContentState extends State<_SearchModalContent> {
-  final TextEditingController _searchCtrl = TextEditingController();
-  String _query = '';
-  List<int> _historyIds = [];
-
-  static const Color _iconNormal = AppTheme.primaryDark;
-  static const Color _iconPressed = Color(0xFF3E2418);
-
-  @override
-  void initState() {
-    super.initState();
-    _loadHistory();
-  }
-
-  Future<void> _loadHistory() async {
-    final history = await SearchHistoryService.getHistory();
-    if (mounted) {
-      setState(() {
-        _historyIds = history;
-      });
-    }
-  }
-
-  void _onModuleTapped(dynamic module) {
-    SearchHistoryService.addToHistory(module.id);
-    Navigator.pop(context);
-    Navigator.push(
-      context,
-      MaterialPageRoute(builder: (_) => ModuleDetailScreen(module: module)),
-    );
-  }
-
-  void _removeFromHistory(int moduleId) {
-    SearchHistoryService.removeFromHistory(moduleId);
-    setState(() {
-      _historyIds.remove(moduleId);
-    });
-  }
-
-  void _clearHistory() {
-    SearchHistoryService.clearHistory();
-    setState(() {
-      _historyIds.clear();
-    });
-  }
-
-  @override
-  void dispose() {
-    _searchCtrl.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final provider = context.watch<AppProvider>();
-    final filteredModules = provider.modules.where((m) {
-      if (_query.isEmpty) return true;
-      return m.title.toLowerCase().contains(_query.toLowerCase()) ||
-          m.description.toLowerCase().contains(_query.toLowerCase());
-    }).toList();
-
-    final historyModules = <dynamic>[];
-    for (final id in _historyIds) {
-      final matches = provider.modules.where((m) => m.id == id);
-      if (matches.isNotEmpty) {
-        historyModules.add(matches.first);
-      }
-    }
-
-    final safeTop = MediaQuery.of(context).padding.top;
-    final viewInsetsBottom = MediaQuery.of(context).viewInsets.bottom;
-
-    return Align(
-      alignment: Alignment.topCenter,
-      child: Material(
-        color: Colors.transparent,
-        child: Container(
-          width: double.infinity,
-          constraints: BoxConstraints(
-            maxHeight: MediaQuery.of(context).size.height * 0.65,
-          ),
-          margin: EdgeInsets.only(bottom: viewInsetsBottom),
-          padding: EdgeInsets.only(
-            top: safeTop + 16,
-            left: 20,
-            right: 20,
-            bottom: 20,
-          ),
-          decoration: BoxDecoration(
-            color: widget.isDark ? AppTheme.darkSurface : Colors.white,
-            borderRadius:
-                const BorderRadius.vertical(bottom: Radius.circular(24)),
-          ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              TextField(
-                controller: _searchCtrl,
-                autofocus: true,
-                onChanged: (val) => setState(() => _query = val),
-                style: AppTheme.inter(
-                  color: widget.isDark ? Colors.white : AppTheme.textPrimary,
-                ),
-                decoration: InputDecoration(
-                  hintText: 'Cari motif atau modul batik...',
-                  hintStyle: AppTheme.inter(
-                    fontSize: 13,
-                    color: const Color(0xFFA59284),
-                  ),
-                  prefixIcon:
-                      const Icon(Icons.search, color: Color(0xFF8A6D56)),
-                  suffixIcon: _query.isNotEmpty
-                      ? IconButton(
-                          icon: const Icon(Icons.clear, size: 18),
-                          onPressed: () {
-                            _searchCtrl.clear();
-                            setState(() => _query = '');
-                          },
-                        )
-                      : null,
-                  filled: true,
-                  fillColor:
-                      widget.isDark ? AppTheme.darkSurface : Colors.white,
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(23),
-                    borderSide: BorderSide(
-                      color:
-                          widget.isDark ? AppTheme.darkBorder : AppTheme.border,
-                    ),
-                  ),
-                  enabledBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(23),
-                    borderSide: BorderSide(
-                      color:
-                          widget.isDark ? AppTheme.darkBorder : AppTheme.border,
-                    ),
-                  ),
-                  focusedBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(23),
-                    borderSide:
-                        const BorderSide(color: AppTheme.primary, width: 2),
-                  ),
-                  contentPadding:
-                      const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                ),
-              ),
-              if (_query.isNotEmpty) ...[
-                const SizedBox(height: 14),
-                Text(
-                  'Hasil Pencarian (${filteredModules.length}):',
-                  style: AppTheme.satoshi(
-                    fontSize: 13,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-                const SizedBox(height: 8),
-                Flexible(
-                  child: filteredModules.isEmpty
-                      ? Padding(
-                          padding: const EdgeInsets.symmetric(vertical: 24),
-                          child: Center(
-                            child: Text(
-                              'Modul tidak ditemukan',
-                              style: AppTheme.inter(
-                                fontSize: 13,
-                                color: AppTheme.textMuted,
-                              ),
-                            ),
-                          ),
-                        )
-                      : ListView.builder(
-                          shrinkWrap: true,
-                          padding: EdgeInsets.zero,
-                          itemCount: filteredModules.length,
-                          itemBuilder: (ctx, idx) {
-                            final m = filteredModules[idx];
-                            return _SearchResultTile(
-                              module: m,
-                              isDark: widget.isDark,
-                              iconNormal: _iconNormal,
-                              iconPressed: _iconPressed,
-                              onTap: () => _onModuleTapped(m),
-                            );
-                          },
-                        ),
-                ),
-              ] else if (historyModules.isNotEmpty) ...[
-                const SizedBox(height: 14),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Text(
-                      'Riwayat Pencarian',
-                      style: AppTheme.satoshi(
-                        fontSize: 13,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                    GestureDetector(
-                      onTap: _clearHistory,
-                      behavior: HitTestBehavior.opaque,
-                      child: Text(
-                        'Hapus semua',
-                        style: AppTheme.inter(
-                          fontSize: 12,
-                          color: widget.isDark
-                              ? AppTheme.secondaryLight
-                              : AppTheme.primary,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 8),
-                Flexible(
-                  child: ListView.builder(
-                    shrinkWrap: true,
-                    padding: EdgeInsets.zero,
-                    itemCount: historyModules.length,
-                    itemBuilder: (ctx, idx) {
-                      final m = historyModules[idx];
-                      return _SearchResultTile(
-                        module: m,
-                        isDark: widget.isDark,
-                        iconNormal: _iconNormal,
-                        iconPressed: _iconPressed,
-                        onTap: () => _onModuleTapped(m),
-                        onDelete: () => _removeFromHistory(m.id),
-                      );
-                    },
-                  ),
-                ),
-              ],
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-/// Item hasil pencarian dengan efek pressed (ikon menggelap).
-class _SearchResultTile extends StatefulWidget {
-  final dynamic module;
-  final bool isDark;
-  final Color iconNormal;
-  final Color iconPressed;
-  final VoidCallback onTap;
-  final VoidCallback? onDelete;
-
-  const _SearchResultTile({
-    required this.module,
-    required this.isDark,
-    required this.iconNormal,
-    required this.iconPressed,
-    required this.onTap,
-    this.onDelete,
-  });
-
-  @override
-  State<_SearchResultTile> createState() => _SearchResultTileState();
-}
-
-class _SearchResultTileState extends State<_SearchResultTile> {
-  bool _pressed = false;
-
-  @override
-  Widget build(BuildContext context) {
-    final m = widget.module;
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 6),
-      child: Row(
-        children: [
-          Expanded(
-            child: GestureDetector(
-              onTapDown: (_) => setState(() => _pressed = true),
-              onTapUp: (_) {
-                setState(() => _pressed = false);
-                widget.onTap();
-              },
-              onTapCancel: () => setState(() => _pressed = false),
-              behavior: HitTestBehavior.opaque,
-              child: Row(
-                children: [
-                  AnimatedContainer(
-                    duration: const Duration(milliseconds: 150),
-                    width: 38,
-                    height: 38,
-                    decoration: BoxDecoration(
-                      color: _pressed ? widget.iconPressed : widget.iconNormal,
-                      borderRadius: BorderRadius.circular(10),
-                    ),
-                    child: const Center(
-                      child:
-                          Icon(Icons.menu_book, color: Colors.white, size: 18),
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          m.title.replaceAll('\n', ' '),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: AppTheme.satoshi(
-                            fontSize: 13,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                        const SizedBox(height: 2),
-                        Text(
-                          'Kemajuan: ${m.progressPercent}% Selesai',
-                          style: AppTheme.inter(
-                            fontSize: 11,
-                            color: AppTheme.textMuted,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-          if (widget.onDelete != null)
-            GestureDetector(
-              behavior: HitTestBehavior.opaque,
-              onTap: widget.onDelete,
-              child: const Padding(
-                padding: EdgeInsets.symmetric(horizontal: 6, vertical: 8),
-                child: Icon(Icons.close, size: 18, color: AppTheme.textMuted),
-              ),
-            )
-          else
-            GestureDetector(
-              onTapDown: (_) => setState(() => _pressed = true),
-              onTapUp: (_) {
-                setState(() => _pressed = false);
-                widget.onTap();
-              },
-              onTapCancel: () => setState(() => _pressed = false),
-              behavior: HitTestBehavior.opaque,
-              child: const Padding(
-                padding: EdgeInsets.only(left: 4),
-                child: Icon(Icons.chevron_right, size: 20),
-              ),
-            ),
-        ],
-      ),
     );
   }
 }

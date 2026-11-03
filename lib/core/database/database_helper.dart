@@ -1,24 +1,75 @@
 import 'dart:async';
+import 'dart:io';
 import 'package:flutter/foundation.dart';
+import 'package:flutter/services.dart';
 import 'package:path/path.dart';
 import 'package:sqflite/sqflite.dart';
-import 'package:sqflite_common_ffi/sqflite_ffi.dart';
-import '../utils/password_hasher.dart';
+import '../../models/app_models.dart';
+import 'daos/module_dao.dart';
+import 'daos/offline_queue_dao.dart';
+import 'daos/quiz_dao.dart';
+import 'daos/user_dao.dart';
 
+/// DatabaseHelper bertindak sebagai Connection Lifecycle Manager dan Central Facade
+/// untuk seluruh operasi database SQLite lokal melalui Data Access Objects (DAOs).
 class DatabaseHelper {
   static final DatabaseHelper instance = DatabaseHelper._init();
   static Database? _database;
+  static Completer<Database>? _initCompleter;
+
+  // Domain DAOs (Data Access Objects)
+  late final UserDao userDao = UserDao(() => database);
+  late final ModuleDao moduleDao = ModuleDao(() => database);
+  late final QuizDao quizDao = QuizDao(() => database);
+  late final OfflineQueueDao offlineQueueDao = OfflineQueueDao(() => database);
 
   DatabaseHelper._init();
 
   Future<Database?> get database async {
     if (kIsWeb) return null;
     if (_database != null) return _database!;
+
+    if (_initCompleter != null) {
+      return await _initCompleter!.future;
+    }
+
+    _initCompleter = Completer<Database>();
     try {
-      _database = await _initDB('kenali_batikmu.db').timeout(const Duration(seconds: 1));
-      return _database;
+      final db = await _initDB('kenali_batikmu.db');
+      _database = db;
+      _initCompleter!.complete(db);
+      return db;
     } catch (e) {
-      debugPrint('DatabaseHelper notice: $e (Using in-memory prototype store)');
+      _initCompleter!.completeError(e);
+      _initCompleter = null;
+      debugPrint('DatabaseHelper notice: $e (Fallback ke in-memory store)');
+      return null;
+    }
+  }
+
+  /// Melakukan reset total database lokal SQLite dan menyalin ulang segar (fresh) dari assets
+  Future<Database?> migrateFresh() async {
+    if (kIsWeb) return null;
+    try {
+      final dbPath = await getDatabasesPath();
+      final path = join(dbPath, 'kenali_batikmu.db');
+
+      if (_database != null && _database!.isOpen) {
+        await _database!.close();
+        _database = null;
+      }
+      _initCompleter = null;
+
+      final file = File(path);
+      if (await file.exists()) {
+        await file.delete();
+        debugPrint('DatabaseHelper: Database lokal lama dihapus untuk migrate fresh.');
+      }
+
+      // Inisialisasi ulang bersih dari asset
+      return await database;
+    } catch (e) {
+      debugPrint('DatabaseHelper migrateFresh error: $e');
       return null;
     }
   }
@@ -27,65 +78,173 @@ class DatabaseHelper {
     final dbPath = await getDatabasesPath();
     final path = join(dbPath, filePath);
 
+    final exists = await databaseExists(path);
+
+    if (!exists) {
+      // Buat folder jika belum tersedia
+      try {
+        await Directory(dirname(path)).create(recursive: true);
+      } catch (_) {}
+
+      // Salin dari asset pre-populated kenali_batikmu.db (20 Modul & 500 Soal)
+      try {
+        final ByteData data = await rootBundle.load('assets/database/kenali_batikmu.db');
+        final List<int> bytes = data.buffer.asUint8List(data.offsetInBytes, data.lengthInBytes);
+        await File(path).writeAsBytes(bytes, flush: true);
+        debugPrint('DatabaseHelper: Berhasil menyalin database master 20 modul dari assets.');
+      } catch (e) {
+        debugPrint('DatabaseHelper notice: Gagal menyalin assets: $e. Membuat database baru.');
+      }
+    }
+
     return await openDatabase(
       path,
-      version: 2,
+      version: 4,
       onCreate: _createDB,
       onUpgrade: (db, oldVersion, newVersion) async {
+        if (oldVersion < 3) {
+          try {
+            final count = Sqflite.firstIntValue(await db.rawQuery('SELECT COUNT(*) FROM batik_motifs')) ?? 0;
+            if (count < 20) {
+              final ByteData data = await rootBundle.load('assets/database/kenali_batikmu.db');
+              final List<int> bytes = data.buffer.asUint8List(data.offsetInBytes, data.lengthInBytes);
+              await File(path).writeAsBytes(bytes, flush: true);
+              debugPrint('DatabaseHelper: Berhasil upgrade database lokal ke 20 modul.');
+            }
+          } catch (_) {}
+        }
         await _ensureSeedData(db);
+        await _ensureQuizQuestionsSeeded(db);
       },
       onOpen: (db) async {
+        await db.execute('PRAGMA foreign_keys = ON');
         await _ensureSeedData(db);
+        await _ensureQuizQuestionsSeeded(db);
       },
     );
   }
 
-  Future<void> _ensureSeedData(Database db) async {
+  /// Memastikan seluruh 500 butir soal kuis (25 butir x 20 modul) tersimpan di SQLite lokal
+  Future<void> _ensureQuizQuestionsSeeded(Database db) async {
     try {
-      final now = DateTime.now().toIso8601String();
+      final count = Sqflite.firstIntValue(await db.rawQuery('SELECT COUNT(*) FROM quiz_questions')) ?? 0;
+      if (count < 500) {
+        debugPrint('DatabaseHelper: quiz_questions hanya $count butir, menyinkronkan 500 butir dari asset...');
+        final dbPath = await getDatabasesPath();
+        final tempPath = join(dbPath, 'kenali_batikmu_seed_temp.db');
+        final ByteData data = await rootBundle.load('assets/database/kenali_batikmu.db');
+        final List<int> bytes = data.buffer.asUint8List(data.offsetInBytes, data.lengthInBytes);
+        final tempFile = File(tempPath);
+        await tempFile.writeAsBytes(bytes, flush: true);
 
-      final users = await db.query('users', where: 'LOWER(email) = ?', whereArgs: ['sekar@batikmu.id']);
-      if (users.isEmpty) {
-        await db.insert('users', {
-          'name': 'Sekar Ayu Kinanti',
-          'email': 'sekar@batikmu.id',
-          'password_hash': PasswordHasher.hashPassword('Batikmu123#'),
-          'created_at': now,
-          'updated_at': now,
-        });
+        final seedDb = await openReadOnlyDatabase(tempPath);
+        final questions = await seedDb.query('quiz_questions');
+        if (questions.isNotEmpty) {
+          final batch = db.batch();
+          for (final q in questions) {
+            batch.insert(
+              'quiz_questions',
+              q,
+              conflictAlgorithm: ConflictAlgorithm.replace,
+            );
+          }
+          await batch.commit(noResult: true);
+          debugPrint('DatabaseHelper: Berhasil memasukkan ${questions.length} butir soal kuis ke database lokal.');
+        }
+        await seedDb.close();
+        if (tempFile.existsSync()) {
+          tempFile.deleteSync();
+        }
       }
-
-      final batikmuUser = await db.query('users', where: 'LOWER(email) = ?', whereArgs: ['kenalibatikmu@gmail.com']);
-      if (batikmuUser.isEmpty) {
-        await db.insert('users', {
-          'name': 'Kenali Batikmu',
-          'email': 'kenalibatikmu@gmail.com',
-          'password_hash': PasswordHasher.hashPassword('kenalibatikmupbl'),
-          'created_at': now,
-          'updated_at': now,
-        });
-      }
-    } catch (_) {}
+    } catch (e) {
+      debugPrint('DatabaseHelper notice _ensureQuizQuestionsSeeded: $e');
+    }
   }
 
+  Future<void> _ensureSeedData(Database db) async {
+    // Pastikan kolom is_synced tersedia di tabel transaksi lokal untuk antrean offline
+    for (var table in ['quiz_attempts', 'scans', 'user_module_progress']) {
+      try {
+        await db.execute('ALTER TABLE $table ADD COLUMN is_synced INTEGER NOT NULL DEFAULT 0');
+      } catch (_) {
+        // Kolom sudah ada
+      }
+    }
+
+    // Pastikan kolom skor dan kelulusan tersedia di user_module_progress
+    final progressColumns = [
+      'ALTER TABLE user_module_progress ADD COLUMN quiz_score INTEGER',
+      'ALTER TABLE user_module_progress ADD COLUMN practice_score INTEGER',
+      'ALTER TABLE user_module_progress ADD COLUMN passing_score INTEGER NOT NULL DEFAULT 70',
+      'ALTER TABLE user_module_progress ADD COLUMN is_passed INTEGER NOT NULL DEFAULT 0',
+    ];
+    for (var colSql in progressColumns) {
+      try {
+        await db.execute(colSql);
+      } catch (_) {}
+    }
+
+    // Pastikan hanya ada 1 baris rekaman kuis praktikum per modul per user (Storage Hygiene)
+    try {
+      await db.execute('CREATE UNIQUE INDEX IF NOT EXISTS idx_scans_user_module_kuismu ON scans(user_id, module_id) WHERE scan_type = \'kuismu\'');
+    } catch (_) {}
+
+    // Patch cover_image untuk semua 20 modul batik dari assets lokal
+    // Setiap kali app dibuka, pastikan path cover_image sudah benar (UPSERT aman)
+    const moduleCoverImages = {
+      1:  'assets/images/modules/Batik-Betawi.jpeg',
+      2:  'assets/images/modules/Batik-Bokor-Kencono.jpeg',
+      3:  'assets/images/modules/Batik-Buketan.jpeg',
+      4:  'assets/images/modules/Batik-Dayak.jpeg',
+      5:  'assets/images/modules/Batik-Jlamprang.jpeg',
+      6:  'assets/images/modules/Batik-Kawung.jpeg',
+      7:  'assets/images/modules/Batik-Liong.jpeg',
+      8:  'assets/images/modules/Batik-Mega-Mendung.jpeg',
+      9:  'assets/images/modules/Batik-Parang.jpeg',
+      10: 'assets/images/modules/Batik-Sekar-Jagad.jpeg',
+      11: 'assets/images/modules/Batik-SidoLuhur.jpeg',
+      12: 'assets/images/modules/Batik-SidoMukti.jpeg',
+      13: 'assets/images/modules/Batik-SidoMulyo.jpeg',
+      14: 'assets/images/modules/Batik-Singa-Barong.jpeg',
+      15: 'assets/images/modules/Batik-Srikaton.jpeg',
+      16: 'assets/images/modules/Batik-Tribusono.jpeg',
+      17: 'assets/images/modules/Batik-Tujuh-Rupa.jpeg',
+      18: 'assets/images/modules/Batik-Truntum.jpeg',
+      19: 'assets/images/modules/Batik-Wahyu-Tumurun.jpeg',
+      20: 'assets/images/modules/Batik-Wirasat.jpeg',
+    };
+    for (final entry in moduleCoverImages.entries) {
+      try {
+        // UPDATE tanpa kondisi — selalu perbarui ke path standar modules/
+        await db.rawUpdate(
+          'UPDATE modules SET cover_image = ? WHERE id = ?',
+          [entry.value, entry.key],
+        );
+      } catch (e) {
+        debugPrint('DatabaseHelper _ensureSeedData cover patch: $e');
+      }
+    }
+  }
+
+
   Future<void> _createDB(Database db, int version) async {
-    // 1. users
     await db.execute('''
-      CREATE TABLE users (
+      CREATE TABLE IF NOT EXISTS users (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         name TEXT NOT NULL,
         email TEXT NOT NULL UNIQUE,
+        phone TEXT,
         password_hash TEXT NOT NULL,
         failed_attempts INTEGER DEFAULT 0,
         lockout_until TEXT,
+        profile_image_path TEXT,
         created_at TEXT NOT NULL,
         updated_at TEXT NOT NULL
       )
     ''');
 
-    // 2. batik_motifs
     await db.execute('''
-      CREATE TABLE batik_motifs (
+      CREATE TABLE IF NOT EXISTS batik_motifs (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         name TEXT NOT NULL,
         slug TEXT NOT NULL UNIQUE,
@@ -96,36 +255,35 @@ class DatabaseHelper {
       )
     ''');
 
-    // 3. modules
     await db.execute('''
-      CREATE TABLE modules (
+      CREATE TABLE IF NOT EXISTS modules (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         motif_id INTEGER NOT NULL,
         title TEXT NOT NULL,
         description TEXT NOT NULL,
         cover_image TEXT,
+        video_url TEXT,
         passing_score INTEGER DEFAULT 70,
         order_no INTEGER NOT NULL,
         FOREIGN KEY (motif_id) REFERENCES batik_motifs (id)
       )
     ''');
 
-    // 4. module_contents
     await db.execute('''
-      CREATE TABLE module_contents (
+      CREATE TABLE IF NOT EXISTS module_contents (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         module_id INTEGER NOT NULL,
         pillar TEXT NOT NULL,
         title TEXT NOT NULL,
         body TEXT NOT NULL,
+        badge TEXT,
         order_no INTEGER NOT NULL,
         FOREIGN KEY (module_id) REFERENCES modules (id)
       )
     ''');
 
-    // 5. module_gallery_images
     await db.execute('''
-      CREATE TABLE module_gallery_images (
+      CREATE TABLE IF NOT EXISTS module_gallery_images (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         module_id INTEGER NOT NULL,
         image_url TEXT NOT NULL,
@@ -135,9 +293,8 @@ class DatabaseHelper {
       )
     ''');
 
-    // 6. quiz_questions
     await db.execute('''
-      CREATE TABLE quiz_questions (
+      CREATE TABLE IF NOT EXISTS quiz_questions (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         module_id INTEGER NOT NULL,
         question TEXT NOT NULL,
@@ -151,9 +308,8 @@ class DatabaseHelper {
       )
     ''');
 
-    // 7. user_module_progress
     await db.execute('''
-      CREATE TABLE user_module_progress (
+      CREATE TABLE IF NOT EXISTS user_module_progress (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         user_id INTEGER NOT NULL,
         module_id INTEGER NOT NULL,
@@ -164,44 +320,36 @@ class DatabaseHelper {
         gallery_done INTEGER NOT NULL DEFAULT 0,
         quiz_done INTEGER NOT NULL DEFAULT 0,
         practice_done INTEGER NOT NULL DEFAULT 0,
+        quiz_score INTEGER,
+        practice_score INTEGER,
+        passing_score INTEGER NOT NULL DEFAULT 70,
+        is_passed INTEGER NOT NULL DEFAULT 0,
         completed_at TEXT,
         last_accessed_at TEXT NOT NULL,
+        is_synced INTEGER NOT NULL DEFAULT 0,
         UNIQUE(user_id, module_id),
         FOREIGN KEY (user_id) REFERENCES users (id),
         FOREIGN KEY (module_id) REFERENCES modules (id)
       )
     ''');
 
-    // 8. quiz_attempts
     await db.execute('''
-      CREATE TABLE quiz_attempts (
+      CREATE TABLE IF NOT EXISTS quiz_attempts (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         user_id INTEGER NOT NULL,
         module_id INTEGER NOT NULL,
         score INTEGER NOT NULL,
         passed INTEGER NOT NULL,
+        total_questions INTEGER DEFAULT 10,
         attempted_at TEXT NOT NULL,
+        is_synced INTEGER NOT NULL DEFAULT 0,
         FOREIGN KEY (user_id) REFERENCES users (id),
         FOREIGN KEY (module_id) REFERENCES modules (id)
       )
     ''');
 
-    // 9. quiz_attempt_answers
     await db.execute('''
-      CREATE TABLE quiz_attempt_answers (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        attempt_id INTEGER NOT NULL,
-        question_id INTEGER NOT NULL,
-        selected_option TEXT NOT NULL,
-        is_correct INTEGER NOT NULL,
-        FOREIGN KEY (attempt_id) REFERENCES quiz_attempts (id),
-        FOREIGN KEY (question_id) REFERENCES quiz_questions (id)
-      )
-    ''');
-
-    // 10. scans
-    await db.execute('''
-      CREATE TABLE scans (
+      CREATE TABLE IF NOT EXISTS scans (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         user_id INTEGER NOT NULL,
         scan_type TEXT NOT NULL,
@@ -213,403 +361,35 @@ class DatabaseHelper {
         passed INTEGER,
         inference_time_ms INTEGER,
         created_at TEXT NOT NULL,
+        is_synced INTEGER NOT NULL DEFAULT 0,
         FOREIGN KEY (user_id) REFERENCES users (id),
         FOREIGN KEY (module_id) REFERENCES modules (id),
         FOREIGN KEY (top_motif_id) REFERENCES batik_motifs (id)
       )
     ''');
 
-    // 11. scan_probabilities
-    await db.execute('''
-      CREATE TABLE scan_probabilities (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        scan_id INTEGER NOT NULL,
-        motif_id INTEGER NOT NULL,
-        probability REAL NOT NULL,
-        FOREIGN KEY (scan_id) REFERENCES scans (id),
-        FOREIGN KEY (motif_id) REFERENCES batik_motifs (id)
-      )
-    ''');
-
-    // Seed Data Awal Sesuai PRD
-    await _seedInitialData(db);
-  }
-
-  Future<void> _seedInitialData(Database db) async {
-    final now = DateTime.now().toIso8601String();
-
-    // 1. Akun Default Pengguna (Sekar Ayu Kinanti)
-    await db.insert('users', {
-      'name': 'Sekar Ayu Kinanti',
-      'email': 'sekar@batikmu.id',
-      'password_hash': PasswordHasher.hashPassword('Batikmu123#'),
-      'created_at': now,
-      'updated_at': now,
-    });
-
-    // 2. Motif Batik Nusantara (5 Kelas Sesuai PRD)
-    final motifs = [
-      {
-        'id': 1,
-        'name': 'Parang Kusumo',
-        'slug': 'parang-kusumo',
-        'origin_region': 'Surakarta & Yogyakarta',
-        'short_description': 'Motif klasik lereng ombak laut selatan yang melambangkan keteguhan dan perjuangan tak pernah padam.',
-        'thumbnail_url': 'assets/images/parang.png',
-        'ml_class_index': 0,
-      },
-      {
-        'id': 2,
-        'name': 'Kawung',
-        'slug': 'kawung',
-        'origin_region': 'Yogyakarta & Jawa Tengah',
-        'short_description': 'Pola empat bulatan kolang-kaling melambangkan kesucian hati, keadilan, dan pengendalian diri.',
-        'thumbnail_url': 'assets/images/kawung.png',
-        'ml_class_index': 1,
-      },
-      {
-        'id': 3,
-        'name': 'Megamendung',
-        'slug': 'megamendung',
-        'origin_region': 'Cirebon, Jawa Barat',
-        'short_description': 'Pola awan bergradasi khas pesisiran yang mencerminkan keteduhan, kesabaran, dan akulturasi Tionghoa-Nusantara.',
-        'thumbnail_url': 'assets/images/megamendung.png',
-        'ml_class_index': 2,
-      },
-      {
-        'id': 4,
-        'name': 'Sekar Jagad',
-        'slug': 'sekar-jagad',
-        'origin_region': 'Solo & Yogyakarta',
-        'short_description': 'Kumpulan ragam pulau bunga yang menggambarkan keindahan keragaman nusantara dalam satu kesatuan.',
-        'thumbnail_url': 'assets/images/sekar_jagad.png',
-        'ml_class_index': 3,
-      },
-      {
-        'id': 5,
-        'name': 'Truntum',
-        'slug': 'truntum',
-        'origin_region': 'Surakarta',
-        'short_description': 'Bunga-bunga bintang malam yang melambangkan cinta kasih yang tulus dan bersemi kembali tanpa pamrih.',
-        'thumbnail_url': 'assets/images/truntum.png',
-        'ml_class_index': 4,
-      },
-    ];
-
-    for (var m in motifs) {
-      await db.insert('batik_motifs', m);
-    }
-
-    // 3. Modul Belajar
-    for (var m in motifs) {
-      await db.insert('modules', {
-        'id': m['id'],
-        'motif_id': m['id'],
-        'title': 'Modul ${m['id']}: Seni & Filosofi ${m['name']}',
-        'description': 'Pelajari sejarah keraton, karakteristik garis canting 45 derajat, dan latihan praktik pola ${m['name']}.',
-        'cover_image': m['thumbnail_url'],
-        'passing_score': 70,
-        'order_no': m['id'],
-      });
-    }
-
-    // 4. Isi Tiga Pilar Materi untuk Modul 1 (Parang Kusumo)
-    await db.insert('module_contents', {
-      'module_id': 1,
-      'pillar': 'sejarah_filosofi',
-      'title': 'Sejarah & Filosofi Parang Kusumo',
-      'body': 'Motif Parang diciptakan oleh Sultan Agung Hanyakrakusuma saat mengheningkan cipta di pesisir pantai selatan Yogyakarta. Gerakan ombak yang terus menghantam karang tanpa putus memberi inspirasi filosofis mendalam: kesatria Mataram harus memiliki tekad membaja, pantang menyerah, dan berakhlak mulia laksana harum bunga (kusuma).',
-      'order_no': 1,
-    });
-
-    await db.insert('module_contents', {
-      'module_id': 1,
-      'pillar': 'karakteristik',
-      'title': 'Karakteristik Motif & Sudut 45°',
-      'body': 'Parang Kusumo tersusun dari ragam ornamen utama mlinjon dan canting cecek berdiagonal miring 45 derajat. Bentuk huruf S berkesinambungan mencerminkan gelombang laut tiada akhir. Tetesan canting lilin malam harus konsisten dengan tekanan stabil pada mori prima.',
-      'order_no': 2,
-    });
-
-    await db.insert('module_contents', {
-      'module_id': 1,
-      'pillar': 'galeri',
-      'title': 'Galeri Visual & Dokumentasi Keraton',
-      'body': 'Koleksi kain batik Parang Kusumo soga klasik buatan abdi dalem pengrajin Surakarta abad ke-19.',
-      'order_no': 3,
-    });
-
-    // 5. Bank Soal Kuis Teori (10 Soal untuk Modul 1 Parang Kusumo)
-    final questions = [
-      {
-        'q': 'Motif Batik Parang Kusumo secara filosofis melambangkan apa dalam kehidupan?',
-        'a': 'Semangat perjuangan dan keteguhan hati yang pantang padam',
-        'b': 'Ketenangan danau keraton yang syahdu',
-        'c': 'Kekayaan hasil laut para nelayan',
-        'd': 'Keberanian berlayar mengarungi samudera luas',
-        'cor': 'A',
-        'exp': 'Parang Kusumo melambangkan keteguhan hati laksana karang dan harum budi pekerti.'
-      },
-      {
-        'q': 'Siapakah tokoh kerajaan yang diyakini menciptakan motif Parang pertama kali?',
-        'a': 'Sultan Hamengkubuwono I',
-        'b': 'Sultan Agung Hanyakrakusuma',
-        'c': 'Raden Wijaya',
-        'd': 'Pangeran Diponegoro',
-        'cor': 'B',
-        'exp': 'Sultan Agung terinspirasi saat bersemedi di tebing karang pantai selatan.'
-      },
-      {
-        'q': 'Berapa derajat sudut kemiringan diagonal pakem lereng pada motif Parang?',
-        'a': '30 derajat',
-        'b': '45 derajat',
-        'c': '60 derajat',
-        'd': '90 derajat',
-        'cor': 'B',
-        'exp': 'Sudut diagonal pakem lereng Parang adalah 45 derajat.'
-      },
-      {
-        'q': 'Apa makna dari kata Kusumo dalam bahasa Jawa kawi?',
-        'a': 'Ombak yang kuat',
-        'b': 'Bunga yang harum semerbak',
-        'c': 'Batu karang kokoh',
-        'd': 'Pohon beringin besar',
-        'cor': 'B',
-        'exp': 'Kusumo bermakna bunga, melambangkan generasi bangsawan yang berbudi harum.'
-      },
-      {
-        'q': 'Batik Parang termasuk ke dalam kategori motif batik apa di lingkungan keraton?',
-        'a': 'Batik Pesisiran',
-        'b': 'Batik Larangan (Awisan Dalem)',
-        'c': 'Batik Modern Kontemporer',
-        'd': 'Batik Saudagaran',
-        'cor': 'B',
-        'exp': 'Parang dahulu merupakan batik larangan yang hanya boleh dipakai raja dan kerabat keraton.'
-      },
-      {
-        'q': 'Bentuk ornamen dasar berulang pada batik Parang menyerupai huruf...',
-        'a': 'Huruf V',
-        'b': 'Huruf S miring berkesinambungan',
-        'c': 'Huruf O melingkar',
-        'd': 'Huruf X menyilang',
-        'cor': 'B',
-        'exp': 'Bentuk ombak menyerupai huruf S beruntai yang tak pernah putus.'
-      },
-      {
-        'q': 'Kain mori jenis apa yang biasa digunakan untuk membatik halus?',
-        'a': 'Mori Prima atau Primissima',
-        'b': 'Kain Blacu Kasar',
-        'c': 'Kain Goni',
-        'd': 'Kain Denim',
-        'cor': 'A',
-        'exp': 'Mori Primissima adalah jenis katun terbaik dan paling rapat untuk membatik tulis.'
-      },
-      {
-        'q': 'Alat khas berparuh tembaga untuk menorehkan cairan malam batik disebut...',
-        'a': 'Cucuk Gawangan',
-        'b': 'Canting',
-        'c': 'Wajan Wajan',
-        'd': 'Bandul Timbal',
-        'cor': 'B',
-        'exp': 'Canting adalah alat utama untuk menyendok dan mengalirkan malam pada mori.'
-      },
-      {
-        'q': 'Teknik awal menggambar garis outline pola utama batik dinamakan...',
-        'a': 'Nembok',
-        'b': 'Nglowongi',
-        'c': 'Medel',
-        'd': 'Nglorod',
-        'cor': 'B',
-        'exp': 'Nglowongi adalah proses membuat garis luar/kerangka pola utama menggunakan canting.'
-      },
-      {
-        'q': 'Berapa batas nilai kelulusan minimal (passing score) pada Kuis Kenali Batikmu?',
-        'a': '50%',
-        'b': '60%',
-        'c': '70%',
-        'd': '85%',
-        'cor': 'C',
-        'exp': 'Sesuai PRD, syarat kelulusan kuis teori maupun kuis praktik adalah minimal 70%.'
-      }
-    ];
-
-    for (var q in questions) {
-      await db.insert('quiz_questions', {
-        'module_id': 1,
-        'question': q['q'],
-        'option_a': q['a'],
-        'option_b': q['b'],
-        'option_c': q['c'],
-        'option_d': q['d'],
-        'correct_option': q['cor'],
-        'explanation': q['exp'],
-      });
-    }
-
-    // 6. Progres Modul Awal Pengguna (User 1 pada Modul 1 = 60% selesai: Sejarah, Karakter, Galeri)
-    await db.insert('user_module_progress', {
-      'user_id': 1,
-      'module_id': 1,
-      'status': 'in_progress',
-      'progress_percent': 60,
-      'history_done': 1,
-      'character_done': 1,
-      'gallery_done': 1,
-      'quiz_done': 0,
-      'practice_done': 0,
-      'last_accessed_at': now,
-    });
-  }
-
-  /// Cek apakah email terdaftar dalam tabel users
-  Future<bool> checkEmailExists(String email) async {
-    final clean = email.trim().toLowerCase();
-    if (clean == 'kenalibatikmu@gmail.com' || clean == 'sekar@batikmu.id') {
-      return true;
-    }
-    final db = await database;
-    if (db == null) return false;
-    try {
-      final res = await db.query(
-        'users',
-        columns: ['id'],
-        where: 'LOWER(email) = ?',
-        whereArgs: [clean],
-        limit: 1,
-      );
-      return res.isNotEmpty;
-    } catch (_) {
-      return false;
-    }
-  }
-
-  /// Ambil data user berdasarkan email
-  Future<Map<String, dynamic>?> getUserByEmail(String email) async {
-    final clean = email.trim().toLowerCase();
-    final db = await database;
-    if (db != null) {
-      try {
-        final res = await db.query(
-          'users',
-          where: 'LOWER(email) = ?',
-          whereArgs: [clean],
-          limit: 1,
-        );
-        if (res.isNotEmpty) return res.first;
-
-        // Auto-insert akun default jika belum ada di database lokal
-        if (clean == 'kenalibatikmu@gmail.com') {
-          final now = DateTime.now().toIso8601String();
-          final id = await db.insert('users', {
-            'name': 'Kenali Batikmu',
-            'email': 'kenalibatikmu@gmail.com',
-            'password_hash': PasswordHasher.hashPassword('kenalibatikmupbl'),
-            'created_at': now,
-            'updated_at': now,
-          });
-          return {
-            'id': id,
-            'name': 'Kenali Batikmu',
-            'email': 'kenalibatikmu@gmail.com',
-            'password_hash': PasswordHasher.hashPassword('kenalibatikmupbl'),
-          };
-        }
-      } catch (_) {}
-    }
-
-    // Fallback data in-memory jika SQLite tidak aktif
-    if (clean == 'kenalibatikmu@gmail.com') {
-      return {
-        'id': 2,
-        'name': 'Kenali Batikmu',
-        'email': 'kenalibatikmu@gmail.com',
-        'password_hash': PasswordHasher.hashPassword('kenalibatikmupbl'),
-      };
-    }
-    if (clean == 'sekar@batikmu.id') {
-      return {
-        'id': 1,
-        'name': 'Sekar Ayu Kinanti',
-        'email': 'sekar@batikmu.id',
-        'password_hash': PasswordHasher.hashPassword('Batikmu123#'),
-      };
-    }
-    return null;
-  }
-
-  /// Perbarui kata sandi pengguna (password hash)
-  Future<bool> updateUserPassword(String email, String newPasswordHash) async {
-    final db = await database;
-    if (db == null) return false;
-    try {
-      final clean = email.trim().toLowerCase();
-      final now = DateTime.now().toIso8601String();
-      final count = await db.update(
-        'users',
-        {
-          'password_hash': newPasswordHash,
-          'updated_at': now,
-        },
-        where: 'LOWER(email) = ?',
-        whereArgs: [clean],
-      );
-      if (count == 0) {
-        await db.insert('users', {
-          'name': clean.startsWith('kenalibatikmu')
-              ? 'Kenali Batikmu'
-              : (clean.startsWith('sekar') ? 'Sekar Ayu Kinanti' : 'Sahabat Batik'),
-          'email': clean,
-          'password_hash': newPasswordHash,
-          'created_at': now,
-          'updated_at': now,
-        });
-        return true;
-      }
-      return count > 0;
-    } catch (_) {
-      return false;
-    }
+    await _ensureSeedData(db);
   }
 
   // ─────────────────────────────────────────────────────────────────────────
-  // MANAJEMEN PROGRES MODUL PENGGUNA (Tabel: user_module_progress)
-  // Sesuai standar SQLite Relasional & Siap Integrasi Backend Python
+  // DELEGATION METHODS (Backward Compatibility - Zero Breaking Changes)
+  // Seluruh pemanggil lama (AppProvider, screens, unit test) tetap berfungsi 100%
   // ─────────────────────────────────────────────────────────────────────────
 
-  /// Ambil seluruh progres modul untuk satu pengguna tertentu
-  Future<List<Map<String, dynamic>>> getUserModuleProgressList(int userId) async {
-    final db = await database;
-    if (db == null) return [];
-    try {
-      return await db.query(
-        'user_module_progress',
-        where: 'user_id = ?',
-        whereArgs: [userId],
-      );
-    } catch (e) {
-      debugPrint('Info query user_module_progress: $e');
-      return [];
-    }
-  }
-
-  /// Ambil progres satu modul spesifik untuk pengguna
-  Future<Map<String, dynamic>?> getUserModuleProgress(int userId, int moduleId) async {
-    final db = await database;
-    if (db == null) return null;
-    try {
-      final res = await db.query(
-        'user_module_progress',
-        where: 'user_id = ? AND module_id = ?',
-        whereArgs: [userId, moduleId],
-        limit: 1,
-      );
-      if (res.isNotEmpty) return res.first;
-    } catch (e) {
-      debugPrint('Info query single user_module_progress: $e');
-    }
-    return null;
-  }
-
-  /// Simpan atau perbarui progres modul pengguna ke SQLite (UPSERT)
+  // --- Module & Motif Delegation ---
+  Future<List<BatikMotifModel>> getAllMotifs() => moduleDao.getAllMotifs();
+  Future<int> upsertMotifs(List<Map<String, dynamic>> motifs) => moduleDao.upsertMotifs(motifs);
+  Future<int> upsertModules(List<Map<String, dynamic>> modules) => moduleDao.upsertModules(modules);
+  Future<int> deleteMotifById(int id) => moduleDao.deleteMotifById(id);
+  Future<List<ModuleModel>> getAllModules({int? userId, String? userEmail}) =>
+      moduleDao.getAllModules(userId: userId, userEmail: userEmail);
+  Future<ModuleContentModel?> getModuleContent(int moduleId) => moduleDao.getModuleContent(moduleId);
+  Future<void> updatePillarProgress(int userId, int moduleId, String pillar) =>
+      moduleDao.updatePillarProgress(userId, moduleId, pillar);
+  Future<List<Map<String, dynamic>>> getUserModuleProgressList(int userId, {String? userEmail}) =>
+      moduleDao.getUserModuleProgressList(userId, userEmail: userEmail);
+  Future<Map<String, dynamic>?> getUserModuleProgress(int userId, int moduleId) =>
+      moduleDao.getUserModuleProgress(userId, moduleId);
   Future<bool> upsertUserModuleProgress({
     required int userId,
     required int moduleId,
@@ -619,36 +399,118 @@ class DatabaseHelper {
     required bool galleryDone,
     required bool quizDone,
     required bool practiceDone,
-  }) async {
-    final db = await database;
-    if (db == null) return false;
-    try {
-      final now = DateTime.now().toIso8601String();
-      final status = progressPercent >= 100
-          ? 'completed'
-          : (progressPercent > 0 ? 'in_progress' : 'not_started');
-
-      await db.insert(
-        'user_module_progress',
-        {
-          'user_id': userId,
-          'module_id': moduleId,
-          'status': status,
-          'progress_percent': progressPercent,
-          'history_done': historyDone ? 1 : 0,
-          'character_done': characterDone ? 1 : 0,
-          'gallery_done': galleryDone ? 1 : 0,
-          'quiz_done': quizDone ? 1 : 0,
-          'practice_done': practiceDone ? 1 : 0,
-          'completed_at': progressPercent >= 100 ? now : null,
-          'last_accessed_at': now,
-        },
-        conflictAlgorithm: ConflictAlgorithm.replace,
+    int? quizScore,
+    int? practiceScore,
+    int passingScore = 70,
+    bool isPassed = false,
+    bool isSynced = false,
+  }) =>
+      moduleDao.upsertUserModuleProgress(
+        userId: userId,
+        moduleId: moduleId,
+        progressPercent: progressPercent,
+        historyDone: historyDone,
+        characterDone: characterDone,
+        galleryDone: galleryDone,
+        quizDone: quizDone,
+        practiceDone: practiceDone,
+        quizScore: quizScore,
+        practiceScore: practiceScore,
+        passingScore: passingScore,
+        isPassed: isPassed,
+        isSynced: isSynced,
       );
-      return true;
-    } catch (e) {
-      debugPrint('Info upsert user_module_progress: $e');
-      return false;
-    }
-  }
+
+  // --- Quiz & Practice Delegation ---
+  Future<List<QuizQuestionModel>> getQuizQuestions(int moduleId, {int limit = 10, bool shuffle = true}) =>
+      quizDao.getQuizQuestions(moduleId, limit: limit, shuffle: shuffle);
+  Future<void> saveQuizAttempt({
+    required int userId,
+    required int moduleId,
+    required int score,
+    required bool passed,
+    int totalQuestions = 10,
+    bool isSynced = false,
+  }) =>
+      quizDao.saveQuizAttempt(
+        userId: userId,
+        moduleId: moduleId,
+        score: score,
+        passed: passed,
+        totalQuestions: totalQuestions,
+        isSynced: isSynced,
+      );
+  Future<void> savePracticeAttempt({
+    required int userId,
+    required int moduleId,
+    int? topMotifId,
+    required double confidence,
+    required bool passed,
+    String? imagePath,
+    bool isSynced = false,
+  }) =>
+      quizDao.savePracticeAttempt(
+        userId: userId,
+        moduleId: moduleId,
+        topMotifId: topMotifId,
+        confidence: confidence,
+        passed: passed,
+        imagePath: imagePath,
+        isSynced: isSynced,
+      );
+  Future<List<ScanHistoryModel>> getScanHistories(int? userId, {String? userEmail}) =>
+      quizDao.getScanHistories(userId, userEmail: userEmail);
+  Future<List<Map<String, dynamic>>> getPracticeAttempts({
+    required int userId,
+    int? moduleId,
+  }) =>
+      quizDao.getPracticeAttempts(userId: userId, moduleId: moduleId);
+
+  // --- User Delegation ---
+  Future<bool> checkEmailExists(String email) => userDao.checkEmailExists(email);
+  Future<Map<String, dynamic>?> getUserByEmail(String email) => userDao.getUserByEmail(email);
+  Future<bool> updateUserPassword(String email, String newPasswordHash) =>
+      userDao.updateUserPassword(email, newPasswordHash);
+  Future<int> insertUser({
+    int? id,
+    required String name,
+    required String email,
+    required String passwordHash,
+    String? phone,
+    String? profileImagePath,
+  }) =>
+      userDao.insertUser(
+        id: id,
+        name: name,
+        email: email,
+        passwordHash: passwordHash,
+        phone: phone,
+        profileImagePath: profileImagePath,
+      );
+  Future<bool> updateUserProfile({
+    required int userId,
+    required String name,
+    required String email,
+    String? phone,
+    String? profileImagePath,
+  }) =>
+      userDao.updateUserProfile(
+        userId: userId,
+        name: name,
+        email: email,
+        phone: phone,
+        profileImagePath: profileImagePath,
+      );
+
+  // --- Offline Queue Delegation ---
+  Future<List<Map<String, dynamic>>> getUnsyncedQuizAttempts(int userId, {String? userEmail}) =>
+      offlineQueueDao.getUnsyncedQuizAttempts(userId, userEmail: userEmail);
+  Future<void> markQuizAttemptSynced(int id) => offlineQueueDao.markQuizAttemptSynced(id);
+  Future<List<Map<String, dynamic>>> getUnsyncedScans(int userId, {String? userEmail}) =>
+      offlineQueueDao.getUnsyncedScans(userId, userEmail: userEmail);
+  Future<void> markScanSynced(int id) => offlineQueueDao.markScanSynced(id);
+  Future<List<Map<String, dynamic>>> getUnsyncedUserModuleProgress(int userId, {String? userEmail}) =>
+      offlineQueueDao.getUnsyncedUserModuleProgress(userId, userEmail: userEmail);
+  Future<void> markUserModuleProgressSynced(int userId, int moduleId) =>
+      offlineQueueDao.markUserModuleProgressSynced(userId, moduleId);
 }
