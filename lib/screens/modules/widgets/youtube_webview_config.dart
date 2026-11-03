@@ -6,28 +6,31 @@ import 'package:webview_flutter_android/webview_flutter_android.dart';
 
 /// Konfigurasi pemutaran YouTube di dalam WebView aplikasi.
 ///
-/// Mengapa memakai halaman perantara (GitHub Pages)?
+/// **Mengapa perlu halaman perantara?**
 /// YouTube menolak pemutaran tertanam bila halaman tidak memiliki origin yang
-/// sah. WebView aplikasi tidak punya domain, sehingga selalu berakhir dengan:
-/// - galat **152** bila referer diisi `youtube.com`/kosong-tidak-valid,
+/// sah. WebView aplikasi tidak memiliki domain sehingga selalu berakhir dengan:
+/// - galat **152** bila origin/referer tidak valid atau `null`,
 /// - galat **153** bila referer tidak dikirim sama sekali.
 ///
-/// Dengan memuat `player.html` dari GitHub Pages, iframe YouTube mendapat
-/// referer domain HTTPS sungguhan sehingga pemutaran diterima.
+/// Karena itu pemutar memuat `docs/player.html` dari CDN statis yang menyajikan
+/// berkas dengan `Content-Type: text/html` (origin HTTPS sungguhan), sehingga
+/// iframe YouTube menerima referer yang sah dan dapat diputar.
 ///
-/// Bila halaman perantara belum tersedia (404 / gagal dimuat), pemutar otomatis
-/// beralih ke halaman tonton mobile YouTube agar video tetap bisa diputar
-/// tanpa meninggalkan aplikasi.
+/// Bila semua sumber gagal, pemutar beralih ke halaman tonton mobile YouTube
+/// agar video tetap dapat ditonton tanpa meninggalkan aplikasi.
 class YoutubeWebViewConfig {
   YoutubeWebViewConfig._();
 
-  /// Alamat halaman perantara di GitHub Pages.
-  /// Kosongkan string ini untuk langsung memakai halaman tonton mobile.
-  static const String embedPageUrl =
-      'https://kenali-batikmu.github.io/Kenali-Batikmu-Mobile/player.html';
+  /// Halaman perantara yang menyajikan `docs/player.html` sebagai HTML.
+  /// Gunakan cabang yang masih aktif; perbarui bila nama cabang berubah.
+  static const List<String> embedPageTemplates = [
+    'https://raw.githack.com/Kenali-Batikmu/Kenali-Batikmu-Mobile/hafizh/docs/player.html?v={id}',
+    'https://rawcdn.githack.com/Kenali-Batikmu/Kenali-Batikmu-Mobile/hafizh/docs/player.html?v={id}',
+  ];
 
-  /// Cadangan: halaman tonton mobile resmi YouTube.
-  static const String mobileWatchUrl = 'https://m.youtube.com/watch';
+  /// Cadangan terakhir: halaman tonton mobile resmi YouTube.
+  static const String mobileWatchTemplate =
+      'https://m.youtube.com/watch?v={id}';
 
   /// User-Agent peramban Chrome Android asli. UA bawaan WebView mengandung
   /// penanda "wv" yang membuat YouTube menolak pemutaran (galat 152).
@@ -35,13 +38,15 @@ class YoutubeWebViewConfig {
       'Mozilla/5.0 (Linux; Android 13; Pixel 7) AppleWebKit/537.36 '
       '(KHTML, like Gecko) Chrome/121.0.0.0 Mobile Safari/537.36';
 
-  static bool get hasEmbedPage => embedPageUrl.trim().isNotEmpty;
+  static int get embedSourceCount => embedPageTemplates.length;
 
-  static Uri embedPageUri(String videoId) =>
-      Uri.parse('$embedPageUrl?v=$videoId');
+  static Uri embedPageUri(int index, String videoId) => Uri.parse(
+        embedPageTemplates[index].replaceAll('{id}', videoId),
+      );
 
-  static Uri mobileWatchUri(String videoId) =>
-      Uri.parse('$mobileWatchUrl?v=$videoId');
+  static Uri mobileWatchUri(String videoId) => Uri.parse(
+        mobileWatchTemplate.replaceAll('{id}', videoId),
+      );
 
   /// Menyiapkan pengaturan WebView sebelum halaman dimuat.
   static Future<void> prepare(WebViewController controller) async {
@@ -64,18 +69,22 @@ class YoutubeWebViewConfig {
     }
   }
 
-  /// Memuat pemutar utama (halaman perantara bila tersedia).
-  static Future<void> load(WebViewController controller, String videoId) async {
+  /// Memuat halaman perantara ke-[index].
+  static Future<void> loadEmbedPage(
+    WebViewController controller,
+    int index,
+    String videoId,
+  ) async {
     await prepare(controller);
-    final uri = hasEmbedPage ? embedPageUri(videoId) : mobileWatchUri(videoId);
-    await controller.loadRequest(uri);
+    await controller.loadRequest(embedPageUri(index, videoId));
   }
 
-  /// Memuat cadangan halaman tonton mobile.
+  /// Memuat halaman tonton mobile YouTube sebagai cadangan terakhir.
   static Future<void> loadMobileWatch(
     WebViewController controller,
     String videoId,
   ) async {
+    await prepare(controller);
     await controller.loadRequest(mobileWatchUri(videoId));
   }
 }

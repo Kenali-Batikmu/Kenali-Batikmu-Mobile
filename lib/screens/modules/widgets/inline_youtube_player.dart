@@ -4,19 +4,20 @@ import 'package:webview_flutter/webview_flutter.dart';
 import '../../../core/theme/app_theme.dart';
 import 'youtube_webview_config.dart';
 
-/// Pemutar YouTube utama yang berjalan langsung di dalam aplikasi.
+/// Pemutar YouTube yang berjalan langsung di dalam aplikasi.
 ///
-/// Memuat halaman perantara dari GitHub Pages (referer domain sah), dan
-/// otomatis beralih ke halaman tonton mobile YouTube bila halaman perantara
-/// belum tersedia. Dengan begitu video tetap dapat diputar tanpa membuka
-/// aplikasi YouTube.
+/// Urutan sumber yang dicoba:
+/// 1. halaman perantara `docs/player.html` (origin HTTPS sah → embed diterima),
+/// 2. cermin CDN kedua bila yang pertama gagal,
+/// 3. halaman tonton mobile YouTube sebagai cadangan terakhir.
+///
+/// Jadi video tetap dapat diputar tanpa membuka aplikasi YouTube.
 class InlineYoutubePlayer extends StatefulWidget {
   final String videoId;
   final String title;
   final VoidCallback? onOpenFullscreen;
 
-  /// Bila true, pemutar mengisi seluruh ruang yang tersedia (mode layar penuh)
-  /// dan tidak dibatasi rasio 16:9.
+  /// Bila true, pemutar mengisi seluruh ruang tersedia (mode layar penuh).
   final bool fill;
 
   const InlineYoutubePlayer({
@@ -35,7 +36,8 @@ class _InlineYoutubePlayerState extends State<InlineYoutubePlayer> {
   WebViewController? _controller;
   bool _isLoading = true;
   bool _hasError = false;
-  bool _usingFallback = false;
+  bool _usingMobileWatch = false;
+  int _sourceIndex = 0;
 
   @override
   void initState() {
@@ -57,59 +59,90 @@ class _InlineYoutubePlayerState extends State<InlineYoutubePlayer> {
             if (mounted) setState(() => _isLoading = false);
           },
           onHttpError: (error) {
-            // Hanya tanggapi kegagalan halaman perantara GitHub Pages,
-            // bukan kegagalan sumber daya lain di dalam halaman.
             final uri = error.request?.uri;
             if (uri == null) return;
-            if (!YoutubeWebViewConfig.hasEmbedPage) return;
-            if (!uri.host.contains('github.io')) return;
-            _switchToFallback();
+            // Hanya kegagalan memuat halaman perantara yang ditindaklanjuti.
+            if (!uri.host.contains('githack.com')) return;
+            _advanceSource();
           },
           onWebResourceError: (error) {
             if (error.isForMainFrame != true) return;
-            _switchToFallback();
+            final failingUrl = error.url ?? '';
+            // Kegagalan sumber daya di dalam halaman embed diabaikan;
+            // yang ditangani hanya kegagalan navigasi halaman perantara.
+            if (failingUrl.contains('githack.com')) {
+              _advanceSource();
+              return;
+            }
+            if (_usingMobileWatch) {
+              _showError();
+            }
           },
         ),
       );
 
     _controller = controller;
-    _load();
+    _loadCurrentSource();
   }
 
-  /// Beralih ke halaman tonton mobile sekali saja, lalu tampilkan galat
-  /// yang bisa diketuk untuk memuat ulang bila cadangan pun gagal.
-  Future<void> _switchToFallback() async {
+  /// Pindah ke sumber berikutnya, lalu ke halaman tonton mobile, lalu galat.
+  Future<void> _advanceSource() async {
     if (!mounted) return;
-    if (!_usingFallback) {
-      _usingFallback = true;
+
+    if (!_usingMobileWatch &&
+        _sourceIndex + 1 < YoutubeWebViewConfig.embedSourceCount) {
+      _sourceIndex++;
+      await _loadCurrentSource();
+      return;
+    }
+
+    if (!_usingMobileWatch) {
+      _usingMobileWatch = true;
       try {
-        await YoutubeWebViewConfig.loadMobileWatch(_controller!, widget.videoId);
+        await YoutubeWebViewConfig.loadMobileWatch(
+          _controller!,
+          widget.videoId,
+        );
         return;
       } catch (_) {}
     }
-    if (mounted) {
-      setState(() {
-        _isLoading = false;
-        _hasError = true;
-      });
-    }
+
+    _showError();
   }
 
-  Future<void> _load() async {
+  void _showError() {
+    if (!mounted) return;
+    setState(() {
+      _isLoading = false;
+      _hasError = true;
+    });
+  }
+
+  Future<void> _loadCurrentSource() async {
     if (mounted) {
       setState(() {
         _isLoading = true;
         _hasError = false;
       });
     }
-    _usingFallback = false;
     try {
       final controller = _controller;
       if (controller == null) return;
-      await YoutubeWebViewConfig.load(controller, widget.videoId);
+      await YoutubeWebViewConfig.loadEmbedPage(
+        controller,
+        _sourceIndex,
+        widget.videoId,
+      );
     } catch (_) {
-      await _switchToFallback();
+      await _advanceSource();
     }
+  }
+
+  /// Memuat ulang dari sumber pertama (dipakai tombol coba lagi).
+  Future<void> _retry() async {
+    _sourceIndex = 0;
+    _usingMobileWatch = false;
+    await _loadCurrentSource();
   }
 
   @override
@@ -117,59 +150,59 @@ class _InlineYoutubePlayerState extends State<InlineYoutubePlayer> {
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
     final player = ColoredBox(
-          color: Colors.black,
-          child: Stack(
-            children: [
-              if (_hasError)
-                _buildErrorState(isDark)
-              else if (_controller != null)
-                WebViewWidget(controller: _controller!),
+      color: Colors.black,
+      child: Stack(
+        children: [
+          if (_hasError)
+            _buildErrorState(isDark)
+          else if (_controller != null)
+            WebViewWidget(controller: _controller!),
 
-              if (_isLoading && !_hasError)
-                const ColoredBox(
-                  color: Colors.black54,
-                  child: Center(
-                    child: SizedBox(
-                      width: 28,
-                      height: 28,
-                      child: CircularProgressIndicator(
-                        strokeWidth: 2.5,
-                        color: AppTheme.accentGold,
-                      ),
-                    ),
+          if (_isLoading && !_hasError)
+            const ColoredBox(
+              color: Colors.black54,
+              child: Center(
+                child: SizedBox(
+                  width: 28,
+                  height: 28,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2.5,
+                    color: AppTheme.accentGold,
                   ),
                 ),
+              ),
+            ),
 
-              if (!_hasError && !_isLoading)
-                Positioned(
-                  top: 8,
-                  right: 8,
-                  child: Material(
-                    color: Colors.black.withValues(alpha: 0.55),
-                    borderRadius: BorderRadius.circular(20),
-                    child: InkWell(
-                      borderRadius: BorderRadius.circular(20),
-                      onTap: widget.onOpenFullscreen,
-                      child: const Padding(
-                        padding: EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Icon(Icons.fullscreen_rounded, color: Colors.white, size: 16),
-                            SizedBox(width: 4),
-                            Text(
-                              'Layar penuh',
-                              style: TextStyle(color: Colors.white, fontSize: 10),
-                            ),
-                          ],
+          if (!_hasError && !_isLoading)
+            Positioned(
+              top: 8,
+              right: 8,
+              child: Material(
+                color: Colors.black.withValues(alpha: 0.55),
+                borderRadius: BorderRadius.circular(20),
+                child: InkWell(
+                  borderRadius: BorderRadius.circular(20),
+                  onTap: widget.onOpenFullscreen,
+                  child: const Padding(
+                    padding: EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(Icons.fullscreen_rounded, color: Colors.white, size: 16),
+                        SizedBox(width: 4),
+                        Text(
+                          'Layar penuh',
+                          style: TextStyle(color: Colors.white, fontSize: 10),
                         ),
-                      ),
+                      ],
                     ),
                   ),
                 ),
-            ],
-          ),
-        );
+              ),
+            ),
+        ],
+      ),
+    );
 
     if (widget.fill) return player;
 
@@ -181,7 +214,7 @@ class _InlineYoutubePlayerState extends State<InlineYoutubePlayer> {
 
   Widget _buildErrorState(bool isDark) {
     return GestureDetector(
-      onTap: _load,
+      onTap: _retry,
       child: Stack(
         fit: StackFit.expand,
         children: [
