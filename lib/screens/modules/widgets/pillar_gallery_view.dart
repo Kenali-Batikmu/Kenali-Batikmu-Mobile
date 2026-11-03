@@ -20,6 +20,8 @@ class PillarGalleryView extends StatelessWidget {
     final content = module.content;
     if (content == null) return const Center(child: CircularProgressIndicator());
     final galeriList = content.galeri;
+    final hero = galeriList.isNotEmpty ? galeriList.first : null;
+    final others = galeriList.length > 1 ? galeriList.sublist(1) : <GaleriModel>[];
 
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
@@ -28,106 +30,181 @@ class PillarGalleryView extends StatelessWidget {
         children: [
           Text(
             'Galeri ${module.title}',
-            style: AppTheme.satoshi(fontSize: 22, fontWeight: FontWeight.bold),
+            style: AppTheme.satoshi(fontSize: 22, fontWeight: FontWeight.bold, height: 1.25),
           ),
           const SizedBox(height: 6),
-          Text(
-            'Dokumentasi visual karya sentana dalem keraton dan pengrajin batik tulis.',
-            style: AppTheme.inter(fontSize: 13, color: isDark ? Colors.white70 : AppTheme.textSecondary),
-          ),
-          const SizedBox(height: 18),
-
-          // Banner Hero Galeri
-          GestureDetector(
-            onTap: () {
-              final heroImg = (galeriList.isNotEmpty && galeriList[0].imageUrl.isNotEmpty)
-                  ? galeriList[0].imageUrl
-                  : module.coverImage;
-              final heroCap = galeriList.isNotEmpty ? galeriList[0].caption : 'Arsip Kain Batik Tulis';
-              onZoomImage(heroImg ?? '', heroCap);
-            },
-            child: Container(
-              height: 190,
-              width: double.infinity,
-              decoration: BoxDecoration(
-                color: const Color(0xFF382516),
-                borderRadius: BorderRadius.circular(22),
-              ),
-              child: Stack(
-                children: [
-                  Positioned.fill(
-                    child: galeriList.isNotEmpty && galeriList[0].imageUrl.isNotEmpty
-                        ? ClipRRect(
-                            borderRadius: BorderRadius.circular(22),
-                            child: Image.asset(galeriList[0].imageUrl, fit: BoxFit.cover, color: Colors.black.withValues(alpha: 0.2), colorBlendMode: BlendMode.darken),
-                          )
-                        : const SizedBox(),
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  'Dokumentasi visual kain, detail motif, dan proses membatik.',
+                  style: AppTheme.inter(
+                    fontSize: 13,
+                    color: isDark ? Colors.white70 : AppTheme.textSecondary,
                   ),
-                  Center(
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        const Icon(Icons.photo_library, size: 54, color: AppTheme.accentGold),
-                        const SizedBox(height: 8),
-                        Text('Arsip Kain Batik Tulis', style: AppTheme.satoshi(fontSize: 14, fontWeight: FontWeight.bold, color: Colors.white)),
-                        const SizedBox(height: 4),
-                        Text('Ketuk untuk perbesar detail', style: AppTheme.inter(fontSize: 11, color: Colors.white70)),
-                      ],
-                    ),
-                  ),
-                ],
+                ),
               ),
-            ),
+              const SizedBox(width: 8),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                decoration: BoxDecoration(
+                  color: AppTheme.primary.withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                child: Text(
+                  '${galeriList.length} Foto',
+                  style: const TextStyle(
+                    color: AppTheme.primary,
+                    fontSize: 10,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
+            ],
           ),
           const SizedBox(height: 14),
 
-          // Grid Foto Dokumentasi Proses Membatik
-          GridView.builder(
-            itemCount: galeriList.length > 1 ? galeriList.length - 1 : 0,
-            shrinkWrap: true,
-            physics: const NeverScrollableScrollPhysics(),
-            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-              crossAxisCount: 2,
-              mainAxisSpacing: 12,
-              crossAxisSpacing: 12,
-              childAspectRatio: 1.1,
+          if (hero != null)
+            _GalleryTile(
+              imageUrl: hero.imageUrl,
+              caption: hero.caption,
+              isDark: isDark,
+              height: 200,
+              onTap: () => onZoomImage(hero.imageUrl, hero.caption),
             ),
-            itemBuilder: (context, index) {
-              final galeri = galeriList[index + 1];
-              return _buildGaleriItem(galeri.caption, galeri.imageUrl);
-            },
-          ),
+
+          if (others.isNotEmpty) ...[
+            const SizedBox(height: 12),
+            GridView.builder(
+              itemCount: others.length,
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                crossAxisCount: 2,
+                mainAxisSpacing: 12,
+                crossAxisSpacing: 12,
+                childAspectRatio: 0.92,
+              ),
+              itemBuilder: (context, index) {
+                final galeri = others[index];
+                return _GalleryTile(
+                  imageUrl: galeri.imageUrl,
+                  caption: galeri.caption,
+                  isDark: isDark,
+                  height: null,
+                  onTap: () => onZoomImage(galeri.imageUrl, galeri.caption),
+                );
+              },
+            ),
+          ],
+          const SizedBox(height: 8),
         ],
       ),
     );
   }
+}
 
-  Widget _buildGaleriItem(String label, String imageUrl) {
+class _GalleryTile extends StatelessWidget {
+  final String imageUrl;
+  final String caption;
+  final bool isDark;
+  final double? height;
+  final VoidCallback onTap;
+
+  const _GalleryTile({
+    required this.imageUrl,
+    required this.caption,
+    required this.isDark,
+    required this.height,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final hasImage = imageUrl.isNotEmpty;
+
     return GestureDetector(
-      onTap: () => onZoomImage(imageUrl, label),
+      onTap: onTap,
       child: Container(
+        height: height,
         decoration: BoxDecoration(
-          color: const Color(0xFF2B231D),
+          color: isDark ? AppTheme.darkSurface : const Color(0xFF382516),
           borderRadius: BorderRadius.circular(18),
           border: Border.all(color: isDark ? AppTheme.darkBorder : AppTheme.border),
         ),
+        clipBehavior: Clip.antiAlias,
         child: Stack(
+          fit: StackFit.expand,
           children: [
+            if (hasImage)
+              Image.asset(
+                imageUrl,
+                fit: BoxFit.cover,
+                errorBuilder: (context, error, stack) => _placeholder(),
+              )
+            else
+              _placeholder(),
+
             Positioned.fill(
-              child: imageUrl.isNotEmpty
-                  ? ClipRRect(
-                      borderRadius: BorderRadius.circular(18),
-                      child: Image.asset(imageUrl, fit: BoxFit.cover, color: Colors.black.withValues(alpha: 0.3), colorBlendMode: BlendMode.darken),
-                    )
-                  : const Center(child: Icon(Icons.image, size: 38, color: Colors.white70)),
+              child: DecoratedBox(
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.topCenter,
+                    end: Alignment.bottomCenter,
+                    colors: [
+                      Colors.transparent,
+                      Colors.black.withValues(alpha: 0.15),
+                      Colors.black.withValues(alpha: 0.72),
+                    ],
+                    stops: const [0.45, 0.68, 1.0],
+                  ),
+                ),
+              ),
             ),
-            Center(
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 8.0),
-                child: Text(label, textAlign: TextAlign.center, style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.bold)),
+
+            Positioned(
+              top: 10,
+              right: 10,
+              child: Container(
+                padding: const EdgeInsets.all(5),
+                decoration: BoxDecoration(
+                  color: Colors.black.withValues(alpha: 0.45),
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(Icons.zoom_in_rounded, color: Colors.white, size: 15),
+              ),
+            ),
+
+            Positioned(
+              left: 12,
+              right: 12,
+              bottom: 10,
+              child: Text(
+                caption,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                style: AppTheme.inter(
+                  fontSize: 11.5,
+                  height: 1.3,
+                  fontWeight: FontWeight.w600,
+                  color: Colors.white,
+                ),
               ),
             ),
           ],
+        ),
+      ),
+    );
+  }
+
+  Widget _placeholder() {
+    return Container(
+      color: isDark ? AppTheme.darkSurface : const Color(0xFF382516),
+      child: Center(
+        child: Icon(
+          Icons.image_outlined,
+          size: 34,
+          color: AppTheme.accentGold.withValues(alpha: 0.5),
         ),
       ),
     );
