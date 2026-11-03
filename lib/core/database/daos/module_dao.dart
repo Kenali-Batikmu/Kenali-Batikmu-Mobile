@@ -56,52 +56,74 @@ class ModuleDao {
     final db = await _getDb();
     if (db == null || modules.isEmpty) return 0;
     try {
-      final batch = db.batch();
       const defaultCovers = {
-        1: 'assets/images/modules/Batik-Betawi.jpeg',
-        2: 'assets/images/modules/Batik-Bokor-Kencono.jpeg',
-        3: 'assets/images/modules/Batik-Buketan.jpeg',
-        4: 'assets/images/modules/Batik-Dayak.jpeg',
-        5: 'assets/images/modules/Batik-Jlamprang.jpeg',
-        6: 'assets/images/modules/Batik-Kawung.jpeg',
-        7: 'assets/images/modules/Batik-Liong.jpeg',
-        8: 'assets/images/modules/Batik-Mega-Mendung.jpeg',
-        9: 'assets/images/modules/Batik-Parang.jpeg',
-        10: 'assets/images/modules/Batik-Sekar-Jagad.jpeg',
-        11: 'assets/images/modules/Batik-SidoLuhur.jpeg',
-        12: 'assets/images/modules/Batik-SidoMukti.jpeg',
-        13: 'assets/images/modules/Batik-SidoMulyo.jpeg',
-        14: 'assets/images/modules/Batik-Singa-Barong.jpeg',
-        15: 'assets/images/modules/Batik-Srikaton.jpeg',
-        16: 'assets/images/modules/Batik-Tribusono.jpeg',
-        17: 'assets/images/modules/Batik-Tujuh-Rupa.jpeg',
-        18: 'assets/images/modules/Batik-Truntum.jpeg',
-        19: 'assets/images/modules/Batik-Wahyu-Tumurun.jpeg',
-        20: 'assets/images/modules/Batik-Wirasat.jpeg',
+        1: 'assets/images/batik/betawi_cover.jpg',
+        2: 'assets/images/batik/bokor_kencono_cover.jpg',
+        3: 'assets/images/batik/buketan_cover.jpg',
+        4: 'assets/images/batik/dayak_cover.jpg',
+        5: 'assets/images/batik/jlamprang_cover.jpg',
+        6: 'assets/images/batik/kawung_cover.jpg',
+        7: 'assets/images/batik/liong_cover.jpg',
+        8: 'assets/images/batik/mega_mendung_cover.jpg',
+        9: 'assets/images/batik/parang_cover.jpg',
+        10: 'assets/images/batik/sekarjagad_cover.jpg',
+        11: 'assets/images/batik/sidoluhur_cover.jpg',
+        12: 'assets/images/batik/sidomukti_cover.jpg',
+        13: 'assets/images/batik/sidomulyo_cover.jpg',
+        14: 'assets/images/batik/singa_barong_cover.jpg',
+        15: 'assets/images/batik/srikaton_cover.jpg',
+        16: 'assets/images/batik/tribusono_cover.jpg',
+        17: 'assets/images/batik/tujuh_rupa_cover.jpg',
+        18: 'assets/images/batik/tuntrum_cover.jpg',
+        19: 'assets/images/batik/wahyu_tumurun_cover.jpg',
+        20: 'assets/images/batik/wirasat_cover.jpg',
       };
+
+      final existingRows = await db.query('modules');
+      final existingById = <int, Map<String, Object?>>{
+        for (final row in existingRows) (row['id'] as int): row,
+      };
+
+      String? nonEmpty(dynamic value) {
+        final text = value?.toString().trim() ?? '';
+        return text.isEmpty ? null : text;
+      }
 
       for (var m in modules) {
         final id = m['id'] as int?;
-        final cover = (m['cover_image'] != null && (m['cover_image'] as String).isNotEmpty)
-            ? m['cover_image']
-            : defaultCovers[id];
+        if (id == null) continue;
+        final existing = existingById[id];
 
-        batch.insert(
+        final incomingVideo = nonEmpty(m['video_url']);
+        final incomingCover = nonEmpty(m['cover_image']);
+
+        final video = incomingVideo ??
+            nonEmpty(existing?['video_url']);
+        final cover = incomingCover ??
+            nonEmpty(existing?['cover_image']) ??
+            defaultCovers[id];
+        final title = nonEmpty(m['title']) ??
+            nonEmpty(existing?['title']) ??
+            'Modul $id';
+        final description = nonEmpty(m['description']) ??
+            nonEmpty(existing?['description']) ??
+            '';
+
+        await db.insert(
           'modules',
           {
-            'id': m['id'],
-            'motif_id': m['motif_id'],
-            'title': m['title'],
-            'description': m['description'],
+            'id': id,
+            'motif_id': m['motif_id'] ?? existing?['motif_id'] ?? id,
+            'title': title,
+            'description': description,
             'cover_image': cover,
-            'video_url': m['video_url'],
-            'passing_score': m['passing_score'] ?? 70,
-            'order_no': m['order_no'],
+            'video_url': video,
+            'passing_score': m['passing_score'] ?? existing?['passing_score'] ?? 70,
+            'order_no': m['order_no'] ?? existing?['order_no'] ?? id,
           },
           conflictAlgorithm: ConflictAlgorithm.replace,
         );
       }
-      await batch.commit(noResult: true);
       return modules.length;
     } catch (e) {
       debugPrint('ModuleDao upsertModules error: $e');
@@ -246,6 +268,18 @@ class ModuleDao {
 
       final sejarahRows = contents.where((c) => c['pillar'] == 'sejarah_filosofi').toList();
       final karakterRows = contents.where((c) => c['pillar'] == 'karakteristik').toList();
+      final sumberRujukan = <String>[];
+      for (final row in sejarahRows) {
+        if (((row['title'] as String?) ?? '').trim() == 'Sumber & Rujukan') {
+          sumberRujukan.addAll(
+            (((row['body'] as String?) ?? '')
+                    .split('\n')
+                    .map((e) => e.trim())
+                    .where((e) => e.isNotEmpty))
+                .toList(),
+          );
+        }
+      }
 
       String bodyAt(List<Map<String, Object?>> rows, int index) {
         if (index < rows.length) return (rows[index]['body'] as String?) ?? '';
@@ -339,6 +373,7 @@ class ModuleDao {
           pakemList: pakemList,
         ),
         galeri: galeri,
+        sumberRujukan: sumberRujukan,
       );
     } catch (e) {
       debugPrint('ModuleDao getModuleContent error: $e');

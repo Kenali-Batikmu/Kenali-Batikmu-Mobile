@@ -99,7 +99,7 @@ class DatabaseHelper {
 
     return await openDatabase(
       path,
-      version: 5,
+      version: 6,
       onCreate: _createDB,
       onUpgrade: (db, oldVersion, newVersion) async {
         if (oldVersion < 3) {
@@ -114,6 +114,9 @@ class DatabaseHelper {
           } catch (_) {}
         }
         if (oldVersion < 5) {
+          await _reseedMasterContent(db);
+        }
+        if (oldVersion < 6) {
           await _reseedMasterContent(db);
         }
         await _ensureSeedData(db);
@@ -296,6 +299,41 @@ class DatabaseHelper {
         );
       } catch (e) {
         debugPrint('DatabaseHelper _ensureSeedData cover patch: $e');
+      }
+    }
+
+    // Pastikan tautan video edukasi tiap modul tidak pernah kosong akibat
+    // sinkronisasi cloud (nilai NULL dari server tidak boleh menghapus data kurasi lokal)
+    const moduleVideoUrls = {
+      1: 'https://www.youtube.com/watch?v=rfa_O5Bv1iw',
+      2: 'https://www.youtube.com/watch?v=jtdrACMdNjg',
+      3: 'https://www.youtube.com/watch?v=Q_j5qLDAGPo',
+      4: 'https://www.youtube.com/watch?v=7QTSrCcc3iU',
+      5: 'https://www.youtube.com/watch?v=0Isdn3f5SXE',
+      6: 'https://www.youtube.com/watch?v=wMo4s5Ja4e4',
+      7: 'https://www.youtube.com/watch?v=RtRIOeKEWi0',
+      8: 'https://www.youtube.com/watch?v=aetXWgzqI88',
+      9: 'https://www.youtube.com/watch?v=iyh4W5en-hk',
+      10: 'https://www.youtube.com/watch?v=EBfSz2tlmqQ',
+      11: 'https://www.youtube.com/watch?v=fCXqQKYqsX4',
+      12: 'https://www.youtube.com/watch?v=8sBgN7Mvz_A',
+      13: 'https://www.youtube.com/watch?v=dqzFIu002NM',
+      14: 'https://www.youtube.com/watch?v=GN1C21aeYHo',
+      15: 'https://www.youtube.com/watch?v=5WA38GD0HUg',
+      16: 'https://www.youtube.com/watch?v=o8bI9dauR0Q',
+      17: 'https://www.youtube.com/watch?v=_aVvMX2dXCE',
+      18: 'https://www.youtube.com/watch?v=zoC_dYfpdiA',
+      19: 'https://www.youtube.com/watch?v=Cq6NxsuzXfc',
+      20: 'https://www.youtube.com/watch?v=ek-N7hAX1R8',
+    };
+    for (final entry in moduleVideoUrls.entries) {
+      try {
+        await db.rawUpdate(
+          'UPDATE modules SET video_url = ? WHERE id = ? AND (video_url IS NULL OR TRIM(video_url) = ?)',
+          [entry.value, entry.key, ''],
+        );
+      } catch (e) {
+        debugPrint('DatabaseHelper _ensureSeedData video patch: $e');
       }
     }
   }
