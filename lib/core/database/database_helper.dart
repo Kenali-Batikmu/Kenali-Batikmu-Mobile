@@ -99,7 +99,7 @@ class DatabaseHelper {
 
     return await openDatabase(
       path,
-      version: 4,
+      version: 5,
       onCreate: _createDB,
       onUpgrade: (db, oldVersion, newVersion) async {
         if (oldVersion < 3) {
@@ -112,6 +112,9 @@ class DatabaseHelper {
               debugPrint('DatabaseHelper: Berhasil upgrade database lokal ke 20 modul.');
             }
           } catch (_) {}
+        }
+        if (oldVersion < 5) {
+          await _reseedMasterContent(db);
         }
         await _ensureSeedData(db);
         await _ensureQuizQuestionsSeeded(db);
@@ -161,6 +164,77 @@ class DatabaseHelper {
     }
   }
 
+  /// Memuat ulang master data (modul, motif, konten pilar, galeri) dari asset
+  /// tanpa menghapus akun maupun progres belajar pengguna.
+  Future<void> _reseedMasterContent(Database db) async {
+    try {
+      final dbPath = await getDatabasesPath();
+      final tempPath = join(dbPath, 'kenali_batikmu_reseed_temp.db');
+      final ByteData data = await rootBundle.load('assets/database/kenali_batikmu.db');
+      final List<int> bytes = data.buffer.asUint8List(data.offsetInBytes, data.lengthInBytes);
+      final tempFile = File(tempPath);
+      await tempFile.writeAsBytes(bytes, flush: true);
+
+      final seedDb = await openReadOnlyDatabase(tempPath);
+      try {
+        await db.execute('UPDATE modules SET order_no = order_no + 1000');
+
+        final modules = await seedDb.query('modules');
+        for (final m in modules) {
+          await db.update(
+            'modules',
+            {
+              'title': m['title'],
+              'description': m['description'],
+              'cover_image': m['cover_image'],
+              'video_url': m['video_url'],
+              'passing_score': m['passing_score'],
+              'order_no': m['order_no'],
+            },
+            where: 'id = ?',
+            whereArgs: [m['id']],
+          );
+        }
+
+        final motifs = await seedDb.query('batik_motifs');
+        for (final m in motifs) {
+          await db.update(
+            'batik_motifs',
+            {
+              'name': m['name'],
+              'origin_region': m['origin_region'],
+              'short_description': m['short_description'],
+              'thumbnail_url': m['thumbnail_url'],
+            },
+            where: 'id = ?',
+            whereArgs: [m['id']],
+          );
+        }
+
+        await db.delete('module_contents');
+        final contents = await seedDb.query('module_contents');
+        for (final c in contents) {
+          await db.insert('module_contents', c);
+        }
+
+        await db.delete('module_gallery_images');
+        final gallery = await seedDb.query('module_gallery_images');
+        for (final g in gallery) {
+          await db.insert('module_gallery_images', g);
+        }
+
+        debugPrint('DatabaseHelper: Master data 20 modul berhasil disegarkan dari asset.');
+      } finally {
+        await seedDb.close();
+        if (tempFile.existsSync()) {
+          tempFile.deleteSync();
+        }
+      }
+    } catch (e) {
+      debugPrint('DatabaseHelper _reseedMasterContent error: $e');
+    }
+  }
+
   Future<void> _ensureSeedData(Database db) async {
     // Pastikan kolom is_synced tersedia di tabel transaksi lokal untuk antrean offline
     for (var table in ['quiz_attempts', 'scans', 'user_module_progress']) {
@@ -192,26 +266,26 @@ class DatabaseHelper {
     // Patch cover_image untuk semua 20 modul batik dari assets lokal
     // Setiap kali app dibuka, pastikan path cover_image sudah benar (UPSERT aman)
     const moduleCoverImages = {
-      1:  'assets/images/modules/Batik-Betawi.jpeg',
-      2:  'assets/images/modules/Batik-Bokor-Kencono.jpeg',
-      3:  'assets/images/modules/Batik-Buketan.jpeg',
-      4:  'assets/images/modules/Batik-Dayak.jpeg',
-      5:  'assets/images/modules/Batik-Jlamprang.jpeg',
-      6:  'assets/images/modules/Batik-Kawung.jpeg',
-      7:  'assets/images/modules/Batik-Liong.jpeg',
-      8:  'assets/images/modules/Batik-Mega-Mendung.jpeg',
-      9:  'assets/images/modules/Batik-Parang.jpeg',
-      10: 'assets/images/modules/Batik-Sekar-Jagad.jpeg',
-      11: 'assets/images/modules/Batik-SidoLuhur.jpeg',
-      12: 'assets/images/modules/Batik-SidoMukti.jpeg',
-      13: 'assets/images/modules/Batik-SidoMulyo.jpeg',
-      14: 'assets/images/modules/Batik-Singa-Barong.jpeg',
-      15: 'assets/images/modules/Batik-Srikaton.jpeg',
-      16: 'assets/images/modules/Batik-Tribusono.jpeg',
-      17: 'assets/images/modules/Batik-Tujuh-Rupa.jpeg',
-      18: 'assets/images/modules/Batik-Truntum.jpeg',
-      19: 'assets/images/modules/Batik-Wahyu-Tumurun.jpeg',
-      20: 'assets/images/modules/Batik-Wirasat.jpeg',
+      1:  'assets/images/batik/betawi_cover.jpg',
+      2:  'assets/images/batik/bokor_kencono_cover.jpg',
+      3:  'assets/images/batik/buketan_cover.jpg',
+      4:  'assets/images/batik/dayak_cover.jpg',
+      5:  'assets/images/batik/jlamprang_cover.jpg',
+      6:  'assets/images/batik/kawung_cover.jpg',
+      7:  'assets/images/batik/liong_cover.jpg',
+      8:  'assets/images/batik/mega_mendung_cover.jpg',
+      9:  'assets/images/batik/parang_cover.jpg',
+      10: 'assets/images/batik/sekarjagad_cover.jpg',
+      11: 'assets/images/batik/sidoluhur_cover.jpg',
+      12: 'assets/images/batik/sidomukti_cover.jpg',
+      13: 'assets/images/batik/sidomulyo_cover.jpg',
+      14: 'assets/images/batik/singa_barong_cover.jpg',
+      15: 'assets/images/batik/srikaton_cover.jpg',
+      16: 'assets/images/batik/tribusono_cover.jpg',
+      17: 'assets/images/batik/tujuh_rupa_cover.jpg',
+      18: 'assets/images/batik/tuntrum_cover.jpg',
+      19: 'assets/images/batik/wahyu_tumurun_cover.jpg',
+      20: 'assets/images/batik/wirasat_cover.jpg',
     };
     for (final entry in moduleCoverImages.entries) {
       try {
