@@ -1,9 +1,12 @@
+import 'dart:async';
+
 import 'package:flutter/foundation.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:youtube_player_iframe/youtube_player_iframe.dart';
+import 'package:webview_flutter/webview_flutter.dart' show WebViewCookieManager;
 import '../../core/theme/app_theme.dart';
 import '../../models/app_models.dart';
 import '../../providers/app_provider.dart';
@@ -23,6 +26,33 @@ class _ModuleDetailScreenState extends State<ModuleDetailScreen> {
   late int _activeStep; 
   late PageController _pageController;
   YoutubePlayerController? _youtubeController;
+  StreamSubscription<YoutubePlayerValue>? _youtubeStateSub;
+  bool _youtubeFailed = false;
+  bool _youtubeRetried = false;
+  int _youtubeGeneration = 0;
+  String? _youtubeVideoId;
+
+  // Badge motif disesuaikan asal-usul tiap batik (bukan semua 'larangan':
+  // pesisir Pekalongan/Lasem, Betawi, dan Dayak tidak memakai paugeran larangan keraton)
+  String _motifBadgeLabel() {
+    return switch (widget.module.title) {
+      'Batik Sido Luhur' ||
+      'Batik Sido Mukti' ||
+      'Batik Sido Mulyo' ||
+      'Batik Wahyu Tumurun' ||
+      'Batik Kawung' ||
+      'Batik Parang (Parang Rusak)' => 'Motif Larangan Keraton Mataram',
+      'Batik Singa Barong' => 'Motif Kraton Cirebon',
+      'Batik Mega Mendung' => 'Motif Klasik Cirebon',
+      'Batik Tujuh Rupa' => 'Motif Klasik Pesisir Pekalongan',
+      'Batik Jlamprang' => 'Motif Klasik Pesisir Pekalongan',
+      'Batik Buketan' => 'Motif Pesisir Indo-Eropa Pekalongan',
+      'Batik Betawi' => 'Motif Khas Betawi',
+      'Batik Dayak (Benang Bintik)' => 'Motif Khas Kalimantan Tengah',
+      'Batik Liong' => 'Motif Klasik Pesisiran',
+      _ => 'Motif Klasik Keraton Surakarta',
+    };
+  }
 
   @override
   void initState() {
@@ -58,27 +88,92 @@ class _ModuleDetailScreenState extends State<ModuleDetailScreen> {
       return;
     }
 
+    _youtubeVideoId = parsedId.trim();
+    _youtubeFailed = false;
+
     _youtubeController = YoutubePlayerController.fromVideoId(
-      videoId: parsedId.trim(),
+      videoId: _youtubeVideoId!,
       params: const YoutubePlayerParams(
         showControls: true,
         showFullscreenButton: true,
         mute: false,
         loop: false,
         enableJavaScript: true,
+        // Fix error 152-4: YouTube (sejak Agu 2025) menolak embed dengan
+        // identitas origin https://www.youtube.com (default package).
         origin: 'https://www.youtube-nocookie.com',
       ),
     );
+
+    // Tangkap error dari player (152/150 = embed diblokir, 100 = video dihapus,
+    // 101 = embed not allowed). Percobaan pertama: buat ulang seluruh player
+    // dengan cookie WebView yang dibersihkan dipercaya merupakan error ter-cached
+    // (android-youtube-player#1243). Gagal lagi -> fallback thumbnail.
+    _youtubeStateSub = _youtubeController!.listen((value) {
+      if (value.error == YoutubeError.none) return;
+      if (_youtubeFailed) return;
+
+      if (!_youtubeRetried) {
+        _youtubeRetried = true;
+        _recreateYoutubePlayer();
+        return;
+      }
+
+      if (mounted) setState(() => _youtubeFailed = true);
+    });
+  }
+
+  /// Membuat ulang controller + widget player dari nol agar HTML player
+  /// (dengan origin & cookie baru) benar-benar dimuat ulang.
+  void _recreateYoutubePlayer() {
+    final oldController = _youtubeController;
+    final oldSub = _youtubeStateSub;
+
+    _youtubeStateSub = null;
+    _youtubeController = null;
+    _youtubeGeneration++;
+
+    WebViewCookieManager().clearCookies();
+    _initYoutubePlayer();
+
+    // Tutup controller lama SETELAH frame baru jalan (widget lama sudah dilepas).
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      await oldSub?.cancel();
+      await oldController?.close();
+    });
+
+    if (mounted) setState(() {});
+  }
+
+  Future<void> _openYoutubeExternal(String url) async {
+    final uri = Uri.tryParse(url);
+    if (uri != null) {
+      try {
+        await launchUrl(uri, mode: LaunchMode.externalApplication);
+      } catch (_) {}
+    }
   }
 
   @override
   void dispose() {
+    _youtubeStateSub?.cancel();
     _pageController.dispose();
     _youtubeController?.close();
     super.dispose();
   }
 
-  void _showZoomImageDialog(BuildContext context, bool isDark) {
+  void _showZoomImageDialog(
+    BuildContext context,
+    bool isDark, {
+    String? imageUrl,
+    String? title,
+    String? subtitle,
+  }) {
+    final imageToDisplay = (imageUrl != null && imageUrl.isNotEmpty)
+        ? imageUrl
+        : widget.module.coverImage;
+    final dialogTitle = title ?? widget.module.title;
+
     showDialog(
       context: context,
       builder: (ctx) {
@@ -90,13 +185,16 @@ class _ModuleDetailScreenState extends State<ModuleDetailScreen> {
               padding: const EdgeInsets.all(20),
               child: Column(
                 mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
                       Expanded(
                         child: Text(
-                          'Detail Motif Batik',
+                          dialogTitle,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
                           style: AppTheme.satoshi(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.white),
                         ),
                       ),
@@ -108,6 +206,15 @@ class _ModuleDetailScreenState extends State<ModuleDetailScreen> {
                       ),
                     ],
                   ),
+                  if (subtitle != null && subtitle.isNotEmpty) ...[
+                    const SizedBox(height: 4),
+                    Text(
+                      subtitle,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: AppTheme.inter(fontSize: 12, color: Colors.white70),
+                    ),
+                  ],
                   const SizedBox(height: 16),
                   Container(
                     height: 320,
@@ -117,11 +224,24 @@ class _ModuleDetailScreenState extends State<ModuleDetailScreen> {
                       borderRadius: BorderRadius.circular(18),
                       border: Border.all(color: AppTheme.accentGold.withValues(alpha: 0.6)),
                     ),
+                    clipBehavior: Clip.antiAlias,
                     child: Stack(
                       alignment: Alignment.center,
                       children: [
-                        Icon(Icons.waves, size: 160, color: Colors.white.withValues(alpha: 0.2)),
-                        // Gambar aktual bisa ditaruh di sini nantinya dengan Image.asset(...)
+                        if (imageToDisplay != null && imageToDisplay.isNotEmpty)
+                          InteractiveViewer(
+                            panEnabled: true,
+                            minScale: 1.0,
+                            maxScale: 3.5,
+                            child: Image.asset(
+                              imageToDisplay,
+                              fit: BoxFit.contain,
+                              width: double.infinity,
+                              height: 320,
+                            ),
+                          )
+                        else
+                          Icon(Icons.waves, size: 160, color: Colors.white.withValues(alpha: 0.2)),
                       ],
                     ),
                   ),
@@ -590,7 +710,7 @@ class _ModuleDetailScreenState extends State<ModuleDetailScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Gambar Motif dengan Badge 'Motif Klasik Larangan' dan 'Perbesar Detail'
+          // Gambar Motif dengan badge kategori motif dan 'Perbesar Detail'
           Container(
             height: 220,
             width: double.infinity,
@@ -603,30 +723,60 @@ class _ModuleDetailScreenState extends State<ModuleDetailScreen> {
               children: [
                 Positioned.fill(
                   child: widget.module.coverImage != null
-                      ? ClipRRect(
-                          borderRadius: BorderRadius.circular(24),
-                          child: Image.asset(widget.module.coverImage!, fit: BoxFit.cover),
+                      ? GestureDetector(
+                          // Seluruh gambar bisa diklik untuk memperbesar detail
+                          onTap: () => _showZoomImageDialog(
+                            context,
+                            isDark,
+                            imageUrl: widget.module.coverImage,
+                            title: widget.module.title,
+                            subtitle: 'Foto Utama Motif Batik',
+                          ),
+                          child: ClipRRect(
+                            borderRadius: BorderRadius.circular(24),
+                            child: Image.asset(widget.module.coverImage!, fit: BoxFit.cover),
+                          ),
                         )
                       : Center(child: Icon(Icons.waves, size: 90, color: Colors.white.withValues(alpha: 0.18))),
                 ),
                 Positioned(
                   top: 14,
                   left: 14,
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                    decoration: BoxDecoration(
-                      color: Colors.black.withValues(alpha: 0.5),
-                      borderRadius: BorderRadius.circular(20),
-                    ),
-                    child: const Row(
-                      children: [
-                        Icon(Icons.star, color: AppTheme.accentGold, size: 14),
-                        SizedBox(width: 4),
-                        Text(
-                          'Motif Klasik Larangan',
-                          style: TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold),
-                        ),
-                      ],
+                  child: GestureDetector(
+                    // Badge juga bisa diklik untuk memperbesar detail
+                    onTap: widget.module.coverImage != null
+                        ? () => _showZoomImageDialog(
+                            context,
+                            isDark,
+                            imageUrl: widget.module.coverImage,
+                            title: widget.module.title,
+                            subtitle: 'Foto Utama Motif Batik',
+                          )
+                        : null,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: Colors.black.withValues(alpha: 0.5),
+                        borderRadius: BorderRadius.circular(20),
+                      ),
+                      child: Row(
+                        children: [
+                          const Icon(Icons.star, color: AppTheme.accentGold, size: 14),
+                          const SizedBox(width: 4),
+                          Flexible(
+                            child: Text(
+                              _motifBadgeLabel(),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 11,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
                   ),
                 ),
@@ -634,7 +784,13 @@ class _ModuleDetailScreenState extends State<ModuleDetailScreen> {
                   bottom: 14,
                   right: 14,
                   child: GestureDetector(
-                    onTap: () => _showZoomImageDialog(context, isDark),
+                    onTap: () => _showZoomImageDialog(
+                      context,
+                      isDark,
+                      imageUrl: widget.module.coverImage,
+                      title: widget.module.title,
+                      subtitle: 'Foto Utama Motif Batik',
+                    ),
                     child: Container(
                       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                       decoration: BoxDecoration(
@@ -684,16 +840,61 @@ class _ModuleDetailScreenState extends State<ModuleDetailScreen> {
           const SizedBox(height: 16),
 
           if (_youtubeController != null) ...[
-            ClipRRect(
-              borderRadius: BorderRadius.circular(16),
-              child: YoutubePlayer(
-                controller: _youtubeController!,
-                keepAlive: true,
-                gestureRecognizers: const <Factory<OneSequenceGestureRecognizer>>{
-                  Factory<OneSequenceGestureRecognizer>(EagerGestureRecognizer.new),
-                },
+            if (_youtubeFailed)
+              // Video tidak bisa diputar di in-app player (embed diblokir/dihapus),
+              // fallback: thumbnail + tombol buka YouTube
+              ClipRRect(
+                borderRadius: BorderRadius.circular(16),
+                child: GestureDetector(
+                  onTap: () => _openYoutubeExternal(sejarah.youtubeUrl),
+                  child: Stack(
+                    children: [
+                      AspectRatio(
+                        aspectRatio: 16 / 9,
+                        child: Image.network(
+                          YoutubePlayerController.getThumbnail(
+                            videoId: _youtubeVideoId!,
+                            quality: ThumbnailQuality.high,
+                            webp: true,
+                          ),
+                          fit: BoxFit.cover,
+                          errorBuilder: (context, error, stack) => Container(
+                            color: isDark
+                                ? AppTheme.darkSurface
+                                : const Color(0xFF2B2020),
+                            child: const Center(
+                              child: Icon(
+                                Icons.ondemand_video_rounded,
+                                color: Colors.white70,
+                                size: 40,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                      const Center(
+                        child: Icon(
+                          Icons.play_circle_filled_rounded,
+                          color: Colors.white70,
+                          size: 50,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              )
+            else
+              ClipRRect(
+                borderRadius: BorderRadius.circular(16),
+                child: YoutubePlayer(
+                  key: ValueKey('youtube-$_youtubeGeneration'),
+                  controller: _youtubeController!,
+                  keepAlive: true,
+                  gestureRecognizers: const <Factory<OneSequenceGestureRecognizer>>{
+                    Factory<OneSequenceGestureRecognizer>(EagerGestureRecognizer.new),
+                  },
+                ),
               ),
-            ),
             const SizedBox(height: 10),
             if (sejarah.youtubeUrl.isNotEmpty)
               Material(
@@ -965,7 +1166,19 @@ class _ModuleDetailScreenState extends State<ModuleDetailScreen> {
 
           // Banner Hero Galeri
           GestureDetector(
-            onTap: () => _showZoomImageDialog(context, isDark),
+            onTap: () {
+              final heroImg = (galeriList.isNotEmpty && galeriList[0].imageUrl.isNotEmpty)
+                  ? galeriList[0].imageUrl
+                  : widget.module.coverImage;
+              final heroCap = galeriList.isNotEmpty ? galeriList[0].caption : 'Arsip Kain Batik Tulis';
+              _showZoomImageDialog(
+                context,
+                isDark,
+                imageUrl: heroImg,
+                title: widget.module.title,
+                subtitle: heroCap,
+              );
+            },
             child: Container(
               height: 190,
               width: double.infinity,
@@ -1501,7 +1714,13 @@ class _ModuleDetailScreenState extends State<ModuleDetailScreen> {
 
   Widget _buildGaleriItem(String label, String imageUrl, bool isDark) {
     return GestureDetector(
-      onTap: () => _showZoomImageDialog(context, isDark),
+      onTap: () => _showZoomImageDialog(
+        context,
+        isDark,
+        imageUrl: imageUrl,
+        title: widget.module.title,
+        subtitle: label,
+      ),
       child: Container(
         decoration: BoxDecoration(
           color: const Color(0xFF2B231D),
