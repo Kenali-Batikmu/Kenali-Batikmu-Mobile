@@ -338,6 +338,16 @@ class PillarHistoryView extends StatelessWidget {
             body: sejarah.penggunaan,
             isDark: isDark,
           ),
+
+          if (content.sumberRujukan.isNotEmpty) ...[
+            const SizedBox(height: 10),
+            ExpansionCard(
+              title: 'Sumber & Rujukan',
+              icon: Icons.menu_book_outlined,
+              body: content.sumberRujukan.map((ref) => '• $ref').join('\n\n'),
+              isDark: isDark,
+            ),
+          ],
         ],
       ),
     );
