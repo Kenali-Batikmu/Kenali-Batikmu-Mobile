@@ -6,6 +6,7 @@ import 'package:provider/provider.dart';
 import '../../core/theme/app_theme.dart';
 import '../../providers/app_provider.dart';
 import '../dashboard/main_navigation_screen.dart';
+import 'forgot_password_screen.dart';
 import 'register_screen.dart';
 
 class LoginScreen extends StatefulWidget {
@@ -16,8 +17,8 @@ class LoginScreen extends StatefulWidget {
 }
 
 class _LoginScreenState extends State<LoginScreen> {
-  final _emailController = TextEditingController(text: 'sekar@batikmu.id');
-  final _passwordController = TextEditingController(text: 'Batikmu123#');
+  final _emailController = TextEditingController();
+  final _passwordController = TextEditingController();
   bool _obscurePassword = true;
   bool _rememberMe = true;
   final _formKey = GlobalKey<FormState>();
@@ -42,8 +43,9 @@ class _LoginScreenState extends State<LoginScreen> {
     if (!mounted) return;
 
     if (success) {
-      Navigator.of(context).pushReplacement(
+      Navigator.of(context).pushAndRemoveUntil(
         MaterialPageRoute(builder: (_) => const MainNavigationScreen()),
+        (route) => false,
       );
     } else {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -160,14 +162,17 @@ class _LoginScreenState extends State<LoginScreen> {
                           ),
                         ),
                         Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 14),
-                          child: Text(
-                            'K E N A L I   B A T I K M U',
-                            style: AppTheme.plusJakartaSans(
-                              fontSize: 11,
-                              fontWeight: FontWeight.bold,
-                              letterSpacing: 2.8,
-                              color: const Color(0xFF4A3828),
+                          padding: const EdgeInsets.symmetric(horizontal: 10),
+                          child: FittedBox(
+                            fit: BoxFit.scaleDown,
+                            child: Text(
+                              'K E N A L I   B A T I K M U',
+                              style: AppTheme.plusJakartaSans(
+                                fontSize: 11,
+                                fontWeight: FontWeight.bold,
+                                letterSpacing: 2.0,
+                                color: const Color(0xFF4A3828),
+                              ),
                             ),
                           ),
                         ),
@@ -398,27 +403,31 @@ class _LoginScreenState extends State<LoginScreen> {
                                 mainAxisAlignment:
                                     MainAxisAlignment.spaceBetween,
                                 children: [
-                                  Text(
-                                    'Kata Sandi',
-                                    style: AppTheme.plusJakartaSans(
-                                      fontSize: 14,
-                                      fontWeight: FontWeight.bold,
-                                      color: const Color(0xFF2C221A),
+                                  Flexible(
+                                    child: Text(
+                                      'Kata Sandi',
+                                      style: AppTheme.plusJakartaSans(
+                                        fontSize: 14,
+                                        fontWeight: FontWeight.bold,
+                                        color: const Color(0xFF2C221A),
+                                      ),
                                     ),
                                   ),
                                   GestureDetector(
-                                    onTap: () {
-                                      ScaffoldMessenger.of(
-                                        context,
-                                      ).showSnackBar(
-                                        SnackBar(
-                                          content: Text(
-                                            'Tautan pemulihan kata sandi dikirim jika email terdaftar.',
-                                            style: AppTheme.plusJakartaSans(),
+                                    onTap: () async {
+                                      final resetEmail = await Navigator.of(context).push<String>(
+                                        MaterialPageRoute(
+                                          builder: (_) => ForgotPasswordScreen(
+                                            initialEmail: _emailController.text.trim(),
                                           ),
-                                          backgroundColor: AppTheme.primary,
                                         ),
                                       );
+                                      if (resetEmail != null && resetEmail.isNotEmpty && mounted) {
+                                        setState(() {
+                                          _emailController.text = resetEmail;
+                                          _passwordController.clear();
+                                        });
+                                      }
                                     },
                                     child: Row(
                                       mainAxisSize: MainAxisSize.min,
@@ -549,12 +558,14 @@ class _LoginScreenState extends State<LoginScreen> {
                                           : null,
                                     ),
                                     const SizedBox(width: 10),
-                                    Text(
-                                      'Ingat saya di perangkat ini',
-                                      style: AppTheme.plusJakartaSans(
-                                        fontSize: 13.5,
-                                        color: const Color(0xFF4A3E34),
-                                        fontWeight: FontWeight.w500,
+                                    Expanded(
+                                      child: Text(
+                                        'Ingat saya di perangkat ini',
+                                        style: AppTheme.plusJakartaSans(
+                                          fontSize: 13.5,
+                                          color: const Color(0xFF4A3E34),
+                                          fontWeight: FontWeight.w500,
+                                        ),
                                       ),
                                     ),
                                   ],

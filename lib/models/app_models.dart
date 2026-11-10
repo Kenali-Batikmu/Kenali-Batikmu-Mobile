@@ -2,12 +2,16 @@ class UserModel {
   final int id;
   final String name;
   final String email;
+  final String? phone;
+  final String? profileImagePath;
   final String? createdAt;
 
   UserModel({
     required this.id,
     required this.name,
     required this.email,
+    this.phone,
+    this.profileImagePath,
     this.createdAt,
   });
 
@@ -16,7 +20,27 @@ class UserModel {
       id: map['id'] as int,
       name: map['name'] as String,
       email: map['email'] as String,
+      phone: map['phone'] as String?,
+      profileImagePath: map['profile_image_path'] as String?,
       createdAt: map['created_at'] as String?,
+    );
+  }
+
+  UserModel copyWith({
+    int? id,
+    String? name,
+    String? email,
+    String? phone,
+    String? profileImagePath,
+    String? createdAt,
+  }) {
+    return UserModel(
+      id: id ?? this.id,
+      name: name ?? this.name,
+      email: email ?? this.email,
+      phone: phone ?? this.phone,
+      profileImagePath: profileImagePath ?? this.profileImagePath,
+      createdAt: createdAt ?? this.createdAt,
     );
   }
 }
@@ -53,6 +77,192 @@ class BatikMotifModel {
   }
 }
 
+class SejarahFilosofiModel {
+  final String youtubeUrl;
+  final String deskripsiUtama;
+  final String asalDaerah;
+  final String maknaFilosofis;
+  final String penggunaan;
+
+  SejarahFilosofiModel({
+    this.youtubeUrl = '',
+    required this.deskripsiUtama,
+    required this.asalDaerah,
+    required this.maknaFilosofis,
+    required this.penggunaan,
+  });
+
+  factory SejarahFilosofiModel.fromMap(Map<String, dynamic> map) {
+    return SejarahFilosofiModel(
+      youtubeUrl: map['youtubeUrl'] ?? '',
+      deskripsiUtama: map['deskripsiUtama'] ?? '',
+      asalDaerah: map['asalDaerah'] ?? '',
+      maknaFilosofis: map['maknaFilosofis'] ?? '',
+      penggunaan: map['penggunaan'] ?? '',
+    );
+  }
+}
+
+class KarakteristikDetailModel {
+  final String title;
+  final String desc;
+  final String badge;
+  final String image;
+
+  KarakteristikDetailModel({
+    required this.title,
+    required this.desc,
+    required this.badge,
+    required this.image,
+  });
+
+  factory KarakteristikDetailModel.fromMap(Map<String, dynamic> map) {
+    return KarakteristikDetailModel(
+      title: map['title'] ?? '',
+      desc: map['desc'] ?? '',
+      badge: map['badge'] ?? '',
+      image: map['image'] ?? '',
+    );
+  }
+}
+
+class PakemModel {
+  final String title;
+  final String desc;
+
+  PakemModel({required this.title, required this.desc});
+
+  factory PakemModel.fromMap(Map<String, dynamic> map) {
+    return PakemModel(
+      title: map['title'] ?? '',
+      desc: map['desc'] ?? '',
+    );
+  }
+}
+
+class KarakteristikModel {
+  final String deskripsi;
+  final KarakteristikDetailModel strukturUtama;
+  final KarakteristikDetailModel ornamen;
+  final KarakteristikDetailModel warna;
+  final List<PakemModel> pakemList;
+
+  KarakteristikModel({
+    required this.deskripsi,
+    required this.strukturUtama,
+    required this.ornamen,
+    required this.warna,
+    required this.pakemList,
+  });
+
+  factory KarakteristikModel.fromMap(Map<String, dynamic> map) {
+    var pakemData = map['pakemList'] as List? ?? [];
+    return KarakteristikModel(
+      deskripsi: map['deskripsi'] ?? '',
+      strukturUtama: KarakteristikDetailModel.fromMap(map['strukturUtama'] ?? {}),
+      ornamen: KarakteristikDetailModel.fromMap(map['ornamen'] ?? {}),
+      warna: KarakteristikDetailModel.fromMap(map['warna'] ?? {}),
+      pakemList: pakemData.map((e) => PakemModel.fromMap(e)).toList(),
+    );
+  }
+}
+
+class GaleriModel {
+  final String imageUrl;
+  final String caption;
+
+  GaleriModel({required this.imageUrl, required this.caption});
+
+  factory GaleriModel.fromMap(Map<String, dynamic> map) {
+    return GaleriModel(
+      imageUrl: map['imageUrl'] ?? '',
+      caption: map['caption'] ?? '',
+    );
+  }
+}
+
+class ModuleContentModel {
+  final String origin;
+  final String? _customEstimatedTime;
+  final SejarahFilosofiModel sejarahDanFilosofi;
+  final KarakteristikModel karakteristik;
+  final List<GaleriModel> galeri;
+  final List<String> sumberRujukan;
+
+  ModuleContentModel({
+    required this.origin,
+    String? estimatedTime,
+    required this.sejarahDanFilosofi,
+    required this.karakteristik,
+    required this.galeri,
+    this.sumberRujukan = const [],
+  }) : _customEstimatedTime = estimatedTime;
+
+  /// Menghitung total kata dari seluruh teks materi di modul (Sejarah, Filosofi, Karakteristik, Pakem, & Galeri)
+  int get totalWords {
+    int count = 0;
+    count += _countWords(sejarahDanFilosofi.deskripsiUtama);
+    count += _countWords(sejarahDanFilosofi.asalDaerah);
+    count += _countWords(sejarahDanFilosofi.maknaFilosofis);
+    count += _countWords(sejarahDanFilosofi.penggunaan);
+    count += _countWords(karakteristik.deskripsi);
+    count += _countWords(karakteristik.strukturUtama.title);
+    count += _countWords(karakteristik.strukturUtama.desc);
+    count += _countWords(karakteristik.ornamen.title);
+    count += _countWords(karakteristik.ornamen.desc);
+    count += _countWords(karakteristik.warna.title);
+    count += _countWords(karakteristik.warna.desc);
+    for (final pakem in karakteristik.pakemList) {
+      count += _countWords(pakem.title);
+      count += _countWords(pakem.desc);
+    }
+    for (final g in galeri) {
+      count += _countWords(g.caption);
+    }
+    return count;
+  }
+
+  /// Menghitung estimasi menit membaca secara dinamis:
+  /// Menggunakan standar kecepatan baca edukasi budaya (~90 kata/menit)
+  /// ditambah 1 menit untuk waktu pengamatan visual struktur & ornamen motif.
+  int get dynamicReadingMinutes {
+    final words = totalWords;
+    if (words == 0) return 3;
+    final readingTime = (words / 90).ceil();
+    final total = readingTime + 1;
+    return total < 3 ? 3 : total;
+  }
+
+  /// Mengembalikan estimasi waktu baca:
+  /// Prioritas menggunakan custom jika diisi spesifik, atau otomatis terhitung dinamis dari panjang materi.
+  String get estimatedTime {
+    final customTime = _customEstimatedTime;
+    if (customTime != null && customTime.trim().isNotEmpty) {
+      final custom = customTime.trim();
+      return custom.toLowerCase().contains('menit') ? custom : '$custom Menit';
+    }
+    return '$dynamicReadingMinutes Menit';
+  }
+
+  static int _countWords(String text) {
+    if (text.trim().isEmpty) return 0;
+    return text.trim().split(RegExp(r'\s+')).where((w) => w.isNotEmpty).length;
+  }
+
+  factory ModuleContentModel.fromMap(Map<String, dynamic> map) {
+    var galeriData = map['galeri'] as List? ?? [];
+    var sumberData = map['sumberRujukan'] as List? ?? [];
+    return ModuleContentModel(
+      origin: map['origin'] ?? '',
+      estimatedTime: map['estimatedTime'] as String?,
+      sejarahDanFilosofi: SejarahFilosofiModel.fromMap(map['sejarahDanFilosofi'] ?? {}),
+      karakteristik: KarakteristikModel.fromMap(map['karakteristik'] ?? {}),
+      galeri: galeriData.map((e) => GaleriModel.fromMap(e)).toList(),
+      sumberRujukan: sumberData.map((e) => e.toString()).toList(),
+    );
+  }
+}
+
 class ModuleModel {
   final int id;
   final int motifId;
@@ -67,6 +277,11 @@ class ModuleModel {
   final bool galleryDone;
   final bool quizDone;
   final bool practiceDone;
+  final int? quizScore;
+  final int? practiceScore;
+  
+  // Menambahkan content model dinamis
+  final ModuleContentModel? content;
 
   ModuleModel({
     required this.id,
@@ -82,7 +297,147 @@ class ModuleModel {
     this.galleryDone = false,
     this.quizDone = false,
     this.practiceDone = false,
+    this.quizScore,
+    this.practiceScore,
+    this.content,
   });
+
+  // Helper method untuk copyWith
+  ModuleModel copyWith({
+    int? progressPercent,
+    bool? historyDone,
+    bool? characterDone,
+    bool? galleryDone,
+    bool? quizDone,
+    bool? practiceDone,
+    int? quizScore,
+    int? practiceScore,
+  }) {
+    return ModuleModel(
+      id: id,
+      motifId: motifId,
+      title: title,
+      description: description,
+      coverImage: coverImage,
+      passingScore: passingScore,
+      orderNo: orderNo,
+      progressPercent: progressPercent ?? this.progressPercent,
+      historyDone: historyDone ?? this.historyDone,
+      characterDone: characterDone ?? this.characterDone,
+      galleryDone: galleryDone ?? this.galleryDone,
+      quizDone: quizDone ?? this.quizDone,
+      practiceDone: practiceDone ?? this.practiceDone,
+      quizScore: quizScore ?? this.quizScore,
+      practiceScore: practiceScore ?? this.practiceScore,
+      content: content,
+    );
+  }
+
+  /// Menghitung persentase progres (0-100%) dengan bobot 20% per komponen
+  /// Modul hanya 100% jika seluruh 3 materi dibaca dan kuis teori & kuis praktikum lulus KKM (> passingScore)
+  int calculateProgressPercent() {
+    int points = 0;
+    if (historyDone) points += 20;
+    if (characterDone) points += 20;
+    if (galleryDone) points += 20;
+    if (quizDone && (quizScore ?? 0) > passingScore) points += 20;
+    if (practiceDone && (practiceScore ?? 0) > passingScore) points += 20;
+    return points.clamp(0, 100);
+  }
+
+  /// Memeriksa apakah seluruh 5 komponen tuntas dan lulus passing score (100%)
+  bool get isCompleted => calculateProgressPercent() >= 100;
+
+  /// Status modul: 'not_started', 'in_progress', 'completed'
+  String get status {
+    final p = calculateProgressPercent();
+    if (p >= 100) return 'completed';
+    if (p > 0 || historyDone || characterDone || galleryDone || quizScore != null || practiceScore != null) {
+      return 'in_progress';
+    }
+    return 'not_started';
+  }
+}
+
+/// Model Data Progres Modul Pengguna (Sinkronisasi SQLite & Supabase)
+class UserModuleProgressModel {
+  final int? id;
+  final int userId;
+  final int moduleId;
+  final String status;
+  final int progressPercent;
+  final bool historyDone;
+  final bool characterDone;
+  final bool galleryDone;
+  final bool quizDone;
+  final bool practiceDone;
+  final int? quizScore;
+  final int? practiceScore;
+  final int passingScore;
+  final bool isPassed;
+  final String? completedAt;
+  final String lastAccessedAt;
+
+  UserModuleProgressModel({
+    this.id,
+    required this.userId,
+    required this.moduleId,
+    required this.status,
+    required this.progressPercent,
+    this.historyDone = false,
+    this.characterDone = false,
+    this.galleryDone = false,
+    this.quizDone = false,
+    this.practiceDone = false,
+    this.quizScore,
+    this.practiceScore,
+    this.passingScore = 70,
+    this.isPassed = false,
+    this.completedAt,
+    required this.lastAccessedAt,
+  });
+
+  factory UserModuleProgressModel.fromMap(Map<String, dynamic> map) {
+    return UserModuleProgressModel(
+      id: map['id'] as int?,
+      userId: map['user_id'] as int,
+      moduleId: map['module_id'] as int,
+      status: map['status'] as String? ?? 'not_started',
+      progressPercent: map['progress_percent'] as int? ?? 0,
+      historyDone: map['history_done'] == 1 || map['history_done'] == true,
+      characterDone: map['character_done'] == 1 || map['character_done'] == true,
+      galleryDone: map['gallery_done'] == 1 || map['gallery_done'] == true,
+      quizDone: map['quiz_done'] == 1 || map['quiz_done'] == true,
+      practiceDone: map['practice_done'] == 1 || map['practice_done'] == true,
+      quizScore: map['quiz_score'] as int?,
+      practiceScore: map['practice_score'] as int?,
+      passingScore: map['passing_score'] as int? ?? 70,
+      isPassed: map['is_passed'] == 1 || map['is_passed'] == true,
+      completedAt: map['completed_at'] as String?,
+      lastAccessedAt: map['last_accessed_at'] as String? ?? '',
+    );
+  }
+
+  Map<String, dynamic> toMap() {
+    return {
+      if (id != null) 'id': id,
+      'user_id': userId,
+      'module_id': moduleId,
+      'status': status,
+      'progress_percent': progressPercent,
+      'history_done': historyDone ? 1 : 0,
+      'character_done': characterDone ? 1 : 0,
+      'gallery_done': galleryDone ? 1 : 0,
+      'quiz_done': quizDone ? 1 : 0,
+      'practice_done': practiceDone ? 1 : 0,
+      'quiz_score': quizScore,
+      'practice_score': practiceScore,
+      'passing_score': passingScore,
+      'is_passed': isPassed ? 1 : 0,
+      'completed_at': completedAt,
+      'last_accessed_at': lastAccessedAt,
+    };
+  }
 }
 
 class QuizQuestionModel {
@@ -130,6 +485,8 @@ class ScanHistoryModel {
   final double score;
   final bool passed;
   final String createdAt;
+  final String? imagePath;
+  final int? moduleId;
 
   ScanHistoryModel({
     required this.id,
@@ -138,5 +495,8 @@ class ScanHistoryModel {
     required this.score,
     required this.passed,
     required this.createdAt,
+    this.imagePath,
+    this.moduleId,
   });
 }
+
