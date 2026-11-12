@@ -224,8 +224,9 @@ class ModuleProvider with ChangeNotifier {
       final old = _modules[index];
       final existingScore = old.quizScore ?? 0;
       final bestScore = score > existingScore ? score : existingScore;
+      final isSuccessful = bestScore > old.passingScore;
       final tempMod = old.copyWith(
-        quizDone: true,
+        quizDone: isSuccessful,
         quizScore: bestScore,
       );
       final int percent = tempMod.calculateProgressPercent();

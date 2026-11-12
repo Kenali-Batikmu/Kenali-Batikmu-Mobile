@@ -48,18 +48,20 @@ class QuizProvider with ChangeNotifier {
       final prefs = await SharedPreferences.getInstance();
       final userKey = userEmail?.trim().toLowerCase() ?? 'guest';
       final userKeyPrefix = 'user_${userKey}_module_$moduleId';
-      await prefs.setBool('${userKeyPrefix}_quiz', true);
-      await prefs.setInt('${userKeyPrefix}_quizScore', score);
-
-      await prefs.setBool('module_${moduleId}_quiz', true);
-      await prefs.setInt('module_${moduleId}_quizScore', score);
-
       final existingScore = module?.quizScore ?? 0;
       final bestScore = score > existingScore ? score : existingScore;
+      final passingScore = module?.passingScore ?? 70;
+      final isQuizSuccessful = bestScore > passingScore;
+
+      await prefs.setBool('${userKeyPrefix}_quiz', isQuizSuccessful);
+      await prefs.setInt('${userKeyPrefix}_quizScore', bestScore);
+
+      await prefs.setBool('module_${moduleId}_quiz', isQuizSuccessful);
+      await prefs.setInt('module_${moduleId}_quizScore', bestScore);
 
       if (module != null) {
         final tempMod = module.copyWith(
-          quizDone: true,
+          quizDone: isQuizSuccessful,
           quizScore: bestScore,
         );
         final int percent = tempMod.calculateProgressPercent();
@@ -72,7 +74,7 @@ class QuizProvider with ChangeNotifier {
           historyDone: module.historyDone,
           characterDone: module.characterDone,
           galleryDone: module.galleryDone,
-          quizDone: true,
+          quizDone: isQuizSuccessful,
           practiceDone: module.practiceDone,
           quizScore: bestScore,
           practiceScore: module.practiceScore,
@@ -109,7 +111,7 @@ class QuizProvider with ChangeNotifier {
 
         if (module != null) {
           final tempMod = module.copyWith(
-            quizDone: true,
+            quizDone: isQuizSuccessful,
             quizScore: bestScore,
           );
           final int percent = tempMod.calculateProgressPercent();
@@ -122,7 +124,7 @@ class QuizProvider with ChangeNotifier {
             historyDone: module.historyDone,
             characterDone: module.characterDone,
             galleryDone: module.galleryDone,
-            quizDone: true,
+            quizDone: isQuizSuccessful,
             practiceDone: module.practiceDone,
             quizScore: bestScore,
             practiceScore: module.practiceScore,

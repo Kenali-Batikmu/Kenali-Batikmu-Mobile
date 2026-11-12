@@ -43,8 +43,8 @@ class _PracticeQuizScreenState extends State<PracticeQuizScreen>
   String? _camErr;
 
   // Hasil evaluasi inferensi TFLite On-Device (1 Hasil Tunggal)
-  double _evaluatedScore = 0.70;
-  bool _evaluatedPassed = true;
+  double _evaluatedScore = 0.0;
+  bool _evaluatedPassed = false;
   String _evaluatedMotifName = '';
   String? _historyImagePath;
   String? _historyTime;
@@ -68,9 +68,9 @@ class _PracticeQuizScreenState extends State<PracticeQuizScreen>
             ? (widget.module.practiceScore! > 1.0
                 ? widget.module.practiceScore! / 100.0
                 : widget.module.practiceScore!.toDouble())
-            : 0.70;
+            : 0.0;
         _evaluatedScore = score;
-        _evaluatedPassed = widget.module.practiceDone || score >= 0.70;
+        _evaluatedPassed = score > 0.70;
         _evaluatedMotifName = widget.module.title.replaceAll('\n', ' ');
       }
 
@@ -322,9 +322,10 @@ class _PracticeQuizScreenState extends State<PracticeQuizScreen>
         availableMotifs: motifs,
       );
 
-      final fitScore = evalResult?.confidence ?? 0.70;
+      final fitScore = evalResult?.confidence ?? 0.0;
       final passingThreshold = (widget.module.passingScore) / 100.0;
-      final passed = fitScore >= (passingThreshold > 0 ? passingThreshold : 0.70);
+      // Nilai <= passingScore (70%) dianggap belum lolos. Wajib > passingScore untuk lolos.
+      final passed = fitScore > (passingThreshold > 0 ? passingThreshold : 0.70);
       final motifName = evalResult?.motifName ?? widget.module.title.replaceAll('\n', ' ');
 
       String? savedPermanentPath;
@@ -1007,11 +1008,11 @@ class _PracticeQuizScreenState extends State<PracticeQuizScreen>
                     ],
                   ),
                   const SizedBox(height: 10),
-                  _buildKetentuanBullet('≥ 70%: Sangat Mirip', const Color(0xFFD49B45)),
+                  _buildKetentuanBullet('> 70%: Sangat Mirip (Lulus)', const Color(0xFFD49B45)),
                   const SizedBox(height: 6),
-                  _buildKetentuanBullet('50% - 69%: Cukup Mirip', const Color(0xFF5A3416)),
+                  _buildKetentuanBullet('50% - 70%: Cukup Mirip (Belum Lulus)', const Color(0xFF5A3416)),
                   const SizedBox(height: 6),
-                  _buildKetentuanBullet('< 50%: Perlu Dilatih', const Color(0xFF8A827B)),
+                  _buildKetentuanBullet('< 50%: Perlu Dilatih (Belum Lulus)', const Color(0xFF8A827B)),
                 ],
               ),
             ),

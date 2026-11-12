@@ -1,6 +1,7 @@
 import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_native_splash/flutter_native_splash.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
@@ -17,7 +18,8 @@ import 'screens/dashboard/main_navigation_screen.dart';
 import 'screens/onboarding/onboarding_screen.dart';
 
 void main() async {
-  WidgetsFlutterBinding.ensureInitialized();
+  final widgetsBinding = WidgetsFlutterBinding.ensureInitialized();
+  FlutterNativeSplash.preserve(widgetsBinding: widgetsBinding);
 
   // Inisialisasi SQLite platform-aware (non-blocking fallback)
   try {
@@ -59,6 +61,9 @@ void main() async {
     initialIsLoggedIn: isLoggedIn,
     initialEmail: savedEmail,
   );
+
+  // Hilangkan splash screen setelah inisialisasi awal selesai
+  FlutterNativeSplash.remove();
 
   runApp(
     MultiProvider(

@@ -275,7 +275,7 @@ class BatikClassifierService {
   /// Rating kecocokan praktikum sesuai konvensi Backend (app/routes/scans.py rating)
   static String getRatingLabel(double score) {
     final normalized = score > 1.0 ? score / 100.0 : score;
-    if (normalized >= 0.70) return 'sangat_mirip';
+    if (normalized > 0.70) return 'sangat_mirip';
     if (normalized >= 0.50) return 'cukup_mirip';
     return 'perlu_dilatih';
   }
@@ -283,7 +283,7 @@ class BatikClassifierService {
   /// Rating display teks indah untuk UI
   static String getRatingDisplay(double score) {
     final normalized = score > 1.0 ? score / 100.0 : score;
-    if (normalized >= 0.70) return 'Sangat Mirip';
+    if (normalized > 0.70) return 'Sangat Mirip';
     if (normalized >= 0.50) return 'Cukup Mirip';
     return 'Perlu Dilatih';
   }

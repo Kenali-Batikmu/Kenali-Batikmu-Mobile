@@ -96,9 +96,10 @@ class PillarQuizPreview extends StatelessWidget {
           // Card 1: Kuis Teori
           Builder(
             builder: (context) {
-              final bool hasQuizAttempt = module.quizDone || module.quizScore != null;
-              final int quizScore = module.quizScore ?? (module.quizDone ? 100 : 0);
-              final bool isQuizPassed = (module.quizScore != null && module.quizScore! >= module.passingScore) || module.quizDone;
+              final bool hasQuizAttempt = module.quizScore != null || module.quizDone;
+              final int quizScore = module.quizScore ?? 0;
+              // Nilai <= passingScore (70) adalah Belum Lulus. Wajib > passingScore untuk Lulus.
+              final bool isQuizPassed = (module.quizScore != null && module.quizScore! > module.passingScore) || (module.quizScore == null && module.quizDone);
 
               return Stack(
                 clipBehavior: Clip.none,
@@ -304,8 +305,8 @@ class PillarQuizPreview extends StatelessWidget {
                   (latestAttempt != null
                       ? (latestAttempt.score * 100).round()
                       : null);
-              final bool isPassed =
-                  module.practiceDone || (latestAttempt?.passed ?? false) || (practiceScore != null && practiceScore >= module.passingScore);
+              // Nilai <= passingScore (70) adalah Belum Lulus. Wajib > passingScore untuk Lulus.
+              final bool isPassed = (practiceScore != null && practiceScore > module.passingScore) || (practiceScore == null && ((latestAttempt?.passed ?? false) || module.practiceDone));
 
               return Stack(
                 clipBehavior: Clip.none,

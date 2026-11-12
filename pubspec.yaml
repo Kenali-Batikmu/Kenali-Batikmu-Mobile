@@ -50,6 +50,7 @@ dependencies:
   image: ^4.12.0
   pointycastle: ^4.0.0
   webview_flutter_android: ^4.14.1
+  flutter_native_splash: ^2.4.8
 
 dev_dependencies:
   flutter_test:
@@ -61,11 +62,7 @@ dev_dependencies:
   # package. See that file for information about deactivating specific lint
   # rules and activating additional ones.
   flutter_lints: ^6.0.0
-
-# For information on the generic Dart part of this file, see the
-# following page: https://dart.dev/tools/pub/pubspec
-
-# The following section is specific to Flutter packages.
+  flutter_launcher_icons: ^0.14.4
 flutter:
 
   # The following line ensures that the Material Icons font is
@@ -105,3 +102,26 @@ flutter:
   #
   # For details regarding fonts from package dependencies,
   # see https://flutter.dev/to/font-from-package
+
+flutter_launcher_icons:
+  android: true
+  ios: true
+  image_path: "assets/images/app_icon.png"
+  min_sdk_android: 21
+  adaptive_icon_background: "#FBF8F3"
+  adaptive_icon_foreground: "assets/images/app_icon_foreground.png"
+
+flutter_native_splash:
+  color: "#FBF8F3"
+  color_dark: "#13100D"
+  image: "assets/images/logo_1.png"
+  image_dark: "assets/images/logo_1.png"
+  android_12:
+    color: "#FBF8F3"
+    color_dark: "#13100D"
+    image: "assets/images/splash_logo.png"
+    image_dark: "assets/images/splash_logo.png"
+  android: true
+  ios: true
+  web: false
+

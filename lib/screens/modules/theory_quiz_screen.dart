@@ -52,7 +52,8 @@ class _TheoryQuizScreenState extends State<TheoryQuizScreen> {
     }
 
     final score = ((correct / _questions.length) * 100).round();
-    final passed = score >= widget.module.passingScore;
+    // Nilai <= passingScore (70) dianggap belum lolos. Wajib > passingScore untuk lolos.
+    final passed = score > widget.module.passingScore;
 
     setState(() {
       _correctCount = correct;
@@ -117,12 +118,12 @@ class _TheoryQuizScreenState extends State<TheoryQuizScreen> {
                           width: double.infinity,
                           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                           decoration: BoxDecoration(
-                            color: _finalScore >= widget.module.passingScore
+                            color: _finalScore > widget.module.passingScore
                                 ? const Color(0xFFE8F5E9)
                                 : const Color(0xFFFFEBEE),
                             borderRadius: BorderRadius.circular(12),
                             border: Border.all(
-                              color: _finalScore >= widget.module.passingScore
+                              color: _finalScore > widget.module.passingScore
                                   ? const Color(0xFF81C784)
                                   : const Color(0xFFE57373),
                             ),
@@ -135,19 +136,19 @@ class _TheoryQuizScreenState extends State<TheoryQuizScreen> {
                                 style: AppTheme.satoshi(
                                   fontSize: 16,
                                   fontWeight: FontWeight.bold,
-                                  color: _finalScore >= widget.module.passingScore
+                                  color: _finalScore > widget.module.passingScore
                                       ? const Color(0xFF2E7D32)
                                       : const Color(0xFFC62828),
                                 ),
                               ),
                               const SizedBox(height: 4),
                               Text(
-                                _finalScore >= widget.module.passingScore
+                                _finalScore > widget.module.passingScore
                                     ? 'Selamat! Kamu dinyatakan LULUS kuis teori modul ini.'
-                                    : 'Nilai minimal kelulusan adalah ${widget.module.passingScore}%. Silakan pelajari kembali materi dan ulangi kuis.',
+                                    : 'Nilai minimal kelulusan adalah di atas ${widget.module.passingScore}% (> ${widget.module.passingScore}%). Silakan pelajari kembali materi dan ulangi kuis.',
                                 style: AppTheme.inter(
                                   fontSize: 12,
-                                  color: _finalScore >= widget.module.passingScore
+                                  color: _finalScore > widget.module.passingScore
                                       ? const Color(0xFF1B5E20)
                                       : const Color(0xFFB71C1C),
                                 ),

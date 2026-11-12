@@ -334,14 +334,14 @@ class ModuleModel {
   }
 
   /// Menghitung persentase progres (0-100%) dengan bobot 20% per komponen
-  /// Modul hanya 100% jika seluruh 3 materi dibaca dan kuis teori & kuis praktikum lulus KKM (>= passingScore)
+  /// Modul hanya 100% jika seluruh 3 materi dibaca dan kuis teori & kuis praktikum lulus KKM (> passingScore)
   int calculateProgressPercent() {
     int points = 0;
     if (historyDone) points += 20;
     if (characterDone) points += 20;
     if (galleryDone) points += 20;
-    if (quizDone && (quizScore ?? 0) >= passingScore) points += 20;
-    if (practiceDone && (practiceScore ?? 0) >= passingScore) points += 20;
+    if (quizDone && (quizScore ?? 0) > passingScore) points += 20;
+    if (practiceDone && (practiceScore ?? 0) > passingScore) points += 20;
     return points.clamp(0, 100);
   }
 
