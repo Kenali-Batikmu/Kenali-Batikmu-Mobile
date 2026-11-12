@@ -5,6 +5,7 @@ import 'package:flutter_native_splash/flutter_native_splash.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
+import 'core/config/env_config.dart';
 import 'core/services/supabase_service.dart';
 import 'core/theme/app_theme.dart';
 import 'providers/app_provider.dart';
@@ -30,6 +31,9 @@ void main() async {
   } catch (e) {
     debugPrint('Database factory init info: $e');
   }
+
+  // Muat konfigurasi kredensial dari .env (tidak di-commit ke Git)
+  await EnvConfig.load();
 
   // Inisialisasi Cloud Supabase (jika kredensial dikonfigurasi)
   try {

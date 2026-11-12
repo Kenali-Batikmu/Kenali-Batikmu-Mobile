@@ -71,6 +71,7 @@ flutter:
   uses-material-design: true
 
   assets:
+    - .env
     - assets/images/
     - assets/images/leaf/
     - assets/images/batik/
@@ -108,8 +109,9 @@ flutter_launcher_icons:
   ios: true
   image_path: "assets/images/app_icon.png"
   min_sdk_android: 21
-  adaptive_icon_background: "#FBF8F3"
+  adaptive_icon_background: "#FBF3E3"
   adaptive_icon_foreground: "assets/images/app_icon_foreground.png"
+  adaptive_icon_foreground_inset: 0
 
 flutter_native_splash:
   color: "#FBF8F3"
