@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
+import '../config/env_config.dart';
 
 class EmailSendResult {
   final bool isSuccess;
@@ -14,18 +15,16 @@ class EmailSendResult {
 }
 
 class EmailService {
-  // EmailJS API Credentials
-  static const String _serviceId = 'service_b4t1kmu';
-  static const String _templateId = 'template_otpbatikmu';
-  static const String _publicKey = 'ScXQfL9SN6MQTcA-G';
+  // EmailJS API Credentials (dibaca dari .env / --dart-define-from-file=.env)
+  static String get _serviceId => EnvConfig.get('EMAILJS_SERVICE_ID');
+  static String get _templateId => EnvConfig.get('EMAILJS_TEMPLATE_ID');
+  static String get _publicKey => EnvConfig.get('EMAILJS_PUBLIC_KEY');
 
-  static bool get isConfigured =>
-      _serviceId.isNotEmpty &&
-      _templateId.isNotEmpty &&
-      _publicKey.isNotEmpty &&
-      _serviceId != 'YOUR_SERVICE_ID' &&
-      _templateId != 'YOUR_TEMPLATE_ID' &&
-      _publicKey != 'YOUR_PUBLIC_KEY';
+  static bool get isConfigured => EnvConfig.hasAllConfigured(const [
+        'EMAILJS_SERVICE_ID',
+        'EMAILJS_TEMPLATE_ID',
+        'EMAILJS_PUBLIC_KEY',
+      ]);
 
   static Future<EmailSendResult> sendPasswordResetOtp({
     required String recipientEmail,
