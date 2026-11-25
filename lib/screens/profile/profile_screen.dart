@@ -15,7 +15,11 @@ class ProfileScreen extends StatelessWidget {
   /// Bila null, layar ini dianggap dibuka lewat Navigator.push dan memakai pop.
   final VoidCallback? onBack;
 
-  const ProfileScreen({super.key, this.onBack});
+  /// Dipanggil saat "Lihat Panduan Aplikasi" diketuk (mengulang tur onboarding).
+  /// Bila null, tombol tidak ditampilkan.
+  final VoidCallback? onReplayTour;
+
+  const ProfileScreen({super.key, this.onBack, this.onReplayTour});
 
   // Warna kartu data profil: sama dengan warna footer (_kBrown di KbBottomNav)
   static const Color _cardColor = Color(0xFF3E2418);
@@ -552,6 +556,25 @@ class ProfileScreen extends StatelessWidget {
                             ),
                           ),
                           const SizedBox(height: 18),
+
+                          // ---------------------------- Panduan aplikasi ----------------------
+                          if (onReplayTour != null) ...[
+                            OutlinedButton.icon(
+                              onPressed: onReplayTour,
+                              icon: const Icon(Icons.explore_outlined, size: 16, color: Color(0xFF7A4B29)),
+                              label: const Text(
+                                'Lihat Panduan Aplikasi',
+                                style: TextStyle(color: Color(0xFF7A4B29), fontWeight: FontWeight.bold),
+                              ),
+                              style: OutlinedButton.styleFrom(
+                                minimumSize: const Size.fromHeight(50),
+                                side: const BorderSide(color: Color(0xFFD4A373)),
+                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                                backgroundColor: Colors.white,
+                              ),
+                            ),
+                            const SizedBox(height: 12),
+                          ],
 
                           // ---------------------------- Keluar dari akun ----------------------
                           OutlinedButton.icon(

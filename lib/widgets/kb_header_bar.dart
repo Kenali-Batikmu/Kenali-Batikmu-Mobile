@@ -21,6 +21,9 @@ class KbHeaderBar extends StatelessWidget {
   final double height;
   final EdgeInsetsGeometry padding;
 
+  /// Kunci opsional untuk menyorot avatar pada tur onboarding.
+  final GlobalKey? avatarKey;
+
   const KbHeaderBar({
     super.key,
     required this.user,
@@ -33,6 +36,7 @@ class KbHeaderBar extends StatelessWidget {
     this.searchHint = 'Cari modul batik...',
     this.height = 46.0,
     this.padding = const EdgeInsets.symmetric(horizontal: 16),
+    this.avatarKey,
   });
 
   static List<BoxShadow> get softShadow => [
@@ -158,6 +162,7 @@ class KbHeaderBar extends StatelessWidget {
           GestureDetector(
             onTap: onOpenProfile,
             child: Container(
+              key: avatarKey,
               width: height,
               height: height,
               alignment: Alignment.center,
