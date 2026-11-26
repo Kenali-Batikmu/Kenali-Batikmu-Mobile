@@ -19,8 +19,14 @@ const double _kWaveHeight = 18;
 class KbModuleCard extends StatelessWidget {
   final ModuleModel module;
   final bool isDark;
+  final EdgeInsetsGeometry? margin;
 
-  const KbModuleCard({super.key, required this.module, required this.isDark});
+  const KbModuleCard({
+    super.key,
+    required this.module,
+    required this.isDark,
+    this.margin,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -34,7 +40,7 @@ class KbModuleCard extends StatelessWidget {
         : (isDark ? AppTheme.darkBorder : const Color(0xFFE5D3B8));
 
     return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 0, 16, 14),
+      padding: margin ?? const EdgeInsets.fromLTRB(16, 0, 16, 14),
       child: Container(
         clipBehavior: Clip.antiAlias,
         decoration: BoxDecoration(
@@ -200,6 +206,8 @@ class KbModuleCard extends StatelessWidget {
       children: [
         Text(
           module.description,
+          maxLines: 2,
+          overflow: TextOverflow.ellipsis,
           style: AppTheme.inter(
             fontSize: 12,
             height: 1.45,
