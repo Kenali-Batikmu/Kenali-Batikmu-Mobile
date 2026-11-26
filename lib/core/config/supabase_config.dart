@@ -1,14 +1,16 @@
+import 'env_config.dart';
+
 /// Konfigurasi Layanan Cloud Supabase (Kenali Batikmu)
-/// URL Proyek dan Public Anonymous Key untuk sinkronisasi Database & Storage
+/// URL Proyek dan Public Anonymous Key dibaca dari `.env` atau `--dart-define-from-file=.env`
 class SupabaseConfig {
   /// URL endpoint project Supabase
-  static const String url = 'https://hmlwjakttschineizyig.supabase.co';
+  static String get url => EnvConfig.get('SUPABASE_URL');
 
   /// Anon Key (Public Key) Supabase
   /// Ambil dari Dashboard Supabase: Project Settings -> API -> Project API keys (anon public)
-  static const String anonKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImhtbHdqYWt0dHNjaGluZWl6eWlnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTI4MDI3NjUsImV4cCI6MjEwODM3ODc2NX0.ONhjEpMPTgAMcp5c_lpR8VnBOPWmTlFN1RTXMt_vrEs';
+  static String get anonKey => EnvConfig.get('SUPABASE_ANON_KEY');
 
-  /// Memeriksa apakah Supabase sudah memiliki API key yang valid
+  /// Memeriksa apakah Supabase sudah memiliki URL dan API key yang valid
   static bool get isConfigured =>
-      anonKey.isNotEmpty && !anonKey.contains('PASTE_YOUR_');
+      EnvConfig.hasAllConfigured(const ['SUPABASE_URL', 'SUPABASE_ANON_KEY']);
 }

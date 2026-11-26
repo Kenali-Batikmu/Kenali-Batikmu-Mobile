@@ -5,6 +5,7 @@ import '../../core/theme/app_theme.dart';
 import '../../models/app_models.dart';
 import '../../providers/app_provider.dart';
 import '../../widgets/kb_header_bar.dart';
+import '../../widgets/load_more/module_load_more_section.dart';
 import '../profile/profile_screen.dart';
 import 'module_detail_screen.dart';
 
@@ -260,7 +261,13 @@ class _ModulesListScreenState extends State<ModulesListScreen> {
                             ),
                           )
                         else
-                          ...displayModules.map((m) => _buildModuleCard(context, m, isDark)),
+                          // Load More on Scroll: batch 4 modul per trigger
+                          ModuleLoadMoreSection(
+                            allModules: displayModules,
+                            isDark: isDark,
+                            scrollController: _scrollController,
+                            batchSize: 4,
+                          ),
                       ],
                     ),
                   ],
@@ -353,10 +360,6 @@ class _ModulesListScreenState extends State<ModulesListScreen> {
     );
   }
 
-  // Kartu modul: desain baru ada di class KbModuleCard (di bagian bawah file ini)
-  Widget _buildModuleCard(BuildContext context, ModuleModel module, bool isDark) {
-    return KbModuleCard(module: module, isDark: isDark);
-  }
 }
 
 // ══════════════════════════════════════════════════════════════════════════
@@ -560,6 +563,8 @@ class KbModuleCard extends StatelessWidget {
       children: [
         Text(
           module.description,
+          maxLines: 2,
+          overflow: TextOverflow.ellipsis,
           style: AppTheme.inter(
             fontSize: 12,
             height: 1.45,

@@ -57,6 +57,7 @@ android/key.properties
 .env
 .env.*
 *.env
+!.env.example
 
 # Operating System Files (Windows & macOS)
 Thumbs.db
