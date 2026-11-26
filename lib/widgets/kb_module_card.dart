@@ -21,11 +21,14 @@ class KbModuleCard extends StatelessWidget {
   final bool isDark;
   final EdgeInsetsGeometry? margin;
 
+  /// Kunci opsional untuk menyorot tombol aksi pada tur onboarding.
+  final GlobalKey? actionKey;
+
   const KbModuleCard({
     super.key,
     required this.module,
     required this.isDark,
-    this.margin,
+    this.actionKey,
   });
 
   @override
@@ -276,6 +279,7 @@ class KbModuleCard extends StatelessWidget {
     final fg = isDone ? _kCream : _kBrown;
 
     return Material(
+      key: actionKey,
       color: bg,
       borderRadius: BorderRadius.circular(14),
       clipBehavior: Clip.antiAlias,

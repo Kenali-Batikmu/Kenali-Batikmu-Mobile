@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../../core/theme/app_theme.dart';
+import '../../core/tour/app_tour.dart';
 import '../../providers/app_provider.dart';
 import '../../widgets/kb_header_bar.dart';
 import '../../widgets/kb_module_card.dart';
@@ -14,11 +15,15 @@ class DashboardScreen extends StatefulWidget {
   final VoidCallback onOpenScan;
   final VoidCallback onOpenProfile;
 
+  /// Kunci elemen yang disorot pada tur onboarding (opsional).
+  final AppTourKeys? tourKeys;
+
   const DashboardScreen({
     super.key,
     required this.onOpenModules,
     required this.onOpenScan,
     required this.onOpenProfile,
+    this.tourKeys,
   });
 
   @override
@@ -103,6 +108,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
     double screenWidth,
   ) {
     return SizedBox(
+      key: widget.tourKeys?.top,
       height: heroHeight,
       width: double.infinity,
       child: Stack(
@@ -643,9 +649,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
                                         a.orderNo.compareTo(b.orderNo));
 
                                   if (notStarted.isNotEmpty) {
+                                    // Tombol "Mulai belajar" inilah yang disorot pada tur
                                     return KbModuleCard(
                                       module: notStarted.first,
                                       isDark: isDark,
+                                      actionKey: widget.tourKeys?.learnButton,
                                     );
                                   }
 
@@ -789,6 +797,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
       onOpenProfile: widget.onOpenProfile,
       showSearch: false,
       padding: const EdgeInsets.symmetric(horizontal: 16),
+      avatarKey: widget.tourKeys?.profileAvatar,
     );
   }
 }

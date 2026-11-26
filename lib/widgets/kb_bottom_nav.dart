@@ -49,10 +49,18 @@ class KbBottomNav extends StatelessWidget {
   final int currentIndex;
   final ValueChanged<int> onTap;
 
+  // Kunci opsional untuk menyorot tiap menu pada tur onboarding.
+  final GlobalKey? homeKey;
+  final GlobalKey? cameraKey;
+  final GlobalKey? modulesKey;
+
   const KbBottomNav({
     super.key,
     required this.currentIndex,
     required this.onTap,
+    this.homeKey,
+    this.cameraKey,
+    this.modulesKey,
   });
 
   @override
@@ -76,12 +84,14 @@ class KbBottomNav extends StatelessWidget {
                   icon: Icons.home_outlined,
                   label: 'Beranda',
                   selected: currentIndex == 0,
+                  targetKey: homeKey,
                   onTap: () => onTap(0),
                 ),
               ),
               Expanded(
                 child: _CameraItem(
                   selected: currentIndex == 1,
+                  targetKey: cameraKey,
                   onTap: () => onTap(1),
                 ),
               ),
@@ -90,6 +100,7 @@ class KbBottomNav extends StatelessWidget {
                   icon: Icons.menu_book_outlined,
                   label: 'Modul',
                   selected: currentIndex == 2,
+                  targetKey: modulesKey,
                   onTap: () => onTap(2),
                 ),
               ),
@@ -107,12 +118,14 @@ class _SideItem extends StatelessWidget {
   final String label;
   final bool selected;
   final VoidCallback onTap;
+  final GlobalKey? targetKey;
 
   const _SideItem({
     required this.icon,
     required this.label,
     required this.selected,
     required this.onTap,
+    this.targetKey,
   });
 
   @override
@@ -124,19 +137,26 @@ class _SideItem extends StatelessWidget {
       child: Column(
         children: [
           const SizedBox(height: 46),
-          AnimatedScale(
-            scale: selected ? 1.1 : 1.0,
-            duration: const Duration(milliseconds: 200),
-            child: Icon(icon, size: 28, color: color),
-          ),
-          const SizedBox(height: 4),
-          Text(
-            label,
-            style: AppTheme.inter(
-              fontSize: 12,
-              fontWeight: FontWeight.w700,
-              color: color,
-            ),
+          // Ikon + label dibungkus satu Column agar bisa disorot sebagai satu bagian
+          Column(
+            key: targetKey,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              AnimatedScale(
+                scale: selected ? 1.1 : 1.0,
+                duration: const Duration(milliseconds: 200),
+                child: Icon(icon, size: 28, color: color),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                label,
+                style: AppTheme.inter(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w700,
+                  color: color,
+                ),
+              ),
+            ],
           ),
         ],
       ),
@@ -148,8 +168,13 @@ class _SideItem extends StatelessWidget {
 class _CameraItem extends StatelessWidget {
   final bool selected;
   final VoidCallback onTap;
+  final GlobalKey? targetKey;
 
-  const _CameraItem({required this.selected, required this.onTap});
+  const _CameraItem({
+    required this.selected,
+    required this.onTap,
+    this.targetKey,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -159,42 +184,49 @@ class _CameraItem extends StatelessWidget {
       child: Column(
         children: [
           const SizedBox(height: 2),
-          AnimatedScale(
-            scale: selected ? 1.06 : 1.0,
-            duration: const Duration(milliseconds: 200),
-            child: AnimatedContainer(
-              duration: const Duration(milliseconds: 200),
-              width: _kCamSize,
-              height: _kCamSize,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                color: _kGold,
-                border: Border.all(color: _kBrown, width: 4),
-                boxShadow: [
-                  BoxShadow(
-                    color: selected
-                        ? _kGold.withValues(alpha: 0.55)
-                        : Colors.black.withValues(alpha: 0.25),
-                    blurRadius: selected ? 14 : 8,
-                    offset: selected ? Offset.zero : const Offset(0, 3),
+          // Tombol + label dibungkus satu Column agar bisa disorot sebagai satu bagian
+          Column(
+            key: targetKey,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              AnimatedScale(
+                scale: selected ? 1.06 : 1.0,
+                duration: const Duration(milliseconds: 200),
+                child: AnimatedContainer(
+                  duration: const Duration(milliseconds: 200),
+                  width: _kCamSize,
+                  height: _kCamSize,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: _kGold,
+                    border: Border.all(color: _kBrown, width: 4),
+                    boxShadow: [
+                      BoxShadow(
+                        color: selected
+                            ? _kGold.withValues(alpha: 0.55)
+                            : Colors.black.withValues(alpha: 0.25),
+                        blurRadius: selected ? 14 : 8,
+                        offset: selected ? Offset.zero : const Offset(0, 3),
+                      ),
+                    ],
                   ),
-                ],
+                  child: const Icon(
+                    Icons.photo_camera_outlined,
+                    size: 30,
+                    color: _kBrown,
+                  ),
+                ),
               ),
-              child: const Icon(
-                Icons.photo_camera_outlined,
-                size: 30,
-                color: _kBrown,
+              const SizedBox(height: 12),
+              Text(
+                'Kamera',
+                style: AppTheme.inter(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w700,
+                  color: selected ? _kGold : _kSoft,
+                ),
               ),
-            ),
-          ),
-          const SizedBox(height: 12),
-          Text(
-            'Kamera',
-            style: AppTheme.inter(
-              fontSize: 12,
-              fontWeight: FontWeight.w700,
-              color: selected ? _kGold : _kSoft,
-            ),
+            ],
           ),
         ],
       ),
