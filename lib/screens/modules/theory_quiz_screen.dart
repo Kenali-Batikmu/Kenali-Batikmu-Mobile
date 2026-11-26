@@ -26,6 +26,7 @@ class _TheoryQuizScreenState extends State<TheoryQuizScreen>
   final AudioPlayer _clickEffectPlayer = AudioPlayer();
   Future<void> _clickEffectOperations = Future<void>.value();
   Completer<void>? _activeClickPlayback;
+  int _clickRequestVersion = 0;
   final AudioPlayer _resultEffectPlayer = AudioPlayer();
   Future<void> _resultEffectOperations = Future<void>.value();
   Completer<void>? _activeResultPlayback;
@@ -49,11 +50,14 @@ class _TheoryQuizScreenState extends State<TheoryQuizScreen>
     super.initState();
     WidgetsBinding.instance.addObserver(this);
     _clickEffectOperations = _configureEffectPlayer(_clickEffectPlayer)
+        .then(
+          (_) => _clickEffectPlayer.setSource(AssetSource('audio/click.mp3')),
+        )
         .then((_) {
           _clickEffectReady = true;
         })
         .catchError((Object error, StackTrace stackTrace) {
-          debugPrint('Gagal menyiapkan efek klik kuis teori: $error');
+          debugPrint('Gagal memuat efek klik kuis teori: $error');
         });
     _resultEffectOperations = _configureEffectPlayer(_resultEffectPlayer)
         .then((_) {
@@ -133,32 +137,67 @@ class _TheoryQuizScreenState extends State<TheoryQuizScreen>
     _syncBackgroundMusic();
   }
 
-  Future<void> _playClickSound() {
+  Future<void> _playClickSound({bool waitForCompletion = false}) {
+    if (_isDisposed) return Future<void>.value();
+
+    final requestVersion = ++_clickRequestVersion;
     _clickEffectOperations = _clickEffectOperations
         .then((_) async {
-          if (_isDisposed || !_clickEffectReady) return;
-          if (_clickEffectPlayer.state != PlayerState.stopped) {
-            await _clickEffectPlayer.stop();
+          if (_isDisposed ||
+              !_clickEffectReady ||
+              (!waitForCompletion && requestVersion != _clickRequestVersion)) {
+            return;
           }
-          if (_isDisposed || !_clickEffectReady) return;
 
-          final completed = Completer<void>();
-          _activeClickPlayback = completed;
-          final completionSubscription = _clickEffectPlayer.onPlayerComplete
-              .listen(
-                (_) {
-                  if (!completed.isCompleted) completed.complete();
-                },
-                onError: (Object error) {
-                  if (!completed.isCompleted) completed.completeError(error);
-                },
-              );
+          Completer<void>? completed;
+          StreamSubscription<void>? completionSubscription;
           try {
-            await _clickEffectPlayer.play(AssetSource('audio/click.mp3'));
-            await completed.future;
+            final playerState = _clickEffectPlayer.state;
+            if (playerState == PlayerState.disposed) return;
+            if (playerState == PlayerState.playing ||
+                playerState == PlayerState.paused) {
+              await _clickEffectPlayer.seek(Duration.zero);
+            }
+            if (_isDisposed ||
+                (!waitForCompletion &&
+                    requestVersion != _clickRequestVersion)) {
+              return;
+            }
+
+            if (waitForCompletion) {
+              final playbackCompletion = Completer<void>();
+              completed = playbackCompletion;
+              _activeClickPlayback = playbackCompletion;
+              completionSubscription = _clickEffectPlayer.onPlayerComplete
+                  .listen(
+                    (_) {
+                      if (!playbackCompletion.isCompleted) {
+                        playbackCompletion.complete();
+                      }
+                    },
+                    onError: (Object error) {
+                      if (!playbackCompletion.isCompleted) {
+                        playbackCompletion.completeError(error);
+                      }
+                    },
+                  );
+            }
+
+            if (_clickEffectPlayer.state != PlayerState.playing) {
+              await _clickEffectPlayer.resume();
+            }
+            if (completed != null) {
+              try {
+                await completed.future.timeout(const Duration(seconds: 5));
+              } on TimeoutException {
+                await _clickEffectPlayer.stop();
+                rethrow;
+              }
+            }
           } finally {
-            await completionSubscription.cancel();
-            if (identical(_activeClickPlayback, completed)) {
+            await completionSubscription?.cancel();
+            if (completed != null &&
+                identical(_activeClickPlayback, completed)) {
               _activeClickPlayback = null;
             }
           }
@@ -273,7 +312,7 @@ class _TheoryQuizScreenState extends State<TheoryQuizScreen>
       // Nilai <= passingScore (70) dianggap belum lolos. Wajib > passingScore untuk lolos.
       final passed = score > widget.module.passingScore;
 
-      await _playClickSound();
+      await _playClickSound(waitForCompletion: true);
       if (!mounted) return;
 
       setState(() {
@@ -296,7 +335,7 @@ class _TheoryQuizScreenState extends State<TheoryQuizScreen>
   }
 
   Future<void> _returnToModuleMenu() async {
-    await _playClickSound();
+    await _playClickSound(waitForCompletion: true);
     if (mounted) Navigator.pop(context);
   }
 
@@ -305,7 +344,7 @@ class _TheoryQuizScreenState extends State<TheoryQuizScreen>
 
     _isRestarting = true;
     try {
-      await _playClickSound();
+      await _playClickSound(waitForCompletion: true);
       if (mounted) await _loadQuestions();
     } finally {
       _isRestarting = false;
