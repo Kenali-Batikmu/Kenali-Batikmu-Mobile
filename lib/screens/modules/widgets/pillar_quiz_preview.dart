@@ -1,5 +1,9 @@
+import 'dart:async';
+
+import 'package:audioplayers/audioplayers.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+
 import '../../../core/theme/app_theme.dart';
 import '../../../models/app_models.dart';
 import '../../../providers/app_provider.dart';
@@ -8,7 +12,7 @@ import '../theory_quiz_screen.dart';
 import '../practice_quiz_screen.dart';
 
 /// Halaman Pilar 4: Kartu Kuis Teori & Kuis Praktikum AI On-Device
-class PillarQuizPreview extends StatelessWidget {
+class PillarQuizPreview extends StatefulWidget {
   final ModuleModel module;
   final bool isDark;
 
@@ -17,6 +21,121 @@ class PillarQuizPreview extends StatelessWidget {
     required this.module,
     required this.isDark,
   });
+
+  @override
+  State<PillarQuizPreview> createState() => _PillarQuizPreviewState();
+}
+
+class _PillarQuizPreviewState extends State<PillarQuizPreview>
+    with WidgetsBindingObserver {
+  final AudioPlayer _clickPlayer = AudioPlayer();
+  Future<void> _clickOperations = Future<void>.value();
+  Future<void> _lifecycleOperations = Future<void>.value();
+  Completer<void>? _activeClickPlayback;
+  bool _isDisposed = false;
+  bool _isAppActive = true;
+  bool _clickPausedForLifecycle = false;
+
+  ModuleModel get module => widget.module;
+  bool get isDark => widget.isDark;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+    _clickOperations = _clickPlayer
+        .setAudioContext(
+          AudioContextConfig(focus: AudioContextConfigFocus.mixWithOthers)
+              .build(),
+        )
+        .then((_) => _clickPlayer.setReleaseMode(ReleaseMode.stop))
+        .catchError((Object error, StackTrace stackTrace) {
+          debugPrint('Gagal menyiapkan efek klik kuis: $error');
+        });
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    _isAppActive = state == AppLifecycleState.resumed;
+    _lifecycleOperations = _lifecycleOperations
+        .then((_) async {
+          if (_isDisposed) return;
+          if (!_isAppActive && _clickPlayer.state == PlayerState.playing) {
+            await _clickPlayer.pause();
+            _clickPausedForLifecycle = true;
+          } else if (_isAppActive && _clickPausedForLifecycle) {
+            await _clickPlayer.resume();
+            _clickPausedForLifecycle = false;
+          }
+        })
+        .catchError((Object error, StackTrace stackTrace) {
+          debugPrint('Gagal mengelola lifecycle efek klik kuis: $error');
+        });
+  }
+
+  Future<void> _playClickSound() {
+    _clickOperations = _clickOperations
+        .then((_) async {
+          if (_isDisposed || !_isAppActive) return;
+          if (_clickPlayer.state != PlayerState.stopped) {
+            await _clickPlayer.stop();
+          }
+          if (_isDisposed || !_isAppActive) return;
+
+          final completed = Completer<void>();
+          _activeClickPlayback = completed;
+          final completionSubscription = _clickPlayer.onPlayerComplete.listen(
+            (_) {
+              if (!completed.isCompleted) completed.complete();
+            },
+            onError: (Object error) {
+              if (!completed.isCompleted) completed.completeError(error);
+            },
+          );
+          try {
+            await _clickPlayer.play(AssetSource('audio/click.mp3'));
+            if (!_isAppActive && _clickPlayer.state == PlayerState.playing) {
+              await _clickPlayer.pause();
+              _clickPausedForLifecycle = true;
+            }
+            await completed.future;
+          } finally {
+            await completionSubscription.cancel();
+            if (identical(_activeClickPlayback, completed)) {
+              _activeClickPlayback = null;
+            }
+          }
+        })
+        .catchError((Object error, StackTrace stackTrace) {
+          debugPrint('Gagal memutar efek klik kuis: $error');
+        });
+    return _clickOperations;
+  }
+
+  @override
+  void dispose() {
+    _isDisposed = true;
+    WidgetsBinding.instance.removeObserver(this);
+    final activePlayback = _activeClickPlayback;
+    if (activePlayback != null && !activePlayback.isCompleted) {
+      activePlayback.complete();
+    }
+    final disposal = Future.wait<void>([_clickOperations, _lifecycleOperations])
+        .then((_) async {
+          try {
+            if (_clickPlayer.state != PlayerState.stopped) {
+              await _clickPlayer.stop();
+            }
+          } finally {
+            await _clickPlayer.dispose();
+          }
+        })
+        .catchError((Object error, StackTrace stackTrace) {
+          debugPrint('Gagal membersihkan efek klik kuis: $error');
+        });
+    unawaited(disposal);
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -96,10 +215,14 @@ class PillarQuizPreview extends StatelessWidget {
           // Card 1: Kuis Teori
           Builder(
             builder: (context) {
-              final bool hasQuizAttempt = module.quizScore != null || module.quizDone;
+              final bool hasQuizAttempt =
+                  module.quizScore != null || module.quizDone;
               final int quizScore = module.quizScore ?? 0;
               // Nilai <= passingScore (70) adalah Belum Lulus. Wajib > passingScore untuk Lulus.
-              final bool isQuizPassed = (module.quizScore != null && module.quizScore! > module.passingScore) || (module.quizScore == null && module.quizDone);
+              final bool isQuizPassed =
+                  (module.quizScore != null &&
+                      module.quizScore! > module.passingScore) ||
+                  (module.quizScore == null && module.quizDone);
 
               return Stack(
                 clipBehavior: Clip.none,
@@ -112,17 +235,23 @@ class PillarQuizPreview extends StatelessWidget {
                       border: Border.all(
                         color: hasQuizAttempt
                             ? (isQuizPassed
-                                ? const Color(0xFF2E7D32).withValues(alpha: 0.4)
-                                : const Color(0xFFF57C00).withValues(alpha: 0.4))
-                            : (isDark ? AppTheme.darkBorder : const Color(0xFFF0EAE1)),
+                                  ? const Color(0xFF2E7D32)
+                                        .withValues(alpha: 0.4)
+                                  : const Color(0xFFF57C00)
+                                        .withValues(alpha: 0.4))
+                            : (isDark
+                                  ? AppTheme.darkBorder
+                                  : const Color(0xFFF0EAE1)),
                         width: 1.5,
                       ),
                       boxShadow: [
                         BoxShadow(
                           color: hasQuizAttempt
                               ? (isQuizPassed
-                                  ? const Color(0xFF2E7D32).withValues(alpha: 0.05)
-                                  : const Color(0xFFF57C00).withValues(alpha: 0.05))
+                                    ? const Color(0xFF2E7D32)
+                                          .withValues(alpha: 0.05)
+                                    : const Color(0xFFF57C00)
+                                          .withValues(alpha: 0.05))
                               : AppTheme.primary.withValues(alpha: 0.04),
                           blurRadius: 20,
                           offset: const Offset(0, 6),
@@ -143,23 +272,34 @@ class PillarQuizPreview extends StatelessWidget {
                                 decoration: BoxDecoration(
                                   color: hasQuizAttempt
                                       ? (isQuizPassed
-                                          ? const Color(0xFF2E7D32).withValues(alpha: 0.12)
-                                          : const Color(0xFFF57C00).withValues(alpha: 0.12))
-                                      : (isDark ? AppTheme.primary.withValues(alpha: 0.3) : AppTheme.accentGold.withValues(alpha: 0.2)),
+                                            ? const Color(0xFF2E7D32)
+                                                  .withValues(alpha: 0.12)
+                                            : const Color(0xFFF57C00)
+                                                  .withValues(alpha: 0.12))
+                                      : (isDark
+                                            ? AppTheme.primary.withValues(
+                                                alpha: 0.3,
+                                              )
+                                            : AppTheme.accentGold.withValues(
+                                                alpha: 0.2,
+                                              )),
                                   borderRadius: BorderRadius.circular(14),
                                 ),
                                 child: Icon(
                                   Icons.school_rounded,
                                   size: 24,
                                   color: hasQuizAttempt
-                                      ? (isQuizPassed ? const Color(0xFF2E7D32) : const Color(0xFFF57C00))
+                                      ? (isQuizPassed
+                                            ? const Color(0xFF2E7D32)
+                                            : const Color(0xFFF57C00))
                                       : AppTheme.primary,
                                 ),
                               ),
                               const SizedBox(width: 12),
                               Expanded(
                                 child: Row(
-                                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                  mainAxisAlignment:
+                                      MainAxisAlignment.spaceBetween,
                                   crossAxisAlignment: CrossAxisAlignment.center,
                                   children: [
                                     Expanded(
@@ -168,7 +308,9 @@ class PillarQuizPreview extends StatelessWidget {
                                         style: AppTheme.satoshi(
                                           fontSize: 17.5,
                                           fontWeight: FontWeight.w800,
-                                          color: isDark ? Colors.white : const Color(0xFF2C1810),
+                                          color: isDark
+                                              ? Colors.white
+                                              : const Color(0xFF2C1810),
                                         ),
                                         maxLines: 2,
                                       ),
@@ -176,16 +318,25 @@ class PillarQuizPreview extends StatelessWidget {
                                     if (hasQuizAttempt) ...[
                                       const SizedBox(width: 8),
                                       Container(
-                                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4.5),
+                                        padding: const EdgeInsets.symmetric(
+                                          horizontal: 10,
+                                          vertical: 4.5,
+                                        ),
                                         decoration: BoxDecoration(
                                           color: isQuizPassed
-                                              ? const Color(0xFF2E7D32).withValues(alpha: 0.12)
-                                              : const Color(0xFFF57C00).withValues(alpha: 0.12),
-                                          borderRadius: BorderRadius.circular(20),
+                                              ? const Color(0xFF2E7D32)
+                                                    .withValues(alpha: 0.12)
+                                              : const Color(0xFFF57C00)
+                                                    .withValues(alpha: 0.12),
+                                          borderRadius: BorderRadius.circular(
+                                            20,
+                                          ),
                                           border: Border.all(
                                             color: isQuizPassed
-                                                ? const Color(0xFF2E7D32).withValues(alpha: 0.35)
-                                                : const Color(0xFFF57C00).withValues(alpha: 0.35),
+                                                ? const Color(0xFF2E7D32)
+                                                      .withValues(alpha: 0.35)
+                                                : const Color(0xFFF57C00)
+                                                      .withValues(alpha: 0.35),
                                             width: 1,
                                           ),
                                         ),
@@ -193,9 +344,13 @@ class PillarQuizPreview extends StatelessWidget {
                                           mainAxisSize: MainAxisSize.min,
                                           children: [
                                             Icon(
-                                              isQuizPassed ? Icons.check_circle_rounded : Icons.info_outline_rounded,
+                                              isQuizPassed
+                                                  ? Icons.check_circle_rounded
+                                                  : Icons.info_outline_rounded,
                                               size: 13,
-                                              color: isQuizPassed ? const Color(0xFF2E7D32) : const Color(0xFFF57C00),
+                                              color: isQuizPassed
+                                                  ? const Color(0xFF2E7D32)
+                                                  : const Color(0xFFF57C00),
                                             ),
                                             const SizedBox(width: 4),
                                             Text(
@@ -204,7 +359,13 @@ class PillarQuizPreview extends StatelessWidget {
                                                 fontSize: 12,
                                                 fontWeight: FontWeight.bold,
                                                 color: isQuizPassed
-                                                    ? (isDark ? const Color(0xFF81C784) : const Color(0xFF1B5E20))
+                                                    ? (isDark
+                                                          ? const Color(
+                                                              0xFF81C784,
+                                                            )
+                                                          : const Color(
+                                                              0xFF1B5E20,
+                                                            ))
                                                     : const Color(0xFFE65100),
                                               ),
                                             ),
@@ -222,27 +383,40 @@ class PillarQuizPreview extends StatelessWidget {
                             'Uji wawasan mendalam mengenai pakem, sejarah, dan makna ornamen.',
                             style: AppTheme.inter(
                               fontSize: 13,
-                              color: isDark ? Colors.white70 : AppTheme.textSecondary,
+                              color: isDark
+                                  ? Colors.white70
+                                  : AppTheme.textSecondary,
                               height: 1.45,
                             ),
                           ),
                           const SizedBox(height: 18),
                           ElevatedButton(
-                            onPressed: () {
+                            onPressed: () async {
+                              await _playClickSound();
+                              if (!context.mounted) return;
                               Navigator.push(
                                 context,
-                                MaterialPageRoute(builder: (_) => TheoryQuizScreen(module: module)),
+                                MaterialPageRoute(
+                                  builder: (_) =>
+                                      TheoryQuizScreen(module: module),
+                                ),
                               );
                             },
                             style: ElevatedButton.styleFrom(
-                              backgroundColor: hasQuizAttempt ? Colors.transparent : AppTheme.primary,
-                              foregroundColor: hasQuizAttempt ? AppTheme.primary : Colors.white,
+                              backgroundColor: hasQuizAttempt
+                                  ? Colors.transparent
+                                  : AppTheme.primary,
+                              foregroundColor: hasQuizAttempt
+                                  ? AppTheme.primary
+                                  : Colors.white,
                               minimumSize: const Size.fromHeight(50),
                               elevation: 0,
                               shape: RoundedRectangleBorder(
                                 borderRadius: BorderRadius.circular(16),
                                 side: BorderSide(
-                                  color: hasQuizAttempt ? AppTheme.primary : Colors.transparent,
+                                  color: hasQuizAttempt
+                                      ? AppTheme.primary
+                                      : Colors.transparent,
                                   width: 1.5,
                                 ),
                               ),
@@ -251,21 +425,29 @@ class PillarQuizPreview extends StatelessWidget {
                               mainAxisAlignment: MainAxisAlignment.center,
                               children: [
                                 Icon(
-                                  hasQuizAttempt ? Icons.refresh_rounded : Icons.play_arrow_rounded,
+                                  hasQuizAttempt
+                                      ? Icons.refresh_rounded
+                                      : Icons.play_arrow_rounded,
                                   size: 18,
                                   color: hasQuizAttempt
-                                      ? (isDark ? AppTheme.secondaryLight : AppTheme.primary)
+                                      ? (isDark
+                                            ? AppTheme.secondaryLight
+                                            : AppTheme.primary)
                                       : Colors.white,
                                 ),
                                 const SizedBox(width: 6),
                                 Text(
-                                  hasQuizAttempt ? 'Kerjakan Ulang' : 'Mulai Kuis',
+                                  hasQuizAttempt
+                                      ? 'Kerjakan Ulang'
+                                      : 'Mulai Kuis',
                                   style: AppTheme.satoshi(
                                     fontSize: 15,
                                     fontWeight: FontWeight.bold,
                                     letterSpacing: 0.3,
                                     color: hasQuizAttempt
-                                        ? (isDark ? AppTheme.secondaryLight : AppTheme.primary)
+                                        ? (isDark
+                                              ? AppTheme.secondaryLight
+                                              : AppTheme.primary)
                                         : Colors.white,
                                   ),
                                 ),
@@ -296,17 +478,26 @@ class PillarQuizPreview extends StatelessWidget {
             builder: (context) {
               final provider = context.watch<AppProvider>();
               final latestAttempt = provider.scanHistories
-                  .where((s) => s.moduleId == module.id && s.scanType == 'kuismu')
+                  .where(
+                    (s) => s.moduleId == module.id && s.scanType == 'kuismu',
+                  )
                   .firstOrNull;
-              final bool hasAttempted = module.practiceDone ||
+              final bool hasAttempted =
+                  module.practiceDone ||
                   module.practiceScore != null ||
                   latestAttempt != null;
-              final int? practiceScore = module.practiceScore ??
+              final int? practiceScore =
+                  module.practiceScore ??
                   (latestAttempt != null
                       ? (latestAttempt.score * 100).round()
                       : null);
               // Nilai <= passingScore (70) adalah Belum Lulus. Wajib > passingScore untuk Lulus.
-              final bool isPassed = (practiceScore != null && practiceScore > module.passingScore) || (practiceScore == null && ((latestAttempt?.passed ?? false) || module.practiceDone));
+              final bool isPassed =
+                  (practiceScore != null &&
+                      practiceScore > module.passingScore) ||
+                  (practiceScore == null &&
+                      ((latestAttempt?.passed ?? false) ||
+                          module.practiceDone));
 
               return Stack(
                 clipBehavior: Clip.none,
@@ -319,17 +510,23 @@ class PillarQuizPreview extends StatelessWidget {
                       border: Border.all(
                         color: hasAttempted
                             ? (isPassed
-                                ? const Color(0xFF2E7D32).withValues(alpha: 0.4)
-                                : const Color(0xFFF57C00).withValues(alpha: 0.4))
-                            : (isDark ? AppTheme.darkBorder : const Color(0xFFF0EAE1)),
+                                  ? const Color(0xFF2E7D32)
+                                        .withValues(alpha: 0.4)
+                                  : const Color(0xFFF57C00)
+                                        .withValues(alpha: 0.4))
+                            : (isDark
+                                  ? AppTheme.darkBorder
+                                  : const Color(0xFFF0EAE1)),
                         width: 1.5,
                       ),
                       boxShadow: [
                         BoxShadow(
                           color: hasAttempted
                               ? (isPassed
-                                  ? const Color(0xFF2E7D32).withValues(alpha: 0.05)
-                                  : const Color(0xFFF57C00).withValues(alpha: 0.05))
+                                    ? const Color(0xFF2E7D32)
+                                          .withValues(alpha: 0.05)
+                                    : const Color(0xFFF57C00)
+                                          .withValues(alpha: 0.05))
                               : AppTheme.primary.withValues(alpha: 0.04),
                           blurRadius: 20,
                           offset: const Offset(0, 6),
@@ -350,11 +547,17 @@ class PillarQuizPreview extends StatelessWidget {
                                 decoration: BoxDecoration(
                                   color: hasAttempted
                                       ? (isPassed
-                                          ? const Color(0xFF2E7D32).withValues(alpha: 0.12)
-                                          : const Color(0xFFF57C00).withValues(alpha: 0.12))
+                                            ? const Color(0xFF2E7D32)
+                                                  .withValues(alpha: 0.12)
+                                            : const Color(0xFFF57C00)
+                                                  .withValues(alpha: 0.12))
                                       : (isDark
-                                          ? AppTheme.primary.withValues(alpha: 0.3)
-                                          : AppTheme.accentGold.withValues(alpha: 0.2)),
+                                            ? AppTheme.primary.withValues(
+                                                alpha: 0.3,
+                                              )
+                                            : AppTheme.accentGold.withValues(
+                                                alpha: 0.2,
+                                              )),
                                   borderRadius: BorderRadius.circular(14),
                                 ),
                                 child: Icon(
@@ -362,15 +565,16 @@ class PillarQuizPreview extends StatelessWidget {
                                   size: 24,
                                   color: hasAttempted
                                       ? (isPassed
-                                          ? const Color(0xFF2E7D32)
-                                          : const Color(0xFFF57C00))
+                                            ? const Color(0xFF2E7D32)
+                                            : const Color(0xFFF57C00))
                                       : AppTheme.primary,
                                 ),
                               ),
                               const SizedBox(width: 12),
                               Expanded(
                                 child: Row(
-                                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                  mainAxisAlignment:
+                                      MainAxisAlignment.spaceBetween,
                                   crossAxisAlignment: CrossAxisAlignment.center,
                                   children: [
                                     Expanded(
@@ -379,7 +583,9 @@ class PillarQuizPreview extends StatelessWidget {
                                         style: AppTheme.satoshi(
                                           fontSize: 17.5,
                                           fontWeight: FontWeight.w800,
-                                          color: isDark ? Colors.white : const Color(0xFF2C1810),
+                                          color: isDark
+                                              ? Colors.white
+                                              : const Color(0xFF2C1810),
                                         ),
                                         maxLines: 2,
                                       ),
@@ -387,16 +593,25 @@ class PillarQuizPreview extends StatelessWidget {
                                     if (hasAttempted) ...[
                                       const SizedBox(width: 8),
                                       Container(
-                                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4.5),
+                                        padding: const EdgeInsets.symmetric(
+                                          horizontal: 10,
+                                          vertical: 4.5,
+                                        ),
                                         decoration: BoxDecoration(
                                           color: isPassed
-                                              ? const Color(0xFF2E7D32).withValues(alpha: 0.12)
-                                              : const Color(0xFFF57C00).withValues(alpha: 0.12),
-                                          borderRadius: BorderRadius.circular(20),
+                                              ? const Color(0xFF2E7D32)
+                                                    .withValues(alpha: 0.12)
+                                              : const Color(0xFFF57C00)
+                                                    .withValues(alpha: 0.12),
+                                          borderRadius: BorderRadius.circular(
+                                            20,
+                                          ),
                                           border: Border.all(
                                             color: isPassed
-                                                ? const Color(0xFF2E7D32).withValues(alpha: 0.35)
-                                                : const Color(0xFFF57C00).withValues(alpha: 0.35),
+                                                ? const Color(0xFF2E7D32)
+                                                      .withValues(alpha: 0.35)
+                                                : const Color(0xFFF57C00)
+                                                      .withValues(alpha: 0.35),
                                             width: 1,
                                           ),
                                         ),
@@ -404,9 +619,13 @@ class PillarQuizPreview extends StatelessWidget {
                                           mainAxisSize: MainAxisSize.min,
                                           children: [
                                             Icon(
-                                              isPassed ? Icons.check_circle_outline : Icons.auto_awesome,
+                                              isPassed
+                                                  ? Icons.check_circle_outline
+                                                  : Icons.auto_awesome,
                                               size: 13,
-                                              color: isPassed ? const Color(0xFF2E7D32) : const Color(0xFFF57C00),
+                                              color: isPassed
+                                                  ? const Color(0xFF2E7D32)
+                                                  : const Color(0xFFF57C00),
                                             ),
                                             const SizedBox(width: 4),
                                             Text(
@@ -414,7 +633,9 @@ class PillarQuizPreview extends StatelessWidget {
                                               style: AppTheme.satoshi(
                                                 fontSize: 12,
                                                 fontWeight: FontWeight.bold,
-                                                color: isPassed ? const Color(0xFF2E7D32) : const Color(0xFFE65100),
+                                                color: isPassed
+                                                    ? const Color(0xFF2E7D32)
+                                                    : const Color(0xFFE65100),
                                               ),
                                             ),
                                           ],
@@ -431,14 +652,18 @@ class PillarQuizPreview extends StatelessWidget {
                             'Gambarlah motif batik ini, lalu pindai hasil karyamu untuk melihat seberapa mirip dengan aslinya.',
                             style: AppTheme.inter(
                               fontSize: 13,
-                              color: isDark ? Colors.white70 : AppTheme.textSecondary,
+                              color: isDark
+                                  ? Colors.white70
+                                  : AppTheme.textSecondary,
                               height: 1.45,
                             ),
                           ),
                           const SizedBox(height: 16),
                           if (hasAttempted) ...[
                             ElevatedButton(
-                              onPressed: () {
+                              onPressed: () async {
+                                await _playClickSound();
+                                if (!context.mounted) return;
                                 Navigator.push(
                                   context,
                                   MaterialPageRoute(
@@ -462,7 +687,11 @@ class PillarQuizPreview extends StatelessWidget {
                               child: Row(
                                 mainAxisAlignment: MainAxisAlignment.center,
                                 children: [
-                                  const Icon(Icons.history_rounded, size: 18, color: Colors.white),
+                                  const Icon(
+                                    Icons.history_rounded,
+                                    size: 18,
+                                    color: Colors.white,
+                                  ),
                                   const SizedBox(width: 8),
                                   Text(
                                     'Riwayat Praktikum',
@@ -478,7 +707,9 @@ class PillarQuizPreview extends StatelessWidget {
                             ),
                             const SizedBox(height: 10),
                             OutlinedButton(
-                              onPressed: () {
+                              onPressed: () async {
+                                await _playClickSound();
+                                if (!context.mounted) return;
                                 Navigator.push(
                                   context,
                                   MaterialPageRoute(
@@ -491,7 +722,10 @@ class PillarQuizPreview extends StatelessWidget {
                               },
                               style: OutlinedButton.styleFrom(
                                 minimumSize: const Size.fromHeight(48),
-                                side: const BorderSide(color: Color(0xFFD4A373), width: 1.2),
+                                side: const BorderSide(
+                                  color: Color(0xFFD4A373),
+                                  width: 1.2,
+                                ),
                                 shape: RoundedRectangleBorder(
                                   borderRadius: BorderRadius.circular(16),
                                 ),
@@ -499,7 +733,13 @@ class PillarQuizPreview extends StatelessWidget {
                               child: Row(
                                 mainAxisAlignment: MainAxisAlignment.center,
                                 children: [
-                                  Icon(Icons.replay_rounded, size: 16, color: isDark ? const Color(0xFFD4A373) : const Color(0xFF5A3416)),
+                                  Icon(
+                                    Icons.replay_rounded,
+                                    size: 16,
+                                    color: isDark
+                                        ? const Color(0xFFD4A373)
+                                        : const Color(0xFF5A3416),
+                                  ),
                                   const SizedBox(width: 8),
                                   Text(
                                     'Coba Praktik Lagi',
@@ -507,7 +747,9 @@ class PillarQuizPreview extends StatelessWidget {
                                       fontSize: 15,
                                       fontWeight: FontWeight.bold,
                                       letterSpacing: 0.3,
-                                      color: isDark ? const Color(0xFFD4A373) : const Color(0xFF5A3416),
+                                      color: isDark
+                                          ? const Color(0xFFD4A373)
+                                          : const Color(0xFF5A3416),
                                     ),
                                   ),
                                 ],
@@ -515,10 +757,15 @@ class PillarQuizPreview extends StatelessWidget {
                             ),
                           ] else ...[
                             ElevatedButton(
-                              onPressed: () {
+                              onPressed: () async {
+                                await _playClickSound();
+                                if (!context.mounted) return;
                                 Navigator.push(
                                   context,
-                                  MaterialPageRoute(builder: (_) => PracticeQuizScreen(module: module)),
+                                  MaterialPageRoute(
+                                    builder: (_) =>
+                                        PracticeQuizScreen(module: module),
+                                  ),
                                 );
                               },
                               style: ElevatedButton.styleFrom(
@@ -533,7 +780,11 @@ class PillarQuizPreview extends StatelessWidget {
                               child: Row(
                                 mainAxisAlignment: MainAxisAlignment.center,
                                 children: [
-                                  const Icon(Icons.camera_alt_outlined, size: 18, color: Colors.white),
+                                  const Icon(
+                                    Icons.camera_alt_outlined,
+                                    size: 18,
+                                    color: Colors.white,
+                                  ),
                                   const SizedBox(width: 8),
                                   Text(
                                     'Mulai Praktik',
