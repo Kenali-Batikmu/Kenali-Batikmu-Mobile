@@ -51,6 +51,7 @@ dependencies:
   pointycastle: ^4.0.0
   webview_flutter_android: ^4.14.1
   flutter_native_splash: ^2.4.8
+  audioplayers: ^6.8.1
 
 dev_dependencies:
   flutter_test:
@@ -77,6 +78,7 @@ flutter:
     - assets/images/batik/
     - assets/database/
     - assets/models/
+    - assets/audio/
 
   # An image asset can refer to one or more resolution-specific "variants", see
   # https://flutter.dev/to/resolution-aware-images
