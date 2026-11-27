@@ -30,11 +30,14 @@ class _PillarQuizPreviewState extends State<PillarQuizPreview>
     with WidgetsBindingObserver {
   final AudioPlayer _clickPlayer = AudioPlayer();
   Future<void> _clickOperations = Future<void>.value();
+  final AudioPlayer _returnEffectPlayer = AudioPlayer();
+  Future<void> _returnEffectOperations = Future<void>.value();
   Future<void> _lifecycleOperations = Future<void>.value();
   Completer<void>? _activeClickPlayback;
   bool _isDisposed = false;
   bool _isAppActive = true;
   bool _clickPausedForLifecycle = false;
+  bool _returnEffectPausedForLifecycle = false;
 
   ModuleModel get module => widget.module;
   bool get isDark => widget.isDark;
@@ -52,6 +55,15 @@ class _PillarQuizPreviewState extends State<PillarQuizPreview>
         .catchError((Object error, StackTrace stackTrace) {
           debugPrint('Gagal menyiapkan efek klik kuis: $error');
         });
+    _returnEffectOperations = _returnEffectPlayer
+        .setAudioContext(
+          AudioContextConfig(focus: AudioContextConfigFocus.mixWithOthers)
+              .build(),
+        )
+        .then((_) => _returnEffectPlayer.setReleaseMode(ReleaseMode.stop))
+        .catchError((Object error, StackTrace stackTrace) {
+          debugPrint('Gagal menyiapkan efek kembali kuis: $error');
+        });
   }
 
   @override
@@ -60,12 +72,21 @@ class _PillarQuizPreviewState extends State<PillarQuizPreview>
     _lifecycleOperations = _lifecycleOperations
         .then((_) async {
           if (_isDisposed) return;
+          await _returnEffectOperations;
           if (!_isAppActive && _clickPlayer.state == PlayerState.playing) {
             await _clickPlayer.pause();
             _clickPausedForLifecycle = true;
           } else if (_isAppActive && _clickPausedForLifecycle) {
             await _clickPlayer.resume();
             _clickPausedForLifecycle = false;
+          }
+          if (!_isAppActive &&
+              _returnEffectPlayer.state == PlayerState.playing) {
+            await _returnEffectPlayer.pause();
+            _returnEffectPausedForLifecycle = true;
+          } else if (_isAppActive && _returnEffectPausedForLifecycle) {
+            await _returnEffectPlayer.resume();
+            _returnEffectPausedForLifecycle = false;
           }
         })
         .catchError((Object error, StackTrace stackTrace) {
@@ -112,6 +133,48 @@ class _PillarQuizPreviewState extends State<PillarQuizPreview>
     return _clickOperations;
   }
 
+  void _playReturnSounds() {
+    unawaited(_playClickSound());
+    _returnEffectOperations = _returnEffectOperations
+        .then((_) async {
+          if (_isDisposed || !_isAppActive) return;
+          if (_returnEffectPlayer.state != PlayerState.stopped) {
+            await _returnEffectPlayer.stop();
+          }
+          if (_isDisposed || !_isAppActive) return;
+
+          await _returnEffectPlayer.play(AssetSource('audio/effect.mp3'));
+          if (!_isAppActive &&
+              _returnEffectPlayer.state == PlayerState.playing) {
+            await _returnEffectPlayer.pause();
+            _returnEffectPausedForLifecycle = true;
+          }
+        })
+        .catchError((Object error, StackTrace stackTrace) {
+          debugPrint('Gagal memutar efek kembali kuis: $error');
+        });
+  }
+
+  void _playBackClickSound() {
+    unawaited(_playClickSound());
+  }
+
+  Future<void> _disposeAudioPlayer(AudioPlayer player, String label) async {
+    try {
+      if (player.state != PlayerState.stopped) {
+        await player.stop();
+      }
+    } catch (error, stackTrace) {
+      debugPrint('Gagal menghentikan $label: $error\n$stackTrace');
+    }
+
+    try {
+      await player.dispose();
+    } catch (error, stackTrace) {
+      debugPrint('Gagal membersihkan $label: $error\n$stackTrace');
+    }
+  }
+
   @override
   void dispose() {
     _isDisposed = true;
@@ -120,19 +183,21 @@ class _PillarQuizPreviewState extends State<PillarQuizPreview>
     if (activePlayback != null && !activePlayback.isCompleted) {
       activePlayback.complete();
     }
-    final disposal = Future.wait<void>([_clickOperations, _lifecycleOperations])
-        .then((_) async {
-          try {
-            if (_clickPlayer.state != PlayerState.stopped) {
-              await _clickPlayer.stop();
-            }
-          } finally {
-            await _clickPlayer.dispose();
-          }
-        })
-        .catchError((Object error, StackTrace stackTrace) {
-          debugPrint('Gagal membersihkan efek klik kuis: $error');
-        });
+    final disposal =
+        Future.wait<void>([
+              _clickOperations,
+              _returnEffectOperations,
+              _lifecycleOperations,
+            ])
+            .then((_) async {
+              await Future.wait<void>([
+                _disposeAudioPlayer(_clickPlayer, 'efek klik kuis'),
+                _disposeAudioPlayer(_returnEffectPlayer, 'efek kembali kuis'),
+              ]);
+            })
+            .catchError((Object error, StackTrace stackTrace) {
+              debugPrint('Gagal membersihkan efek klik kuis: $error');
+            });
     unawaited(disposal);
     super.dispose();
   }
@@ -397,8 +462,11 @@ class _PillarQuizPreviewState extends State<PillarQuizPreview>
                               Navigator.push(
                                 context,
                                 MaterialPageRoute(
-                                  builder: (_) =>
-                                      TheoryQuizScreen(module: module),
+                                  builder: (_) => TheoryQuizScreen(
+                                    module: module,
+                                    onBackToModuleMenu: _playBackClickSound,
+                                    onReturnToModuleMenu: _playReturnSounds,
+                                  ),
                                 ),
                               );
                             },

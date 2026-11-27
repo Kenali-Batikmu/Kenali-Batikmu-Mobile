@@ -11,8 +11,15 @@ import '../../providers/app_provider.dart';
 
 class TheoryQuizScreen extends StatefulWidget {
   final ModuleModel module;
+  final VoidCallback? onBackToModuleMenu;
+  final VoidCallback? onReturnToModuleMenu;
 
-  const TheoryQuizScreen({super.key, required this.module});
+  const TheoryQuizScreen({
+    super.key,
+    required this.module,
+    this.onBackToModuleMenu,
+    this.onReturnToModuleMenu,
+  });
 
   @override
   State<TheoryQuizScreen> createState() => _TheoryQuizScreenState();
@@ -21,6 +28,7 @@ class TheoryQuizScreen extends StatefulWidget {
 class _TheoryQuizScreenState extends State<TheoryQuizScreen>
     with WidgetsBindingObserver {
   final Map<int, String> _userAnswers = {};
+  final ScrollController _scrollController = ScrollController();
   final AudioPlayer _musicPlayer = AudioPlayer();
   Future<void> _audioOperations = Future<void>.value();
   final AudioPlayer _clickEffectPlayer = AudioPlayer();
@@ -33,6 +41,7 @@ class _TheoryQuizScreenState extends State<TheoryQuizScreen>
   bool _isSubmitted = false;
   bool _isSubmitting = false;
   bool _isRestarting = false;
+  bool _isNavigatingBack = false;
   bool _isLoading = true;
   bool _isMuted = false;
   bool _isAppActive = true;
@@ -128,6 +137,7 @@ class _TheoryQuizScreenState extends State<TheoryQuizScreen>
           debugPrint('Gagal membersihkan efek hasil kuis teori: $error');
         });
     unawaited(resultEffectDisposal);
+    _scrollController.dispose();
     super.dispose();
   }
 
@@ -258,10 +268,11 @@ class _TheoryQuizScreenState extends State<TheoryQuizScreen>
           }
 
           if (_musicStarted) {
+            await _musicPlayer.setVolume(0.85);
             await _musicPlayer.resume();
           } else {
             await _musicPlayer.setReleaseMode(ReleaseMode.loop);
-            await _musicPlayer.setVolume(0.35);
+            await _musicPlayer.setVolume(0.85);
             await _musicPlayer.play(AssetSource('audio/quis_backsound.mp3'));
             _musicStarted = true;
           }
@@ -312,32 +323,71 @@ class _TheoryQuizScreenState extends State<TheoryQuizScreen>
       // Nilai <= passingScore (70) dianggap belum lolos. Wajib > passingScore untuk lolos.
       final passed = score > widget.module.passingScore;
 
-      await _playClickSound(waitForCompletion: true);
-      if (!mounted) return;
+      unawaited(_playClickSound());
 
       setState(() {
         _correctCount = correct;
         _finalScore = score;
         _isSubmitted = true;
       });
+      if (_scrollController.hasClients) {
+        _scrollController.jumpTo(0);
+      }
 
       final provider = Provider.of<AppProvider>(context, listen: false);
-      await _syncBackgroundMusic();
-      await provider.saveQuizResult(widget.module.id, score, passed);
+      final resultSaving = _saveQuizResult(provider, score, passed);
+      unawaited(_syncBackgroundMusic());
 
-      if (!mounted || _resultEffectPlayed) return;
-      _resultEffectPlayed = true;
       await WidgetsBinding.instance.endOfFrame;
-      if (mounted) _queueResultEffect();
+      if (mounted && !_resultEffectPlayed) {
+        _resultEffectPlayed = true;
+        _queueResultEffect();
+      }
+      await resultSaving;
     } finally {
       _isSubmitting = false;
     }
   }
 
-  Future<void> _returnToModuleMenu() async {
-    await _playClickSound(waitForCompletion: true);
+  Future<void> _saveQuizResult(
+    AppProvider provider,
+    int score,
+    bool passed,
+  ) async {
+    try {
+      await provider.saveQuizResult(widget.module.id, score, passed);
+    } catch (error, stackTrace) {
+      debugPrint('Gagal menyimpan hasil kuis teori: $error\n$stackTrace');
+      if (!mounted) return;
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Hasil kuis sudah ditampilkan, tetapi gagal disimpan.'),
+        ),
+      );
+    }
+  }
+
+  void _navigateToModuleMenu({required bool playResultSounds}) {
+    if (_isNavigatingBack || !mounted) return;
+    _isNavigatingBack = true;
+
+    try {
+      if (playResultSounds) {
+        widget.onReturnToModuleMenu?.call();
+      } else {
+        widget.onBackToModuleMenu?.call();
+      }
+    } catch (error, stackTrace) {
+      debugPrint('Gagal memulai efek audio saat kembali: $error\n$stackTrace');
+    }
+
     if (mounted) Navigator.pop(context);
   }
+
+  void _handleBackButton() => _navigateToModuleMenu(playResultSounds: false);
+
+  void _handleResultReturn() => _navigateToModuleMenu(playResultSounds: true);
 
   Future<void> _restartQuiz() async {
     if (_isRestarting || _isSubmitting) return;
@@ -381,7 +431,7 @@ class _TheoryQuizScreenState extends State<TheoryQuizScreen>
         leading: IconButton(
           icon: const Icon(Icons.arrow_back),
           color: isDark ? Colors.white : AppTheme.textPrimary,
-          onPressed: _returnToModuleMenu,
+          onPressed: _handleBackButton,
         ),
         title: Column(
           children: [
@@ -404,16 +454,22 @@ class _TheoryQuizScreenState extends State<TheoryQuizScreen>
           ],
         ),
         centerTitle: true,
-        actions: [
-          IconButton(
-            tooltip: _isMuted ? 'Nyalakan backsound' : 'Matikan backsound',
-            onPressed: _toggleMute,
-            icon: Icon(
-              _isMuted ? Icons.volume_off_rounded : Icons.volume_up_rounded,
-            ),
-            color: _appBarIconColor,
-          ),
-        ],
+        actions: _isSubmitted
+            ? const []
+            : [
+                IconButton(
+                  tooltip: _isMuted
+                      ? 'Nyalakan backsound'
+                      : 'Matikan backsound',
+                  onPressed: _toggleMute,
+                  icon: Icon(
+                    _isMuted
+                        ? Icons.volume_off_rounded
+                        : Icons.volume_up_rounded,
+                  ),
+                  color: _appBarIconColor,
+                ),
+              ],
       ),
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
@@ -443,6 +499,7 @@ class _TheoryQuizScreenState extends State<TheoryQuizScreen>
               ),
             )
           : SingleChildScrollView(
+              controller: _scrollController,
               padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -474,6 +531,17 @@ class _TheoryQuizScreenState extends State<TheoryQuizScreen>
                             style: AppTheme.satoshi(
                               fontSize: 16,
                               fontWeight: FontWeight.bold,
+                              color: _finalScore > widget.module.passingScore
+                                  ? const Color(0xFF2E7D32)
+                                  : const Color(0xFFC62828),
+                            ),
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            'Jawaban benar: $_correctCount  |  Jawaban salah: ${_questions.length - _correctCount}',
+                            style: AppTheme.satoshi(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w600,
                               color: _finalScore > widget.module.passingScore
                                   ? const Color(0xFF2E7D32)
                                   : const Color(0xFFC62828),
@@ -720,7 +788,7 @@ class _TheoryQuizScreenState extends State<TheoryQuizScreen>
                     )
                   else ...[
                     ElevatedButton(
-                      onPressed: _returnToModuleMenu,
+                      onPressed: _handleResultReturn,
                       style: ElevatedButton.styleFrom(
                         backgroundColor: const Color(0xFF5A3416),
                         foregroundColor: Colors.white,
