@@ -16,12 +16,18 @@ class PracticeQuizScreen extends StatefulWidget {
   final ModuleModel module;
   final bool initialShowResult;
   final ScanHistoryModel? historyData;
+  final VoidCallback? onClickSound;
+  final VoidCallback? onResultEffect;
+  final VoidCallback? onNavigationEffect;
 
   const PracticeQuizScreen({
     super.key,
     required this.module,
     this.initialShowResult = false,
     this.historyData,
+    this.onClickSound,
+    this.onResultEffect,
+    this.onNavigationEffect,
   });
 
   @override
@@ -40,6 +46,10 @@ class _PracticeQuizScreenState extends State<PracticeQuizScreen>
   bool _isCamAvailable = true;
   bool _isAnalyzing = false;
   bool _hasResult = false;
+  bool _resultEffectTriggered = false;
+  bool _isReturningHome = false;
+  bool _isNavigatingAway = false;
+  bool _isSubmittingAssessment = false;
   String? _camErr;
 
   // Hasil evaluasi inferensi TFLite On-Device (1 Hasil Tunggal)
@@ -60,14 +70,15 @@ class _PracticeQuizScreenState extends State<PracticeQuizScreen>
       if (hist != null) {
         _evaluatedScore = hist.score;
         _evaluatedPassed = hist.passed;
-        _evaluatedMotifName = hist.motifName ?? widget.module.title.replaceAll('\n', ' ');
+        _evaluatedMotifName =
+            hist.motifName ?? widget.module.title.replaceAll('\n', ' ');
         _historyImagePath = hist.imagePath;
         _historyTime = hist.createdAt;
       } else {
         final double score = widget.module.practiceScore != null
             ? (widget.module.practiceScore! > 1.0
-                ? widget.module.practiceScore! / 100.0
-                : widget.module.practiceScore!.toDouble())
+                  ? widget.module.practiceScore! / 100.0
+                  : widget.module.practiceScore!.toDouble())
             : 0.0;
         _evaluatedScore = score;
         _evaluatedPassed = score > 0.70;
@@ -75,16 +86,22 @@ class _PracticeQuizScreenState extends State<PracticeQuizScreen>
       }
 
       // Jika riwayat path foto kosong, cek apakah file lokal tersimpan di direktori aplikasi
-      if ((_historyImagePath == null || _historyImagePath!.isEmpty) && !kIsWeb) {
-        getApplicationDocumentsDirectory().then((docsDir) {
-          final f = File('${docsDir.path}/practice_mod_${widget.module.id}.jpg');
-          if (f.existsSync() && mounted) {
-            setState(() {
-              _historyImagePath = f.path;
-            });
-          }
-        }).catchError((_) {});
+      if ((_historyImagePath == null || _historyImagePath!.isEmpty) &&
+          !kIsWeb) {
+        getApplicationDocumentsDirectory()
+            .then((docsDir) {
+              final f = File(
+                '${docsDir.path}/practice_mod_${widget.module.id}.jpg',
+              );
+              if (f.existsSync() && mounted) {
+                setState(() {
+                  _historyImagePath = f.path;
+                });
+              }
+            })
+            .catchError((_) {});
       }
+      _playResultEffectOnce();
     }
 
     _initCam();
@@ -122,7 +139,8 @@ class _PracticeQuizScreenState extends State<PracticeQuizScreen>
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
-    if (state == AppLifecycleState.inactive || state == AppLifecycleState.paused) {
+    if (state == AppLifecycleState.inactive ||
+        state == AppLifecycleState.paused) {
       final c = _cam;
       _cam = null;
       if (mounted) setState(() {});
@@ -150,7 +168,9 @@ class _PracticeQuizScreenState extends State<PracticeQuizScreen>
       }
 
       // Pilih kamera belakang pada HP, atau kamera pertama pada Windows PC
-      _camIdx = _cams.indexWhere((c) => c.lensDirection == CameraLensDirection.back);
+      _camIdx = _cams.indexWhere(
+        (c) => c.lensDirection == CameraLensDirection.back,
+      );
       if (_camIdx < 0) _camIdx = 0;
 
       await _startCam();
@@ -206,12 +226,81 @@ class _PracticeQuizScreenState extends State<PracticeQuizScreen>
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Text(msg, style: AppTheme.inter(color: Colors.white, fontSize: 13)),
+        content: Text(
+          msg,
+          style: AppTheme.inter(color: Colors.white, fontSize: 13),
+        ),
         backgroundColor: AppTheme.primary,
         behavior: SnackBarBehavior.floating,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
       ),
     );
+  }
+
+  void _playPracticeClick() {
+    try {
+      widget.onClickSound?.call();
+    } catch (error, stackTrace) {
+      debugPrint('Gagal memulai efek klik praktikum: $error\n$stackTrace');
+    }
+  }
+
+  void _playResultEffectOnce() {
+    if (_resultEffectTriggered) return;
+    _resultEffectTriggered = true;
+    _requestResultEffect(afterFrame: true);
+  }
+
+  void _requestResultEffect({required bool afterFrame}) {
+    void play() {
+      if (!mounted) return;
+      try {
+        widget.onResultEffect?.call();
+      } catch (error, stackTrace) {
+        debugPrint('Gagal memulai efek hasil praktikum: $error\n$stackTrace');
+      }
+    }
+
+    if (afterFrame) {
+      WidgetsBinding.instance.addPostFrameCallback((_) => play());
+    } else {
+      play();
+    }
+  }
+
+  void _handlePracticeBack() {
+    if (_isNavigatingAway) return;
+    _isNavigatingAway = true;
+    _playPracticeClick();
+    Navigator.pop(context);
+  }
+
+  void _handleResultBack() {
+    if (_isNavigatingAway) return;
+    _playPracticeClick();
+    if (widget.initialShowResult && Navigator.canPop(context)) {
+      _isNavigatingAway = true;
+      Navigator.pop(context);
+    } else {
+      setState(() {
+        _resultEffectTriggered = false;
+        _hasResult = false;
+      });
+    }
+  }
+
+  void _returnToHome() {
+    if (_isReturningHome) return;
+    _isReturningHome = true;
+    _isNavigatingAway = true;
+    _playPracticeClick();
+    try {
+      widget.onNavigationEffect?.call();
+    } catch (error, stackTrace) {
+      debugPrint('Gagal memulai efek navigasi praktikum: $error\n$stackTrace');
+    }
+    _cleanTemporaryPhoto();
+    Navigator.popUntil(context, (route) => route.isFirst);
   }
 
   Future<void> _toggleFlash() async {
@@ -275,96 +364,117 @@ class _PracticeQuizScreenState extends State<PracticeQuizScreen>
   }
 
   Future<void> _submitAssessment() async {
-    // Jika belum ada foto & kamera aktif, ambil foto otomatis
-    if (_photo == null && _photoBytes == null && _cam != null && _cam!.value.isInitialized) {
-      await _shootPhoto();
-    }
-
-    // Jika kamera tidak ada & foto belum dipilih, minta pilih dari galeri
-    if (_photo == null && _photoBytes == null && (_cam == null || !_cam!.value.isInitialized)) {
-      await _pickFromGallery();
-    }
-
-    if (_photo == null && _photoBytes == null) {
-      _snack('Ambil foto karyamu atau unggah gambar dari galeri terlebih dahulu.');
-      return;
-    }
-
-    if (!mounted) return;
-    setState(() => _isAnalyzing = true);
+    if (_isSubmittingAssessment) return;
+    _isSubmittingAssessment = true;
+    _playPracticeClick();
 
     try {
-      if (!mounted) return;
-      final provider = Provider.of<AppProvider>(context, listen: false);
-      final motifs = provider.motifs;
+      // Jika belum ada foto & kamera aktif, ambil foto otomatis
+      if (_photo == null &&
+          _photoBytes == null &&
+          _cam != null &&
+          _cam!.value.isInitialized) {
+        await _shootPhoto();
+      }
 
-      // Ambil motif target dari modul
-      final targetMotif = motifs.firstWhere(
-        (m) => m.id == widget.module.motifId,
-        orElse: () => motifs.isNotEmpty
-            ? motifs.first
-            : BatikMotifModel(
-                id: widget.module.motifId,
-                name: widget.module.title,
-                slug: widget.module.title.toLowerCase().replaceAll(' ', '_'),
-                originRegion: 'Nusantara',
-                shortDescription: '',
-                mlClassIndex: 0,
-              ),
-      );
+      // Jika kamera tidak ada & foto belum dipilih, minta pilih dari galeri
+      if (_photo == null &&
+          _photoBytes == null &&
+          (_cam == null || !_cam!.value.isInitialized)) {
+        await _pickFromGallery();
+      }
 
-      // Jalankan klasifikasi TFLite untuk 1 hasil kecocokan spesifik terhadap modul (raw bytes aman di Web & Android)
-      final evalResult = await BatikClassifierService.instance.classifyForModule(
-        _photoBytes ?? _photo!,
-        targetMotifId: widget.module.motifId,
-        targetMotifSlug: targetMotif.slug,
-        targetModuleTitle: widget.module.title,
-        availableMotifs: motifs,
-      );
-
-      final fitScore = evalResult?.confidence ?? 0.0;
-      final passingThreshold = (widget.module.passingScore) / 100.0;
-      // Nilai <= passingScore (70%) dianggap belum lolos. Wajib > passingScore untuk lolos.
-      final passed = fitScore > (passingThreshold > 0 ? passingThreshold : 0.70);
-      final motifName = evalResult?.motifName ?? widget.module.title.replaceAll('\n', ' ');
-
-      String? savedPermanentPath;
-      if (!kIsWeb) {
-        try {
-          final docsDir = await getApplicationDocumentsDirectory();
-          final permanentFile = File('${docsDir.path}/practice_mod_${widget.module.id}.jpg');
-          if (_photoBytes != null) {
-            await permanentFile.writeAsBytes(_photoBytes!, flush: true);
-          } else if (_photo != null && _photo!.existsSync()) {
-            await _photo!.copy(permanentFile.path);
-          }
-          savedPermanentPath = permanentFile.path;
-          _historyImagePath = permanentFile.path;
-          _photo = permanentFile;
-        } catch (e) {
-          debugPrint('Gagal menyimpan file permanen praktikum: $e');
-        }
+      if (_photo == null && _photoBytes == null) {
+        _snack(
+          'Ambil foto karyamu atau unggah gambar dari galeri terlebih dahulu.',
+        );
+        return;
       }
 
       if (!mounted) return;
+      setState(() => _isAnalyzing = true);
 
-      provider.savePracticeResult(
-        widget.module.id,
-        fitScore,
-        passed,
-        imagePath: savedPermanentPath ?? _photo?.path,
-      );
+      try {
+        if (!mounted) return;
+        final provider = Provider.of<AppProvider>(context, listen: false);
+        final motifs = provider.motifs;
 
-      setState(() {
-        _isAnalyzing = false;
-        _hasResult = true;
-        _evaluatedScore = fitScore;
-        _evaluatedPassed = passed;
-        _evaluatedMotifName = motifName;
-      });
-    } catch (e) {
-      if (mounted) setState(() => _isAnalyzing = false);
-      _snack('Gagal menilai hasil praktikum: $e');
+        // Ambil motif target dari modul
+        final targetMotif = motifs.firstWhere(
+          (m) => m.id == widget.module.motifId,
+          orElse: () => motifs.isNotEmpty
+              ? motifs.first
+              : BatikMotifModel(
+                  id: widget.module.motifId,
+                  name: widget.module.title,
+                  slug: widget.module.title.toLowerCase().replaceAll(' ', '_'),
+                  originRegion: 'Nusantara',
+                  shortDescription: '',
+                  mlClassIndex: 0,
+                ),
+        );
+
+        // Jalankan klasifikasi TFLite untuk 1 hasil kecocokan spesifik terhadap modul (raw bytes aman di Web & Android)
+        final evalResult = await BatikClassifierService.instance
+            .classifyForModule(
+              _photoBytes ?? _photo!,
+              targetMotifId: widget.module.motifId,
+              targetMotifSlug: targetMotif.slug,
+              targetModuleTitle: widget.module.title,
+              availableMotifs: motifs,
+            );
+
+        final fitScore = evalResult?.confidence ?? 0.0;
+        final passingThreshold = (widget.module.passingScore) / 100.0;
+        // Nilai <= passingScore (70%) dianggap belum lolos. Wajib > passingScore untuk lolos.
+        final passed =
+            fitScore > (passingThreshold > 0 ? passingThreshold : 0.70);
+        final motifName =
+            evalResult?.motifName ?? widget.module.title.replaceAll('\n', ' ');
+
+        String? savedPermanentPath;
+        if (!kIsWeb) {
+          try {
+            final docsDir = await getApplicationDocumentsDirectory();
+            final permanentFile = File(
+              '${docsDir.path}/practice_mod_${widget.module.id}.jpg',
+            );
+            if (_photoBytes != null) {
+              await permanentFile.writeAsBytes(_photoBytes!, flush: true);
+            } else if (_photo != null && _photo!.existsSync()) {
+              await _photo!.copy(permanentFile.path);
+            }
+            savedPermanentPath = permanentFile.path;
+            _historyImagePath = permanentFile.path;
+            _photo = permanentFile;
+          } catch (e) {
+            debugPrint('Gagal menyimpan file permanen praktikum: $e');
+          }
+        }
+
+        if (!mounted) return;
+
+        provider.savePracticeResult(
+          widget.module.id,
+          fitScore,
+          passed,
+          imagePath: savedPermanentPath ?? _photo?.path,
+        );
+
+        setState(() {
+          _isAnalyzing = false;
+          _hasResult = true;
+          _evaluatedScore = fitScore;
+          _evaluatedPassed = passed;
+          _evaluatedMotifName = motifName;
+        });
+        _playResultEffectOnce();
+      } catch (e) {
+        if (mounted) setState(() => _isAnalyzing = false);
+        _snack('Gagal menilai hasil praktikum: $e');
+      }
+    } finally {
+      _isSubmittingAssessment = false;
     }
   }
 
@@ -388,7 +498,10 @@ class _PracticeQuizScreenState extends State<PracticeQuizScreen>
                 _photoBytes = null;
               }),
               child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 10,
+                  vertical: 6,
+                ),
                 decoration: BoxDecoration(
                   color: Colors.black.withValues(alpha: 0.65),
                   borderRadius: BorderRadius.circular(16),
@@ -397,7 +510,14 @@ class _PracticeQuizScreenState extends State<PracticeQuizScreen>
                   children: [
                     Icon(Icons.refresh, color: Colors.white, size: 14),
                     SizedBox(width: 4),
-                    Text('Foto Ulang', style: TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold)),
+                    Text(
+                      'Foto Ulang',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 11,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
                   ],
                 ),
               ),
@@ -449,20 +569,34 @@ class _PracticeQuizScreenState extends State<PracticeQuizScreen>
                     color: AppTheme.accentGold.withValues(alpha: 0.2),
                     shape: BoxShape.circle,
                   ),
-                  child: const Icon(Icons.cloud_upload_outlined, color: AppTheme.accentGold, size: 30),
+                  child: const Icon(
+                    Icons.cloud_upload_outlined,
+                    color: AppTheme.accentGold,
+                    size: 30,
+                  ),
                 ),
                 const SizedBox(height: 12),
                 Text(
                   kIsWeb
                       ? 'Unggah Foto Hasil Praktikum'
-                      : (Platform.isWindows ? 'Kamera Windows / Mode Upload Gambar' : 'Unggah Foto Praktikum'),
-                  style: AppTheme.satoshi(fontSize: 15, fontWeight: FontWeight.bold, color: Colors.white),
+                      : (Platform.isWindows
+                            ? 'Kamera Windows / Mode Upload Gambar'
+                            : 'Unggah Foto Praktikum'),
+                  style: AppTheme.satoshi(
+                    fontSize: 15,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.white,
+                  ),
                 ),
                 const SizedBox(height: 6),
                 Text(
                   _camErr ?? 'Arahkan kamera ke kain batikmu atau unggah gambar dari galeri perangkat.',
                   textAlign: TextAlign.center,
-                  style: AppTheme.inter(fontSize: 12, color: Colors.white70, height: 1.4),
+                  style: AppTheme.inter(
+                    fontSize: 12,
+                    color: Colors.white70,
+                    height: 1.4,
+                  ),
                 ),
                 const SizedBox(height: 14),
                 ElevatedButton.icon(
@@ -472,8 +606,13 @@ class _PracticeQuizScreenState extends State<PracticeQuizScreen>
                   style: ElevatedButton.styleFrom(
                     backgroundColor: AppTheme.primary,
                     foregroundColor: Colors.white,
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 10,
+                    ),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
                   ),
                 ),
               ],
@@ -500,17 +639,25 @@ class _PracticeQuizScreenState extends State<PracticeQuizScreen>
         leading: IconButton(
           icon: const Icon(Icons.arrow_back),
           color: isDark ? Colors.white : AppTheme.textPrimary,
-          onPressed: () => Navigator.pop(context),
+          onPressed: _handlePracticeBack,
         ),
         title: Column(
           children: [
             Text(
               'KENALI BATIKMU',
-              style: AppTheme.satoshi(fontSize: 10, fontWeight: FontWeight.bold, letterSpacing: 1.2, color: AppTheme.primary),
+              style: AppTheme.satoshi(
+                fontSize: 10,
+                fontWeight: FontWeight.bold,
+                letterSpacing: 1.2,
+                color: AppTheme.primary,
+              ),
             ),
             Text(
               'Detail Modul - Kuis Praktikum',
-              style: AppTheme.satoshi(fontSize: 16, fontWeight: FontWeight.bold),
+              style: AppTheme.satoshi(
+                fontSize: 16,
+                fontWeight: FontWeight.bold,
+              ),
             ),
           ],
         ),
@@ -528,7 +675,9 @@ class _PracticeQuizScreenState extends State<PracticeQuizScreen>
                 decoration: BoxDecoration(
                   color: const Color(0xFF2B231D),
                   borderRadius: BorderRadius.circular(28),
-                  border: Border.all(color: isDark ? AppTheme.darkBorder : AppTheme.border),
+                  border: Border.all(
+                    color: isDark ? AppTheme.darkBorder : AppTheme.border,
+                  ),
                 ),
                 child: ClipRRect(
                   borderRadius: BorderRadius.circular(27),
@@ -559,26 +708,38 @@ class _PracticeQuizScreenState extends State<PracticeQuizScreen>
                                 ),
                                 child: Icon(
                                   Icons.grid_on,
-                                  color: _grid ? AppTheme.accentGold : Colors.white,
+                                  color: _grid
+                                      ? AppTheme.accentGold
+                                      : Colors.white,
                                   size: 18,
                                 ),
                               ),
                             ),
                             Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 14,
+                                vertical: 6,
+                              ),
                               decoration: BoxDecoration(
                                 color: Colors.black.withValues(alpha: 0.55),
                                 borderRadius: BorderRadius.circular(20),
                               ),
                               child: Row(
                                 children: [
-                                  const Icon(Icons.camera_alt, color: AppTheme.accentGold, size: 14),
+                                  const Icon(
+                                    Icons.camera_alt,
+                                    color: AppTheme.accentGold,
+                                    size: 14,
+                                  ),
                                   const SizedBox(width: 6),
                                   Text(
                                     _photo != null
                                         ? 'Foto Karyamu Terpilih'
                                         : 'Arahkan kamera ke kain batikmu',
-                                    style: const TextStyle(color: Colors.white, fontSize: 11),
+                                    style: const TextStyle(
+                                      color: Colors.white,
+                                      fontSize: 11,
+                                    ),
                                   ),
                                 ],
                               ),
@@ -593,7 +754,9 @@ class _PracticeQuizScreenState extends State<PracticeQuizScreen>
                                 ),
                                 child: Icon(
                                   _flash ? Icons.flash_on : Icons.flash_off,
-                                  color: _flash ? AppTheme.accentGold : Colors.white,
+                                  color: _flash
+                                      ? AppTheme.accentGold
+                                      : Colors.white,
                                   size: 18,
                                 ),
                               ),
@@ -609,7 +772,10 @@ class _PracticeQuizScreenState extends State<PracticeQuizScreen>
                             width: 220,
                             height: 220,
                             decoration: BoxDecoration(
-                              border: Border.all(color: AppTheme.accentGold, width: 2),
+                              border: Border.all(
+                                color: AppTheme.accentGold,
+                                width: 2,
+                              ),
                               borderRadius: BorderRadius.circular(16),
                             ),
                             child: Stack(
@@ -617,17 +783,38 @@ class _PracticeQuizScreenState extends State<PracticeQuizScreen>
                                 Positioned(
                                   top: 60,
                                   left: 60,
-                                  child: Container(width: 10, height: 10, decoration: const BoxDecoration(color: AppTheme.accentGold, shape: BoxShape.circle)),
+                                  child: Container(
+                                    width: 10,
+                                    height: 10,
+                                    decoration: const BoxDecoration(
+                                      color: AppTheme.accentGold,
+                                      shape: BoxShape.circle,
+                                    ),
+                                  ),
                                 ),
                                 Positioned(
                                   top: 100,
                                   right: 60,
-                                  child: Container(width: 10, height: 10, decoration: const BoxDecoration(color: AppTheme.accentGold, shape: BoxShape.circle)),
+                                  child: Container(
+                                    width: 10,
+                                    height: 10,
+                                    decoration: const BoxDecoration(
+                                      color: AppTheme.accentGold,
+                                      shape: BoxShape.circle,
+                                    ),
+                                  ),
                                 ),
                                 Positioned(
                                   bottom: 60,
                                   left: 80,
-                                  child: Container(width: 10, height: 10, decoration: const BoxDecoration(color: AppTheme.accentGold, shape: BoxShape.circle)),
+                                  child: Container(
+                                    width: 10,
+                                    height: 10,
+                                    decoration: const BoxDecoration(
+                                      color: AppTheme.accentGold,
+                                      shape: BoxShape.circle,
+                                    ),
+                                  ),
                                 ),
                               ],
                             ),
@@ -653,7 +840,11 @@ class _PracticeQuizScreenState extends State<PracticeQuizScreen>
                                   borderRadius: BorderRadius.circular(14),
                                   border: Border.all(color: Colors.white70),
                                 ),
-                                child: const Icon(Icons.photo_library, color: Colors.white, size: 22),
+                                child: const Icon(
+                                  Icons.photo_library,
+                                  color: Colors.white,
+                                  size: 22,
+                                ),
                               ),
                             ),
 
@@ -665,7 +856,10 @@ class _PracticeQuizScreenState extends State<PracticeQuizScreen>
                                 height: 72,
                                 decoration: BoxDecoration(
                                   shape: BoxShape.circle,
-                                  border: Border.all(color: Colors.white, width: 4),
+                                  border: Border.all(
+                                    color: Colors.white,
+                                    width: 4,
+                                  ),
                                 ),
                                 child: Center(
                                   child: Container(
@@ -675,7 +869,11 @@ class _PracticeQuizScreenState extends State<PracticeQuizScreen>
                                       color: AppTheme.primary,
                                       shape: BoxShape.circle,
                                     ),
-                                    child: const Icon(Icons.camera, color: Colors.white, size: 28),
+                                    child: const Icon(
+                                      Icons.camera,
+                                      color: Colors.white,
+                                      size: 28,
+                                    ),
                                   ),
                                 ),
                               ),
@@ -691,7 +889,11 @@ class _PracticeQuizScreenState extends State<PracticeQuizScreen>
                                   color: Colors.black.withValues(alpha: 0.5),
                                   shape: BoxShape.circle,
                                 ),
-                                child: const Icon(Icons.flip_camera_ios, color: Colors.white, size: 22),
+                                child: const Icon(
+                                  Icons.flip_camera_ios,
+                                  color: Colors.white,
+                                  size: 22,
+                                ),
                               ),
                             ),
                           ],
@@ -706,11 +908,17 @@ class _PracticeQuizScreenState extends State<PracticeQuizScreen>
                             child: Column(
                               mainAxisSize: MainAxisSize.min,
                               children: [
-                                CircularProgressIndicator(color: AppTheme.accentGold),
+                                CircularProgressIndicator(
+                                  color: AppTheme.accentGold,
+                                ),
                                 SizedBox(height: 14),
                                 Text(
                                   'Menganalisis & Menilai Karyamu...',
-                                  style: TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.bold),
+                                  style: TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.bold,
+                                  ),
                                 ),
                               ],
                             ),
@@ -729,13 +937,22 @@ class _PracticeQuizScreenState extends State<PracticeQuizScreen>
                   backgroundColor: const Color(0xFF5A3416),
                   foregroundColor: Colors.white,
                   minimumSize: const Size.fromHeight(50),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(14),
+                  ),
                 ),
                 child: _isAnalyzing
                     ? const Row(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
-                          SizedBox(width: 18, height: 18, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2)),
+                          SizedBox(
+                            width: 18,
+                            height: 18,
+                            child: CircularProgressIndicator(
+                              color: Colors.white,
+                              strokeWidth: 2,
+                            ),
+                          ),
                           SizedBox(width: 10),
                           Text('Menilai...'),
                         ],
@@ -743,7 +960,11 @@ class _PracticeQuizScreenState extends State<PracticeQuizScreen>
                     : const Row(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
-                          Icon(Icons.auto_awesome, size: 16, color: AppTheme.accentGold),
+                          Icon(
+                            Icons.auto_awesome,
+                            size: 16,
+                            color: AppTheme.accentGold,
+                          ),
                           SizedBox(width: 8),
                           Text('Kirim untuk Dinilai'),
                         ],
@@ -752,12 +973,16 @@ class _PracticeQuizScreenState extends State<PracticeQuizScreen>
               const SizedBox(height: 12),
 
               GestureDetector(
-                onTap: () => Navigator.pop(context),
+                onTap: _handlePracticeBack,
                 child: Padding(
                   padding: const EdgeInsets.symmetric(vertical: 8),
                   child: Text(
                     'Kembali ke Halaman Kuis',
-                    style: AppTheme.inter(fontSize: 13, fontWeight: FontWeight.w600, color: AppTheme.textSecondary),
+                    style: AppTheme.inter(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w600,
+                      color: AppTheme.textSecondary,
+                    ),
                   ),
                 ),
               ),
@@ -780,7 +1005,8 @@ class _PracticeQuizScreenState extends State<PracticeQuizScreen>
         imageWidget = Image.file(_photo!, fit: BoxFit.cover);
       }
     } else if (_historyImagePath != null && _historyImagePath!.isNotEmpty) {
-      if (_historyImagePath!.startsWith('http://') || _historyImagePath!.startsWith('https://')) {
+      if (_historyImagePath!.startsWith('http://') ||
+          _historyImagePath!.startsWith('https://')) {
         imageWidget = Image.network(_historyImagePath!, fit: BoxFit.cover);
       } else if (!kIsWeb && File(_historyImagePath!).existsSync()) {
         imageWidget = Image.file(File(_historyImagePath!), fit: BoxFit.cover);
@@ -802,7 +1028,11 @@ class _PracticeQuizScreenState extends State<PracticeQuizScreen>
           Text(
             'Foto\nKaryamu',
             textAlign: TextAlign.center,
-            style: TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold),
+            style: TextStyle(
+              color: Colors.white,
+              fontSize: 10,
+              fontWeight: FontWeight.bold,
+            ),
           ),
         ],
       ),
@@ -819,18 +1049,26 @@ class _PracticeQuizScreenState extends State<PracticeQuizScreen>
         leading: IconButton(
           icon: const Icon(Icons.arrow_back),
           color: isDark ? Colors.white : AppTheme.textPrimary,
-          onPressed: () {
-            if (widget.initialShowResult && Navigator.canPop(context)) {
-              Navigator.pop(context);
-            } else {
-              setState(() => _hasResult = false);
-            }
-          },
+          onPressed: _handleResultBack,
         ),
         title: Column(
           children: [
-            Text('KENALI BATIKMU', style: AppTheme.satoshi(fontSize: 10, fontWeight: FontWeight.bold, letterSpacing: 1.2, color: AppTheme.primary)),
-            Text('Hasil Penilaian Praktikum', style: AppTheme.satoshi(fontSize: 16, fontWeight: FontWeight.bold)),
+            Text(
+              'KENALI BATIKMU',
+              style: AppTheme.satoshi(
+                fontSize: 10,
+                fontWeight: FontWeight.bold,
+                letterSpacing: 1.2,
+                color: AppTheme.primary,
+              ),
+            ),
+            Text(
+              'Hasil Penilaian Praktikum',
+              style: AppTheme.satoshi(
+                fontSize: 16,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
           ],
         ),
         centerTitle: true,
@@ -856,7 +1094,9 @@ class _PracticeQuizScreenState extends State<PracticeQuizScreen>
               decoration: BoxDecoration(
                 color: isDark ? AppTheme.darkSurface : Colors.white,
                 borderRadius: BorderRadius.circular(22),
-                border: Border.all(color: isDark ? AppTheme.darkBorder : AppTheme.border),
+                border: Border.all(
+                  color: isDark ? AppTheme.darkBorder : AppTheme.border,
+                ),
               ),
               child: Row(
                 children: [
@@ -866,7 +1106,9 @@ class _PracticeQuizScreenState extends State<PracticeQuizScreen>
                     decoration: BoxDecoration(
                       color: const Color(0xFF382516),
                       borderRadius: BorderRadius.circular(16),
-                      border: Border.all(color: AppTheme.accentGold.withValues(alpha: 0.5)),
+                      border: Border.all(
+                        color: AppTheme.accentGold.withValues(alpha: 0.5),
+                      ),
                     ),
                     child: _buildPracticePhotoThumbnail(),
                   ),
@@ -877,12 +1119,20 @@ class _PracticeQuizScreenState extends State<PracticeQuizScreen>
                       children: [
                         Row(
                           children: [
-                            const Icon(Icons.draw, size: 14, color: AppTheme.primary),
+                            const Icon(
+                              Icons.draw,
+                              size: 14,
+                              color: AppTheme.primary,
+                            ),
                             const SizedBox(width: 4),
                             Expanded(
                               child: Text(
                                 'KUIS PRAKTIK MODUL ${widget.module.id}',
-                                style: AppTheme.satoshi(fontSize: 11, fontWeight: FontWeight.bold, color: AppTheme.primary),
+                                style: AppTheme.satoshi(
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.bold,
+                                  color: AppTheme.primary,
+                                ),
                                 maxLines: 1,
                                 overflow: TextOverflow.ellipsis,
                               ),
@@ -891,14 +1141,20 @@ class _PracticeQuizScreenState extends State<PracticeQuizScreen>
                         ),
                         const SizedBox(height: 4),
                         Text(
-                          _historyTime != null ? 'Diambil pada $_historyTime' : 'Diambil pada baru saja',
-                          style: AppTheme.inter(fontSize: 12, color: AppTheme.textSecondary),
+                          _historyTime != null
+                              ? 'Diambil pada $_historyTime'
+                              : 'Diambil pada baru saja',
+                          style: AppTheme.inter(
+                            fontSize: 12,
+                            color: AppTheme.textSecondary,
+                          ),
                         ),
                         const SizedBox(height: 4),
                         GestureDetector(
                           onTap: () {
                             _cleanTemporaryPhoto();
                             setState(() {
+                              _resultEffectTriggered = false;
                               _hasResult = false;
                               _historyImagePath = null;
                               _historyTime = null;
@@ -906,9 +1162,20 @@ class _PracticeQuizScreenState extends State<PracticeQuizScreen>
                           },
                           child: const Row(
                             children: [
-                              Icon(Icons.replay, size: 14, color: AppTheme.primaryDark),
+                              Icon(
+                                Icons.replay,
+                                size: 14,
+                                color: AppTheme.primaryDark,
+                              ),
                               SizedBox(width: 4),
-                              Text('Ambil / Unggah Ulang', style: TextStyle(color: AppTheme.primaryDark, fontSize: 12, fontWeight: FontWeight.bold)),
+                              Text(
+                                'Ambil / Unggah Ulang',
+                                style: TextStyle(
+                                  color: AppTheme.primaryDark,
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
                             ],
                           ),
                         ),
@@ -920,13 +1187,15 @@ class _PracticeQuizScreenState extends State<PracticeQuizScreen>
             ),
             const SizedBox(height: 18),
 
-                       // Card Kecocokan Asal Daerah
+            // Card Kecocokan Asal Daerah
             Container(
               padding: const EdgeInsets.all(20),
               decoration: BoxDecoration(
                 color: isDark ? AppTheme.darkSurface : Colors.white,
                 borderRadius: BorderRadius.circular(24),
-                border: Border.all(color: isDark ? AppTheme.darkBorder : AppTheme.border),
+                border: Border.all(
+                  color: isDark ? AppTheme.darkBorder : AppTheme.border,
+                ),
               ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -935,22 +1204,45 @@ class _PracticeQuizScreenState extends State<PracticeQuizScreen>
                     children: [
                       Container(
                         padding: const EdgeInsets.all(6),
-                        decoration: BoxDecoration(color: AppTheme.primary.withValues(alpha: 0.1), shape: BoxShape.circle),
-                        child: const Icon(Icons.radar, color: AppTheme.primary, size: 18),
+                        decoration: BoxDecoration(
+                          color: AppTheme.primary.withValues(alpha: 0.1),
+                          shape: BoxShape.circle,
+                        ),
+                        child: const Icon(
+                          Icons.radar,
+                          color: AppTheme.primary,
+                          size: 18,
+                        ),
                       ),
                       const SizedBox(width: 10),
                       Expanded(
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Text('Evaluasi Ornamen Batik', style: AppTheme.satoshi(fontSize: 16, fontWeight: FontWeight.bold)),
-                            Text('Klasifikasi AI On-Device TensorFlow Lite (1 Hasil Tunggal)', style: AppTheme.inter(fontSize: 11, color: AppTheme.textSecondary)),
+                            Text(
+                              'Evaluasi Ornamen Batik',
+                              style: AppTheme.satoshi(
+                                fontSize: 16,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                            Text(
+                              'Klasifikasi AI On-Device TensorFlow Lite (1 Hasil Tunggal)',
+                              style: AppTheme.inter(
+                                fontSize: 11,
+                                color: AppTheme.textSecondary,
+                              ),
+                            ),
                           ],
                         ),
                       ),
                       Icon(
-                        _evaluatedPassed ? Icons.check_circle : Icons.warning_amber_rounded,
-                        color: _evaluatedPassed ? const Color(0xFF2E7D32) : const Color(0xFFD32F2F),
+                        _evaluatedPassed
+                            ? Icons.check_circle
+                            : Icons.warning_amber_rounded,
+                        color: _evaluatedPassed
+                            ? const Color(0xFF2E7D32)
+                            : const Color(0xFFD32F2F),
                         size: 24,
                       ),
                     ],
@@ -959,11 +1251,12 @@ class _PracticeQuizScreenState extends State<PracticeQuizScreen>
 
                   Builder(
                     builder: (context) {
-                      final int displayPercent = (_evaluatedScore > 1.0
-                              ? _evaluatedScore
-                              : _evaluatedScore * 100)
-                          .round()
-                          .clamp(0, 100);
+                      final int displayPercent =
+                          (_evaluatedScore > 1.0
+                                  ? _evaluatedScore
+                                  : _evaluatedScore * 100)
+                              .round()
+                              .clamp(0, 100);
                       return _buildDaerahItem(
                         _evaluatedMotifName.isNotEmpty
                             ? _evaluatedMotifName[0].toUpperCase()
@@ -982,7 +1275,11 @@ class _PracticeQuizScreenState extends State<PracticeQuizScreen>
 
                   Text(
                     'ⓘ  Hasil evaluasi mengukur tingkat kemiripan ornamen, goresan canting, dan isen-isen karyamu terhadap modul ${widget.module.title}.',
-                    style: AppTheme.inter(fontSize: 12, color: AppTheme.textMuted, height: 1.4),
+                    style: AppTheme.inter(
+                      fontSize: 12,
+                      color: AppTheme.textMuted,
+                      height: 1.4,
+                    ),
                   ),
                 ],
               ),
@@ -995,7 +1292,9 @@ class _PracticeQuizScreenState extends State<PracticeQuizScreen>
               decoration: BoxDecoration(
                 color: isDark ? AppTheme.darkSurface : Colors.white,
                 borderRadius: BorderRadius.circular(20),
-                border: Border.all(color: isDark ? AppTheme.darkBorder : AppTheme.border),
+                border: Border.all(
+                  color: isDark ? AppTheme.darkBorder : AppTheme.border,
+                ),
               ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -1004,15 +1303,30 @@ class _PracticeQuizScreenState extends State<PracticeQuizScreen>
                     children: [
                       const Icon(Icons.rule, color: AppTheme.primary, size: 18),
                       const SizedBox(width: 8),
-                      Text('Ketentuan Penilaian', style: AppTheme.satoshi(fontSize: 14, fontWeight: FontWeight.bold)),
+                      Text(
+                        'Ketentuan Penilaian',
+                        style: AppTheme.satoshi(
+                          fontSize: 14,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
                     ],
                   ),
                   const SizedBox(height: 10),
-                  _buildKetentuanBullet('> 70%: Sangat Mirip (Lulus)', const Color(0xFFD49B45)),
+                  _buildKetentuanBullet(
+                    '> 70%: Sangat Mirip (Lulus)',
+                    const Color(0xFFD49B45),
+                  ),
                   const SizedBox(height: 6),
-                  _buildKetentuanBullet('50% - 70%: Cukup Mirip (Belum Lulus)', const Color(0xFF5A3416)),
+                  _buildKetentuanBullet(
+                    '50% - 70%: Cukup Mirip (Belum Lulus)',
+                    const Color(0xFF5A3416),
+                  ),
                   const SizedBox(height: 6),
-                  _buildKetentuanBullet('< 50%: Perlu Dilatih (Belum Lulus)', const Color(0xFF8A827B)),
+                  _buildKetentuanBullet(
+                    '< 50%: Perlu Dilatih (Belum Lulus)',
+                    const Color(0xFF8A827B),
+                  ),
                 ],
               ),
             ),
@@ -1021,8 +1335,10 @@ class _PracticeQuizScreenState extends State<PracticeQuizScreen>
             // Tombol Coba Praktik Lagi (Tombol Riwayat tidak ditampilkan di sini karena pengguna sudah berada di halaman hasil)
             ElevatedButton.icon(
               onPressed: () {
+                _playPracticeClick();
                 _cleanTemporaryPhoto();
                 setState(() {
+                  _resultEffectTriggered = false;
                   _hasResult = false;
                   _historyImagePath = null;
                   _historyTime = null;
@@ -1031,25 +1347,38 @@ class _PracticeQuizScreenState extends State<PracticeQuizScreen>
               icon: const Icon(Icons.replay, size: 18, color: Colors.white),
               label: const Text(
                 'Coba Praktik Lagi',
-                style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+                style: TextStyle(
+                  color: Colors.white,
+                  fontWeight: FontWeight.bold,
+                ),
               ),
               style: ElevatedButton.styleFrom(
                 backgroundColor: const Color(0xFF5A3416),
                 foregroundColor: Colors.white,
                 minimumSize: const Size.fromHeight(50),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(14),
+                ),
               ),
             ),
             const SizedBox(height: 10),
 
             Center(
               child: TextButton.icon(
-                onPressed: () {
-                  _cleanTemporaryPhoto();
-                  Navigator.popUntil(context, (route) => route.isFirst);
-                },
-                icon: const Icon(Icons.home_outlined, size: 16, color: AppTheme.textSecondary),
-                label: Text('Kembali ke Beranda', style: AppTheme.inter(fontSize: 13, color: AppTheme.textSecondary, fontWeight: FontWeight.w600)),
+                onPressed: _returnToHome,
+                icon: const Icon(
+                  Icons.home_outlined,
+                  size: 16,
+                  color: AppTheme.textSecondary,
+                ),
+                label: Text(
+                  'Kembali ke Beranda',
+                  style: AppTheme.inter(
+                    fontSize: 13,
+                    color: AppTheme.textSecondary,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
               ),
             ),
           ],
@@ -1058,8 +1387,13 @@ class _PracticeQuizScreenState extends State<PracticeQuizScreen>
     );
   }
 
-
-  Widget _buildDaerahItem(String letter, String name, int percent, {bool isTop = false, String? badge}) {
+  Widget _buildDaerahItem(
+    String letter,
+    String name,
+    int percent, {
+    bool isTop = false,
+    String? badge,
+  }) {
     final int cleanPercent = percent.clamp(0, 100);
     return Column(
       children: [
@@ -1069,11 +1403,20 @@ class _PracticeQuizScreenState extends State<PracticeQuizScreen>
               width: 32,
               height: 32,
               decoration: BoxDecoration(
-                color: isTop ? const Color(0xFFF7E6D2) : const Color(0xFFEBE6E1),
+                color: isTop
+                    ? const Color(0xFFF7E6D2)
+                    : const Color(0xFFEBE6E1),
                 shape: BoxShape.circle,
               ),
               child: Center(
-                child: Text(letter, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Color(0xFF5A3416))),
+                child: Text(
+                  letter,
+                  style: const TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 13,
+                    color: Color(0xFF5A3416),
+                  ),
+                ),
               ),
             ),
             const SizedBox(width: 10),
@@ -1084,24 +1427,41 @@ class _PracticeQuizScreenState extends State<PracticeQuizScreen>
                 children: [
                   Text(
                     name,
-                    style: AppTheme.satoshi(fontSize: 15, fontWeight: FontWeight.bold),
+                    style: AppTheme.satoshi(
+                      fontSize: 15,
+                      fontWeight: FontWeight.bold,
+                    ),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                   ),
                   if (badge != null) ...[
                     const SizedBox(height: 3),
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                      decoration: BoxDecoration(color: const Color(0xFFFCECDA), borderRadius: BorderRadius.circular(12)),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 2,
+                      ),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFFCECDA),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
                       child: Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          const Icon(Icons.star, size: 11, color: AppTheme.accentGold),
+                          const Icon(
+                            Icons.star,
+                            size: 11,
+                            color: AppTheme.accentGold,
+                          ),
                           const SizedBox(width: 4),
                           Flexible(
                             child: Text(
                               badge,
-                              style: const TextStyle(color: Color(0xFF7A4B29), fontSize: 10, fontWeight: FontWeight.bold),
+                              style: const TextStyle(
+                                color: Color(0xFF7A4B29),
+                                fontSize: 10,
+                                fontWeight: FontWeight.bold,
+                              ),
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
                             ),
@@ -1114,7 +1474,14 @@ class _PracticeQuizScreenState extends State<PracticeQuizScreen>
               ),
             ),
             const SizedBox(width: 10),
-            Text('$cleanPercent%', style: AppTheme.satoshi(fontSize: 18, fontWeight: FontWeight.bold, color: const Color(0xFF5A3416))),
+            Text(
+              '$cleanPercent%',
+              style: AppTheme.satoshi(
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+                color: const Color(0xFF5A3416),
+              ),
+            ),
           ],
         ),
         const SizedBox(height: 6),
@@ -1124,7 +1491,9 @@ class _PracticeQuizScreenState extends State<PracticeQuizScreen>
             value: cleanPercent / 100.0,
             minHeight: 8,
             backgroundColor: const Color(0xFFF0EBE1),
-            valueColor: AlwaysStoppedAnimation<Color>(isTop ? AppTheme.accentGold : const Color(0xFF5A3416)),
+            valueColor: AlwaysStoppedAnimation<Color>(
+              isTop ? AppTheme.accentGold : const Color(0xFF5A3416),
+            ),
           ),
         ),
       ],
@@ -1134,9 +1503,16 @@ class _PracticeQuizScreenState extends State<PracticeQuizScreen>
   Widget _buildKetentuanBullet(String text, Color dotColor) {
     return Row(
       children: [
-        Container(width: 8, height: 8, decoration: BoxDecoration(color: dotColor, shape: BoxShape.circle)),
+        Container(
+          width: 8,
+          height: 8,
+          decoration: BoxDecoration(color: dotColor, shape: BoxShape.circle),
+        ),
         const SizedBox(width: 8),
-        Text(text, style: AppTheme.inter(fontSize: 12, color: AppTheme.textSecondary)),
+        Text(
+          text,
+          style: AppTheme.inter(fontSize: 12, color: AppTheme.textSecondary),
+        ),
       ],
     );
   }
@@ -1153,8 +1529,16 @@ class _GridPainter extends CustomPainter {
       ..strokeWidth = 1;
 
     for (var i = 1; i < 3; i++) {
-      canvas.drawLine(Offset(size.width * i / 3, 0), Offset(size.width * i / 3, size.height), p);
-      canvas.drawLine(Offset(0, size.height * i / 3), Offset(size.width, size.height * i / 3), p);
+      canvas.drawLine(
+        Offset(size.width * i / 3, 0),
+        Offset(size.width * i / 3, size.height),
+        p,
+      );
+      canvas.drawLine(
+        Offset(0, size.height * i / 3),
+        Offset(size.width, size.height * i / 3),
+        p,
+      );
     }
   }
 
