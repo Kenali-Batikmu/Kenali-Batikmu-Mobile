@@ -32,12 +32,18 @@ class _PillarQuizPreviewState extends State<PillarQuizPreview>
   Future<void> _clickOperations = Future<void>.value();
   final AudioPlayer _returnEffectPlayer = AudioPlayer();
   Future<void> _returnEffectOperations = Future<void>.value();
+  Future<void> _returnEffectSetup = Future<void>.value();
+  final AudioPlayer _navigationEffectPlayer = AudioPlayer();
+  Future<void> _navigationEffectOperations = Future<void>.value();
+  Future<void> _navigationEffectSetup = Future<void>.value();
   Future<void> _lifecycleOperations = Future<void>.value();
   Completer<void>? _activeClickPlayback;
   bool _isDisposed = false;
+  bool _isOpeningPracticeQuiz = false;
   bool _isAppActive = true;
   bool _clickPausedForLifecycle = false;
   bool _returnEffectPausedForLifecycle = false;
+  bool _navigationEffectPausedForLifecycle = false;
 
   ModuleModel get module => widget.module;
   bool get isDark => widget.isDark;
@@ -55,7 +61,7 @@ class _PillarQuizPreviewState extends State<PillarQuizPreview>
         .catchError((Object error, StackTrace stackTrace) {
           debugPrint('Gagal menyiapkan efek klik kuis: $error');
         });
-    _returnEffectOperations = _returnEffectPlayer
+    _returnEffectSetup = _returnEffectPlayer
         .setAudioContext(
           AudioContextConfig(focus: AudioContextConfigFocus.mixWithOthers)
               .build(),
@@ -64,6 +70,17 @@ class _PillarQuizPreviewState extends State<PillarQuizPreview>
         .catchError((Object error, StackTrace stackTrace) {
           debugPrint('Gagal menyiapkan efek kembali kuis: $error');
         });
+    _returnEffectOperations = _returnEffectSetup;
+    _navigationEffectSetup = _navigationEffectPlayer
+        .setAudioContext(
+          AudioContextConfig(focus: AudioContextConfigFocus.mixWithOthers)
+              .build(),
+        )
+        .then((_) => _navigationEffectPlayer.setReleaseMode(ReleaseMode.stop))
+        .catchError((Object error, StackTrace stackTrace) {
+          debugPrint('Gagal menyiapkan efek navigasi kuis: $error');
+        });
+    _navigationEffectOperations = _navigationEffectSetup;
   }
 
   @override
@@ -72,7 +89,7 @@ class _PillarQuizPreviewState extends State<PillarQuizPreview>
     _lifecycleOperations = _lifecycleOperations
         .then((_) async {
           if (_isDisposed) return;
-          await _returnEffectOperations;
+          await _returnEffectSetup;
           if (!_isAppActive && _clickPlayer.state == PlayerState.playing) {
             await _clickPlayer.pause();
             _clickPausedForLifecycle = true;
@@ -88,6 +105,15 @@ class _PillarQuizPreviewState extends State<PillarQuizPreview>
             await _returnEffectPlayer.resume();
             _returnEffectPausedForLifecycle = false;
           }
+          await _navigationEffectSetup;
+          if (!_isAppActive &&
+              _navigationEffectPlayer.state == PlayerState.playing) {
+            await _navigationEffectPlayer.pause();
+            _navigationEffectPausedForLifecycle = true;
+          } else if (_isAppActive && _navigationEffectPausedForLifecycle) {
+            await _navigationEffectPlayer.resume();
+            _navigationEffectPausedForLifecycle = false;
+          }
         })
         .catchError((Object error, StackTrace stackTrace) {
           debugPrint('Gagal mengelola lifecycle efek klik kuis: $error');
@@ -97,11 +123,11 @@ class _PillarQuizPreviewState extends State<PillarQuizPreview>
   Future<void> _playClickSound() {
     _clickOperations = _clickOperations
         .then((_) async {
-          if (_isDisposed || !_isAppActive) return;
+          if (!_isAppActive) return;
           if (_clickPlayer.state != PlayerState.stopped) {
             await _clickPlayer.stop();
           }
-          if (_isDisposed || !_isAppActive) return;
+          if (!_isAppActive) return;
 
           final completed = Completer<void>();
           _activeClickPlayback = completed;
@@ -119,7 +145,7 @@ class _PillarQuizPreviewState extends State<PillarQuizPreview>
               await _clickPlayer.pause();
               _clickPausedForLifecycle = true;
             }
-            await completed.future;
+            await completed.future.timeout(const Duration(seconds: 5));
           } finally {
             await completionSubscription.cancel();
             if (identical(_activeClickPlayback, completed)) {
@@ -135,24 +161,119 @@ class _PillarQuizPreviewState extends State<PillarQuizPreview>
 
   void _playReturnSounds() {
     unawaited(_playClickSound());
+    _playNavigationEffectSound();
+  }
+
+  void _playEffectSound() {
     _returnEffectOperations = _returnEffectOperations
         .then((_) async {
-          if (_isDisposed || !_isAppActive) return;
+          if (!_isAppActive) return;
           if (_returnEffectPlayer.state != PlayerState.stopped) {
             await _returnEffectPlayer.stop();
           }
-          if (_isDisposed || !_isAppActive) return;
+          if (!_isAppActive) return;
 
-          await _returnEffectPlayer.play(AssetSource('audio/effect.mp3'));
-          if (!_isAppActive &&
-              _returnEffectPlayer.state == PlayerState.playing) {
-            await _returnEffectPlayer.pause();
-            _returnEffectPausedForLifecycle = true;
+          final completed = Completer<void>();
+          final completionSubscription = _returnEffectPlayer.onPlayerComplete
+              .listen(
+                (_) {
+                  if (!completed.isCompleted) completed.complete();
+                },
+                onError: (Object error) {
+                  if (!completed.isCompleted) completed.completeError(error);
+                },
+              );
+          try {
+            await _returnEffectPlayer.play(AssetSource('audio/effect.mp3'));
+            if (!_isAppActive &&
+                _returnEffectPlayer.state == PlayerState.playing) {
+              await _returnEffectPlayer.pause();
+              _returnEffectPausedForLifecycle = true;
+            }
+            await completed.future.timeout(const Duration(seconds: 15));
+          } on TimeoutException {
+            await _returnEffectPlayer.stop();
+            rethrow;
+          } finally {
+            await completionSubscription.cancel();
           }
         })
         .catchError((Object error, StackTrace stackTrace) {
           debugPrint('Gagal memutar efek kembali kuis: $error');
         });
+  }
+
+  void _playNavigationEffectSound() {
+    _navigationEffectOperations = _navigationEffectOperations
+        .then((_) async {
+          if (!_isAppActive) return;
+          if (_navigationEffectPlayer.state != PlayerState.stopped) {
+            await _navigationEffectPlayer.stop();
+          }
+          if (!_isAppActive) return;
+
+          final completed = Completer<void>();
+          final completionSubscription = _navigationEffectPlayer
+              .onPlayerComplete
+              .listen(
+                (_) {
+                  if (!completed.isCompleted) completed.complete();
+                },
+                onError: (Object error) {
+                  if (!completed.isCompleted) completed.completeError(error);
+                },
+              );
+          try {
+            await _navigationEffectPlayer.play(AssetSource('audio/effect.mp3'));
+            if (!_isAppActive &&
+                _navigationEffectPlayer.state == PlayerState.playing) {
+              await _navigationEffectPlayer.pause();
+              _navigationEffectPausedForLifecycle = true;
+            }
+            await completed.future.timeout(const Duration(seconds: 15));
+          } on TimeoutException {
+            await _navigationEffectPlayer.stop();
+            rethrow;
+          } finally {
+            await completionSubscription.cancel();
+          }
+        })
+        .catchError((Object error, StackTrace stackTrace) {
+          debugPrint('Gagal memutar efek navigasi kuis: $error');
+        });
+  }
+
+  void _playPracticeClickSound() {
+    unawaited(_playClickSound());
+  }
+
+  Future<void> _openPracticeQuiz({
+    bool initialShowResult = false,
+    ScanHistoryModel? historyData,
+  }) async {
+    if (_isOpeningPracticeQuiz || !mounted) return;
+    _isOpeningPracticeQuiz = true;
+
+    try {
+      unawaited(_playClickSound());
+      if (!mounted) return;
+
+      await Navigator.push<void>(
+        context,
+        MaterialPageRoute<void>(
+          builder: (_) => PracticeQuizScreen(
+            module: module,
+            initialShowResult: initialShowResult,
+            historyData: historyData,
+            onClickSound: _playPracticeClickSound,
+            onResultEffect: _playEffectSound,
+            onNavigationEffect: _playNavigationEffectSound,
+          ),
+        ),
+      );
+    } finally {
+      _isOpeningPracticeQuiz = false;
+    }
   }
 
   void _playBackClickSound() {
@@ -179,20 +300,21 @@ class _PillarQuizPreviewState extends State<PillarQuizPreview>
   void dispose() {
     _isDisposed = true;
     WidgetsBinding.instance.removeObserver(this);
-    final activePlayback = _activeClickPlayback;
-    if (activePlayback != null && !activePlayback.isCompleted) {
-      activePlayback.complete();
-    }
     final disposal =
         Future.wait<void>([
               _clickOperations,
               _returnEffectOperations,
+              _navigationEffectOperations,
               _lifecycleOperations,
             ])
             .then((_) async {
               await Future.wait<void>([
                 _disposeAudioPlayer(_clickPlayer, 'efek klik kuis'),
                 _disposeAudioPlayer(_returnEffectPlayer, 'efek kembali kuis'),
+                _disposeAudioPlayer(
+                  _navigationEffectPlayer,
+                  'efek navigasi kuis',
+                ),
               ]);
             })
             .catchError((Object error, StackTrace stackTrace) {
@@ -729,20 +851,10 @@ class _PillarQuizPreviewState extends State<PillarQuizPreview>
                           const SizedBox(height: 16),
                           if (hasAttempted) ...[
                             ElevatedButton(
-                              onPressed: () async {
-                                await _playClickSound();
-                                if (!context.mounted) return;
-                                Navigator.push(
-                                  context,
-                                  MaterialPageRoute(
-                                    builder: (_) => PracticeQuizScreen(
-                                      module: module,
-                                      initialShowResult: true,
-                                      historyData: latestAttempt,
-                                    ),
-                                  ),
-                                );
-                              },
+                              onPressed: () => _openPracticeQuiz(
+                                initialShowResult: true,
+                                historyData: latestAttempt,
+                              ),
                               style: ElevatedButton.styleFrom(
                                 backgroundColor: const Color(0xFF5A3416),
                                 foregroundColor: Colors.white,
@@ -775,19 +887,7 @@ class _PillarQuizPreviewState extends State<PillarQuizPreview>
                             ),
                             const SizedBox(height: 10),
                             OutlinedButton(
-                              onPressed: () async {
-                                await _playClickSound();
-                                if (!context.mounted) return;
-                                Navigator.push(
-                                  context,
-                                  MaterialPageRoute(
-                                    builder: (_) => PracticeQuizScreen(
-                                      module: module,
-                                      initialShowResult: false,
-                                    ),
-                                  ),
-                                );
-                              },
+                              onPressed: _openPracticeQuiz,
                               style: OutlinedButton.styleFrom(
                                 minimumSize: const Size.fromHeight(48),
                                 side: const BorderSide(
@@ -825,17 +925,7 @@ class _PillarQuizPreviewState extends State<PillarQuizPreview>
                             ),
                           ] else ...[
                             ElevatedButton(
-                              onPressed: () async {
-                                await _playClickSound();
-                                if (!context.mounted) return;
-                                Navigator.push(
-                                  context,
-                                  MaterialPageRoute(
-                                    builder: (_) =>
-                                        PracticeQuizScreen(module: module),
-                                  ),
-                                );
-                              },
+                              onPressed: _openPracticeQuiz,
                               style: ElevatedButton.styleFrom(
                                 backgroundColor: const Color(0xFF5A3416),
                                 foregroundColor: Colors.white,
