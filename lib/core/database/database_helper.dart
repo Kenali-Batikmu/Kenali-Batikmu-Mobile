@@ -341,6 +341,25 @@ class DatabaseHelper {
       await db.execute('CREATE UNIQUE INDEX IF NOT EXISTS idx_scans_user_module_kuismu ON scans(user_id, module_id) WHERE scan_type = \'kuismu\'');
     } catch (_) {}
 
+    // Migrasi path aset gambar lokal lama (.jpg/.jpeg/.png -> .webp) pada database perangkat lama
+    const assetImageColumns = {
+      'batik_motifs': 'thumbnail_url',
+      'modules': 'cover_image',
+      'module_contents': 'image_url',
+      'module_gallery_images': 'image_url',
+    };
+    for (final entry in assetImageColumns.entries) {
+      for (final ext in ['.jpg', '.jpeg', '.png']) {
+        try {
+          await db.rawUpdate(
+            "UPDATE ${entry.key} SET ${entry.value} = "
+            "SUBSTR(${entry.value}, 1, LENGTH(${entry.value}) - ${ext.length}) || '.webp' "
+            "WHERE ${entry.value} LIKE 'assets/images/%$ext'",
+          );
+        } catch (_) {}
+      }
+    }
+
     // Migrasi kredensial akun bawaan (hanya bila hash masih bawaan/ belum diubah
     // pengguna). Kata sandi pengguna yang sudah diganti tidak akan disentuh.
     const shippedDemoHashes = {
@@ -370,26 +389,26 @@ class DatabaseHelper {
     // Patch cover_image untuk semua 20 modul batik dari assets lokal
     // Setiap kali app dibuka, pastikan path cover_image sudah benar (UPSERT aman)
     const moduleCoverImages = {
-      1:  'assets/images/batik/betawi_cover.jpg',
-      2:  'assets/images/batik/bokor_kencono_cover.jpg',
-      3:  'assets/images/batik/buketan_cover.jpg',
-      4:  'assets/images/batik/dayak_cover.jpg',
-      5:  'assets/images/batik/jlamprang_cover.jpg',
-      6:  'assets/images/batik/kawung_cover.jpg',
-      7:  'assets/images/batik/liong_cover.jpg',
-      8:  'assets/images/batik/mega_mendung_cover.jpg',
-      9:  'assets/images/batik/parang_cover.jpg',
-      10: 'assets/images/batik/sekarjagad_cover.jpg',
-      11: 'assets/images/batik/sidoluhur_cover.jpg',
-      12: 'assets/images/batik/sidomukti_cover.jpg',
-      13: 'assets/images/batik/sidomulyo_cover.jpg',
-      14: 'assets/images/batik/singa_barong_cover.jpg',
-      15: 'assets/images/batik/srikaton_cover.jpg',
-      16: 'assets/images/batik/tribusono_cover.jpg',
-      17: 'assets/images/batik/tujuh_rupa_cover.jpg',
-      18: 'assets/images/batik/tuntrum_cover.jpg',
-      19: 'assets/images/batik/wahyu_tumurun_cover.jpg',
-      20: 'assets/images/batik/wirasat_cover.jpg',
+      1:  'assets/images/batik/betawi_cover.webp',
+      2:  'assets/images/batik/bokor_kencono_cover.webp',
+      3:  'assets/images/batik/buketan_cover.webp',
+      4:  'assets/images/batik/dayak_cover.webp',
+      5:  'assets/images/batik/jlamprang_cover.webp',
+      6:  'assets/images/batik/kawung_cover.webp',
+      7:  'assets/images/batik/liong_cover.webp',
+      8:  'assets/images/batik/mega_mendung_cover.webp',
+      9:  'assets/images/batik/parang_cover.webp',
+      10: 'assets/images/batik/sekarjagad_cover.webp',
+      11: 'assets/images/batik/sidoluhur_cover.webp',
+      12: 'assets/images/batik/sidomukti_cover.webp',
+      13: 'assets/images/batik/sidomulyo_cover.webp',
+      14: 'assets/images/batik/singa_barong_cover.webp',
+      15: 'assets/images/batik/srikaton_cover.webp',
+      16: 'assets/images/batik/tribusono_cover.webp',
+      17: 'assets/images/batik/tujuh_rupa_cover.webp',
+      18: 'assets/images/batik/tuntrum_cover.webp',
+      19: 'assets/images/batik/wahyu_tumurun_cover.webp',
+      20: 'assets/images/batik/wirasat_cover.webp',
     };
     for (final entry in moduleCoverImages.entries) {
       try {

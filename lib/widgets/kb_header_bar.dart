@@ -74,7 +74,7 @@ class KbHeaderBar extends StatelessWidget {
         children: [
           // 1. Logo Aplikasi (Kiri - langsung tanpa container / clip oval)
           Image.asset(
-            'assets/images/logo_1.png',
+            'assets/images/logo_1.webp',
             width: height,
             height: height,
             fit: BoxFit.contain,

@@ -63,7 +63,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
             // 1. Full Screen Background Motif & Texture (Memenuhi 100% Layar Tanpa Celah)
             Positioned.fill(
               child: Image.asset(
-                'assets/images/onboarding_bg.png',
+                'assets/images/onboarding_bg.webp',
                 fit: BoxFit.cover,
                 alignment: Alignment.topCenter,
               ),
@@ -373,7 +373,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                 // Gambar utama slide 1
                 Center(
                   child: Image.asset(
-                    'assets/images/onboarding_slide_1.png',
+                    'assets/images/onboarding_slide_1.webp',
                     width: 250,
                     height: 250,
                     fit: BoxFit.contain,
@@ -390,7 +390,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
             child: Transform.rotate(
               angle: 1.30,
               child: Image.asset(
-                'assets/images/leaf/onboarding_leaf_01_ranting_amber.png',
+                'assets/images/leaf/onboarding_leaf_01_ranting_amber.webp',
                 width: 74,
                 height: 94,
                 fit: BoxFit.contain,
@@ -407,7 +407,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
               child: Transform.rotate(
                 angle: 25,
                 child: Image.asset(
-                  'assets/images/leaf/onboarding_leaf_02_ranting_hijau.png',
+                  'assets/images/leaf/onboarding_leaf_02_ranting_hijau.webp',
                   width: 70,
                   height: 90,
                   fit: BoxFit.contain,
@@ -421,7 +421,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
             top: 118,
             left: 18,
             child: Image.asset(
-              'assets/images/leaf/onboarding_leaf_03_bunga_roset.png',
+              'assets/images/leaf/onboarding_leaf_03_bunga_roset.webp',
               width: 28,
               height: 28,
               fit: BoxFit.contain,
@@ -436,7 +436,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
             child: Transform.rotate(
               angle: -0.45,
               child: Image.asset(
-                'assets/images/leafe_1.png',
+                'assets/images/leafe_1.webp',
                 width: 18,
                 height: 18,
               ),
@@ -449,7 +449,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
             child: Transform.rotate(
               angle: -0.85,
               child: Image.asset(
-                'assets/images/leafe_2.png',
+                'assets/images/leafe_2.webp',
                 width: 20,
                 height: 20,
               ),
@@ -462,7 +462,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
             child: Transform.rotate(
               angle: 0.6,
               child: Image.asset(
-                'assets/images/leafe_1.png',
+                'assets/images/leafe_1.webp',
                 width: 18,
                 height: 18,
               ),
@@ -475,7 +475,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
             child: Transform.rotate(
               angle: 0.4,
               child: Image.asset(
-                'assets/images/leafe_1.png',
+                'assets/images/leafe_1.webp',
                 width: 17,
                 height: 17,
               ),
@@ -488,7 +488,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
             child: Transform.rotate(
               angle: -0.5,
               child: Image.asset(
-                'assets/images/leafe_2.png',
+                'assets/images/leafe_2.webp',
                 width: 18,
                 height: 18,
               ),
@@ -532,7 +532,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                   child: Transform.rotate(
                     angle: 0.2,
                     child: Image.asset(
-                      'assets/images/onboarding_slide_2.png',
+                      'assets/images/onboarding_slide_2.webp',
                       width: 190,
                       height: 190,
                       fit: BoxFit.contain,
@@ -550,7 +550,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
             child: Transform.rotate(
               angle: -0.38,
               child: Image.asset(
-                'assets/images/leaf/onboarding_leaf_04_sulur_kiri.png',
+                'assets/images/leaf/onboarding_leaf_04_sulur_kiri.webp',
                 width: 70,
                 height: 82,
                 fit: BoxFit.contain,
@@ -565,7 +565,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
             child: Transform.rotate(
               angle: 0.45,
               child: Image.asset(
-                'assets/images/leaf/onboarding_utama_3.png',
+                'assets/images/leaf/onboarding_utama_3.webp',
                 width: 72,
                 height: 88,
                 fit: BoxFit.contain,
@@ -580,7 +580,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
             child: Transform.rotate(
               angle: 0.5,
               child: Image.asset(
-                'assets/images/leafe_1.png',
+                'assets/images/leafe_1.webp',
                 width: 18,
                 height: 18,
               ),
@@ -592,7 +592,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
             child: Transform.rotate(
               angle: -0.4,
               child: Image.asset(
-                'assets/images/leafe_2.png',
+                'assets/images/leafe_2.webp',
                 width: 18,
                 height: 18,
               ),
@@ -604,7 +604,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
             child: Transform.rotate(
               angle: 0.7,
               child: Image.asset(
-                'assets/images/leafe_1.png',
+                'assets/images/leafe_1.webp',
                 width: 16,
                 height: 16,
               ),
@@ -644,7 +644,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                 // Bunga Teratai Mekar Penuh di tengah lingkaran
                 Center(
                   child: Image.asset(
-                    'assets/images/onboarding_slide_3.png',
+                    'assets/images/onboarding_slide_3.webp',
                     width: 175,
                     height: 175,
                     fit: BoxFit.contain,
@@ -661,7 +661,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
             child: Transform.rotate(
               angle: 0.35,
               child: Image.asset(
-                'assets/images/bunga_1.png',
+                'assets/images/bunga_1.webp',
                 width: 72,
                 height: 90,
                 fit: BoxFit.contain,
@@ -676,7 +676,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
             child: Transform.rotate(
               angle: 0.6,
               child: Image.asset(
-                'assets/images/leaf/onboarding_leaf_09.png',
+                'assets/images/leaf/onboarding_leaf_09.webp',
                 width: 68,
                 height: 88,
                 fit: BoxFit.contain,
@@ -689,7 +689,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
             top: 110,
             left: 16,
             child: Image.asset(
-              'assets/images/leaf/onboarding_leaf_07_floral_nusantara.png',
+              'assets/images/leaf/onboarding_leaf_07_floral_nusantara.webp',
               width: 36,
               height: 36,
               fit: BoxFit.contain,
@@ -703,7 +703,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
             child: Transform.rotate(
               angle: -0.5,
               child: Image.asset(
-                'assets/images/leafe_1.png',
+                'assets/images/leafe_1.webp',
                 width: 19,
                 height: 19,
               ),
@@ -715,7 +715,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
             child: Transform.rotate(
               angle: 0.6,
               child: Image.asset(
-                'assets/images/leafe_2.png',
+                'assets/images/leafe_2.webp',
                 width: 18,
                 height: 18,
               ),
@@ -727,7 +727,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
             child: Transform.rotate(
               angle: 0.35,
               child: Image.asset(
-                'assets/images/leafe_1.png',
+                'assets/images/leafe_1.webp',
                 width: 17,
                 height: 17,
               ),

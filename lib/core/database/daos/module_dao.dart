@@ -5,6 +5,25 @@ import '../../../models/app_models.dart';
 
 /// Data Access Object (DAO) untuk kurikulum modul pembelajaran, motif batik, dan progres pilar
 class ModuleDao {
+  static final RegExp _legacyAssetExt = RegExp(
+    r'^(assets/images/.+)\.(png|jpe?g)$',
+    caseSensitive: false,
+  );
+
+  /// Menormalisasi path aset gambar lokal lama (.jpg/.jpeg/.png) ke format .webp
+  /// agar cache lama maupun data dari cloud tetap cocok dengan aset bundel.
+  static String normalizeAssetImagePath(String path) {
+    final trimmed = path.trim();
+    final match = _legacyAssetExt.firstMatch(trimmed);
+    return match != null ? '${match.group(1)}.webp' : trimmed;
+  }
+
+  static String? normalizeNullableAssetPath(String? path) {
+    if (path == null) return null;
+    final normalized = normalizeAssetImagePath(path);
+    return normalized.isEmpty ? null : normalized;
+  }
+
   final Future<Database?> Function() _getDb;
 
   ModuleDao(this._getDb);
@@ -15,7 +34,11 @@ class ModuleDao {
     if (db == null) return [];
     try {
       final rows = await db.query('batik_motifs', orderBy: 'id ASC');
-      return rows.map((r) => BatikMotifModel.fromMap(r)).toList();
+      return rows.map((r) {
+        final normalized = Map<String, dynamic>.from(r);
+        normalized['thumbnail_url'] = normalizeNullableAssetPath(r['thumbnail_url'] as String?);
+        return BatikMotifModel.fromMap(normalized);
+      }).toList();
     } catch (e) {
       debugPrint('ModuleDao getAllMotifs error: $e');
       return [];
@@ -37,7 +60,7 @@ class ModuleDao {
             'slug': m['slug'],
             'origin_region': m['origin_region'] ?? 'Nusantara',
             'short_description': m['short_description'] ?? '',
-            'thumbnail_url': m['thumbnail_url'],
+            'thumbnail_url': normalizeNullableAssetPath(m['thumbnail_url']?.toString()),
             'ml_class_index': m['ml_class_index'] ?? 0,
           },
           conflictAlgorithm: ConflictAlgorithm.replace,
@@ -57,26 +80,26 @@ class ModuleDao {
     if (db == null || modules.isEmpty) return 0;
     try {
       const defaultCovers = {
-        1: 'assets/images/batik/betawi_cover.jpg',
-        2: 'assets/images/batik/bokor_kencono_cover.jpg',
-        3: 'assets/images/batik/buketan_cover.jpg',
-        4: 'assets/images/batik/dayak_cover.jpg',
-        5: 'assets/images/batik/jlamprang_cover.jpg',
-        6: 'assets/images/batik/kawung_cover.jpg',
-        7: 'assets/images/batik/liong_cover.jpg',
-        8: 'assets/images/batik/mega_mendung_cover.jpg',
-        9: 'assets/images/batik/parang_cover.jpg',
-        10: 'assets/images/batik/sekarjagad_cover.jpg',
-        11: 'assets/images/batik/sidoluhur_cover.jpg',
-        12: 'assets/images/batik/sidomukti_cover.jpg',
-        13: 'assets/images/batik/sidomulyo_cover.jpg',
-        14: 'assets/images/batik/singa_barong_cover.jpg',
-        15: 'assets/images/batik/srikaton_cover.jpg',
-        16: 'assets/images/batik/tribusono_cover.jpg',
-        17: 'assets/images/batik/tujuh_rupa_cover.jpg',
-        18: 'assets/images/batik/tuntrum_cover.jpg',
-        19: 'assets/images/batik/wahyu_tumurun_cover.jpg',
-        20: 'assets/images/batik/wirasat_cover.jpg',
+        1: 'assets/images/batik/betawi_cover.webp',
+        2: 'assets/images/batik/bokor_kencono_cover.webp',
+        3: 'assets/images/batik/buketan_cover.webp',
+        4: 'assets/images/batik/dayak_cover.webp',
+        5: 'assets/images/batik/jlamprang_cover.webp',
+        6: 'assets/images/batik/kawung_cover.webp',
+        7: 'assets/images/batik/liong_cover.webp',
+        8: 'assets/images/batik/mega_mendung_cover.webp',
+        9: 'assets/images/batik/parang_cover.webp',
+        10: 'assets/images/batik/sekarjagad_cover.webp',
+        11: 'assets/images/batik/sidoluhur_cover.webp',
+        12: 'assets/images/batik/sidomukti_cover.webp',
+        13: 'assets/images/batik/sidomulyo_cover.webp',
+        14: 'assets/images/batik/singa_barong_cover.webp',
+        15: 'assets/images/batik/srikaton_cover.webp',
+        16: 'assets/images/batik/tribusono_cover.webp',
+        17: 'assets/images/batik/tujuh_rupa_cover.webp',
+        18: 'assets/images/batik/tuntrum_cover.webp',
+        19: 'assets/images/batik/wahyu_tumurun_cover.webp',
+        20: 'assets/images/batik/wirasat_cover.webp',
       };
 
       final existingRows = await db.query('modules');
@@ -111,7 +134,7 @@ class ModuleDao {
         }
 
         final incomingVideo = nonEmpty(m['video_url']);
-        final incomingCover = nonEmpty(m['cover_image']);
+        final incomingCover = normalizeNullableAssetPath(nonEmpty(m['cover_image']));
         final title = nonEmpty(m['title']) ?? 'Modul $id';
         final description = nonEmpty(m['description']) ?? '';
 
@@ -212,7 +235,7 @@ class ModuleDao {
           motifId: r['motif_id'] as int,
           title: r['title'] as String,
           description: r['description'] as String,
-          coverImage: r['cover_image'] as String?,
+          coverImage: normalizeNullableAssetPath(r['cover_image'] as String?),
           passingScore: r['passing_score'] as int? ?? 70,
           orderNo: r['order_no'] as int,
           historyDone: (r['history_done'] as int? ?? 0) == 1,
@@ -265,7 +288,7 @@ class ModuleDao {
           ? (videoRows.first['video_url'] as String? ?? '').trim()
           : '';
       final coverImage = videoRows.isNotEmpty
-          ? (videoRows.first['cover_image'] as String? ?? '').trim()
+          ? normalizeAssetImagePath(videoRows.first['cover_image'] as String? ?? '')
           : '';
 
       final contents = await db.query(
@@ -313,7 +336,7 @@ class ModuleDao {
 
       List<GaleriModel> galeri = galleryRows.map((g) {
         return GaleriModel(
-          imageUrl: g['image_url'] as String? ?? '',
+          imageUrl: normalizeAssetImagePath(g['image_url'] as String? ?? ''),
           caption: g['caption'] as String? ?? 'Dokumentasi Motif',
         );
       }).toList();
@@ -337,7 +360,7 @@ class ModuleDao {
       KarakteristikDetailModel detailAt(int index, String defaultTitle, String defaultBadge) {
         if (index < karakterRows.length) {
           final row = karakterRows[index];
-          final storedImage = ((row['image_url'] as String?) ?? '').trim();
+          final storedImage = normalizeAssetImagePath((row['image_url'] as String?) ?? '');
           return KarakteristikDetailModel(
             title: (row['title'] as String?) ?? defaultTitle,
             desc: (row['body'] as String?) ?? '',

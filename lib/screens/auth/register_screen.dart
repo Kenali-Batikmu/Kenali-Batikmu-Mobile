@@ -88,7 +88,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
             // 1. Background Image Ilustrasi Studio Batik (Penuh 100% Layar Tanpa Terpotong)
             Positioned.fill(
               child: Image.asset(
-                'assets/images/login_bg.png',
+                'assets/images/login_bg.webp',
                 fit: BoxFit.cover,
                 alignment: Alignment.topCenter,
               ),
@@ -143,7 +143,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                         children: [
                           // Motif Daun/Canting Cantik
                           Image.asset(
-                            'assets/images/logo_1.png',
+                            'assets/images/logo_1.webp',
                             width: 80,
                             height: 80,
                             fit: BoxFit.contain,
@@ -208,7 +208,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                             child: Transform.flip(
                               flipX: true,
                               child: Image.asset(
-                                'assets/images/leafe_1.png',
+                                'assets/images/leafe_1.webp',
                                 width: 50,
                                 height: 50,
                               ),
@@ -222,7 +222,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                           child: Transform.rotate(
                             angle: 0.6,
                             child: Image.asset(
-                              'assets/images/leafe_1.png',
+                              'assets/images/leafe_1.webp',
                               width: 50,
                               height: 50,
                             ),
@@ -648,7 +648,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                                             child: Opacity(
                                               opacity: 0.16,
                                               child: Image.asset(
-                                                'assets/images/bunga_1.png',
+                                                'assets/images/bunga_1.webp',
                                                 width: 90,
                                                 fit: BoxFit.contain,
                                                 errorBuilder: (context, error, stackTrace) =>
@@ -751,7 +751,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                         Padding(
                           padding: const EdgeInsets.symmetric(horizontal: 10),
                           child: Image.asset(
-                            'assets/images/bunga_2.png',
+                            'assets/images/bunga_2.webp',
                             width: 20,
                             height: 20,
                             fit: BoxFit.contain,

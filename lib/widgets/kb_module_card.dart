@@ -28,6 +28,7 @@ class KbModuleCard extends StatelessWidget {
     super.key,
     required this.module,
     required this.isDark,
+    this.margin,
     this.actionKey,
   });
 

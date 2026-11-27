@@ -428,7 +428,7 @@ class _CoachCard extends StatelessWidget {
           children: [
             if (centered) ...[
               Image.asset(
-                'assets/images/logo_1.png',
+                'assets/images/logo_1.webp',
                 height: 64,
                 fit: BoxFit.contain,
                 errorBuilder: (context, error, stackTrace) =>

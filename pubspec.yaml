@@ -36,7 +36,6 @@ dependencies:
   sqflite: ^2.4.4
   path: ^1.9.1
   provider: ^6.1.5+1
-  sqflite_common_ffi: ^2.4.3
   crypto: ^3.0.6
   webview_flutter: ^4.14.1
   url_launcher: ^6.3.2
@@ -64,6 +63,7 @@ dev_dependencies:
   # rules and activating additional ones.
   flutter_lints: ^6.0.0
   flutter_launcher_icons: ^0.14.4
+  sqflite_common_ffi: ^2.4.3
 flutter:
 
   # The following line ensures that the Material Icons font is
@@ -109,22 +109,22 @@ flutter:
 flutter_launcher_icons:
   android: true
   ios: true
-  image_path: "assets/images/app_icon.png"
+  image_path: "tool/branding/app_icon.png"
   min_sdk_android: 21
   adaptive_icon_background: "#FBF3E3"
-  adaptive_icon_foreground: "assets/images/app_icon_foreground.png"
+  adaptive_icon_foreground: "tool/branding/app_icon_foreground.png"
   adaptive_icon_foreground_inset: 0
 
 flutter_native_splash:
   color: "#FBF8F3"
   color_dark: "#13100D"
-  image: "assets/images/logo_1.png"
-  image_dark: "assets/images/logo_1.png"
+  image: "tool/branding/logo_1.png"
+  image_dark: "tool/branding/logo_1.png"
   android_12:
     color: "#FBF8F3"
     color_dark: "#13100D"
-    image: "assets/images/splash_logo.png"
-    image_dark: "assets/images/splash_logo.png"
+    image: "tool/branding/splash_logo.png"
+    image_dark: "tool/branding/splash_logo.png"
   android: true
   ios: true
   web: false

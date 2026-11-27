@@ -390,7 +390,7 @@ class _PillarQuizPreviewState extends State<PillarQuizPreview>
                 top: -22,
                 right: -22,
                 child: LeafDecor(
-                  asset: 'assets/images/leaf/onboarding_utama_3.png',
+                  asset: 'assets/images/leaf/onboarding_utama_3.webp',
                   size: 90,
                   angle: -0.15,
                 ),
@@ -652,7 +652,7 @@ class _PillarQuizPreviewState extends State<PillarQuizPreview>
                     bottom: -26,
                     right: -22,
                     child: LeafDecor(
-                      asset: 'assets/images/leaf/onboarding_leaf_04_sulur_kiri.png',
+                      asset: 'assets/images/leaf/onboarding_leaf_04_sulur_kiri.webp',
                       size: 72,
                       angle: 0.4,
                     ),
@@ -965,7 +965,7 @@ class _PillarQuizPreviewState extends State<PillarQuizPreview>
                     bottom: -26,
                     right: -22,
                     child: LeafDecor(
-                      asset: 'assets/images/leaf/onboarding_leaf_04_sulur_kiri.png',
+                      asset: 'assets/images/leaf/onboarding_leaf_04_sulur_kiri.webp',
                       size: 72,
                       angle: 0.4,
                     ),

@@ -9,16 +9,16 @@ import 'package:flutter/foundation.dart';
 /// ### Alur batch loading (batchSize = 4, total = 20):
 /// ```
 /// Awal buka: 4 modul
-/// Scroll ke bawah -> Ikon load berputar (4 detik) -> Bertambah 4 (jadi 8 modul)
-/// Scroll ke bawah -> Ikon load berputar (4 detik) -> Bertambah 4 (jadi 12 modul)
-/// Scroll ke bawah -> Ikon load berputar (4 detik) -> Bertambah 4 (jadi 16 modul)
-/// Scroll ke bawah -> Ikon load berputar (4 detik) -> Bertambah 4 (jadi 20 modul -> Selesai)
+/// Scroll ke bawah -> Ikon load berputar (1 detik) -> Bertambah 4 (jadi 8 modul)
+/// Scroll ke bawah -> Ikon load berputar (1 detik) -> Bertambah 4 (jadi 12 modul)
+/// Scroll ke bawah -> Ikon load berputar (1 detik) -> Bertambah 4 (jadi 16 modul)
+/// Scroll ke bawah -> Ikon load berputar (1 detik) -> Bertambah 4 (jadi 20 modul -> Selesai)
 /// ```
 class LoadMoreController<T> extends ChangeNotifier {
   /// Jumlah item per batch yang di-load. Default: 4.
   final int batchSize;
 
-  /// Durasi delay loading sebelum modul baru muncul (3 detik, sesuai rentang 3-5 detik).
+  /// Durasi delay loading sebelum modul baru muncul (1 detik, rentang 1-3 detik).
   final Duration loadingDelay;
 
   List<T> _source = [];
@@ -28,7 +28,7 @@ class LoadMoreController<T> extends ChangeNotifier {
 
   LoadMoreController({
     this.batchSize = 4,
-    this.loadingDelay = const Duration(seconds: 3),
+    this.loadingDelay = const Duration(seconds: 1),
   });
 
   // ─── Getters ──────────────────────────────────────────────────────────
@@ -76,7 +76,7 @@ class LoadMoreController<T> extends ChangeNotifier {
     _isLoading = true;
     notifyListeners();
 
-    // Jeda waktu loading agar ikon load berputar selama 4 detik
+    // Jeda waktu loading agar ikon load berputar sesuai loadingDelay
     await Future.delayed(loadingDelay);
 
     final newCount = (_displayCount + batchSize).clamp(0, _source.length);

@@ -11,11 +11,10 @@ import 'load_more_controller.dart';
 /// 1. Tampilan awal: Tepat **4 modul pertama**.
 /// 2. Pengguna scroll ke bawah:
 ///    Saat mendekati dasar daftar modul, sistem otomatis memicu pemuatan batch berikutnya.
-/// 3. Muncul **Ikon Load (Loading Indicator)** di bagian bawah selama **4 detik**
-///    (rentang 3-5 detik).
-/// 4. Setelah 4 detik, **4 modul tambahan muncul** (4 → 8 → 12 → 16 → 20)
+/// 3. Muncul **Ikon Load (Loading Indicator)** di bagian bawah selama **1 detik**.
+/// 4. Setelah selesai loading, **4 modul tambahan muncul** (4 → 8 → 12 → 16 → 20)
 ///    dengan animasi fade-in + slide-up yang halus.
-/// 5. Pengguna scroll lagi ke bawah → ikon load berputar 4 detik → tambah 4 modul lagi.
+/// 5. Pengguna scroll lagi ke bawah → ikon load berputar 1 detik → tambah 4 modul lagi.
 /// 6. Setelah seluruh 20 modul telah tampil, loading dihentikan dan ditampilkan
 ///    pesan: *"Semua 20 modul telah dimuat"*.
 ///
@@ -60,7 +59,6 @@ class _ModuleLoadMoreSectionState extends State<ModuleLoadMoreSection> {
     super.initState();
     _controller = LoadMoreController<ModuleModel>(
       batchSize: widget.batchSize,
-      loadingDelay: const Duration(seconds: 3),
     );
     _controller.setSource(widget.allModules);
 
@@ -186,7 +184,7 @@ class _ModuleLoadMoreSectionState extends State<ModuleLoadMoreSection> {
               ),
             ],
 
-            // ── Ikon Load (Loading Indicator) saat scroll ke bawah (selama 4 detik) ──
+            // ── Ikon Load (Loading Indicator) saat scroll ke bawah (1 detik) ──
             if (_controller.isLoading)
               _buildLoadingIconSection(context),
 
@@ -246,7 +244,7 @@ class _ModuleLoadMoreSectionState extends State<ModuleLoadMoreSection> {
   }
 
   /// Tampilan Ikon Load (Loading Indicator) di bawah modul:
-  /// Muncul selama 4 detik sebelum 4 modul tambahan berikutnya ditampilkan.
+  /// Muncul selama 1 detik sebelum 4 modul tambahan berikutnya ditampilkan.
   Widget _buildLoadingIconSection(BuildContext context) {
     final isDark = widget.isDark;
     const gold = Color(0xFFE8C98A);
@@ -414,12 +412,10 @@ class _InteractiveCardState extends State<_InteractiveCard> {
 class _FadeSlideIn extends StatefulWidget {
   final Widget child;
   final Duration delay;
-  final Duration duration;
 
   const _FadeSlideIn({
     required this.child,
     this.delay = Duration.zero,
-    this.duration = const Duration(milliseconds: 400),
   });
 
   @override
@@ -435,7 +431,10 @@ class _FadeSlideInState extends State<_FadeSlideIn>
   @override
   void initState() {
     super.initState();
-    _ctrl = AnimationController(vsync: this, duration: widget.duration);
+    _ctrl = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 400),
+    );
 
     _opacity = Tween<double>(begin: 0.0, end: 1.0).animate(
       CurvedAnimation(parent: _ctrl, curve: Curves.easeOut),

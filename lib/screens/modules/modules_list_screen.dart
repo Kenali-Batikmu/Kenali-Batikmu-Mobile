@@ -191,7 +191,7 @@ class _ModulesListScreenState extends State<ModulesListScreen> {
                               stops: [0.0, 0.06, 0.9, 1.0],
                             ).createShader(rect),
                             child: Image.asset(
-                              'assets/images/module_bg.jpeg',
+                              'assets/images/module_bg.webp',
                               width: screenWidth,
                               height: bgHeight,
                               fit: BoxFit.fill,

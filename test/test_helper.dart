@@ -24,6 +24,27 @@ void setupTestEnvironment() {
       const MethodChannel('dev.fluttercommunity.plus/connectivity_status'),
       (call) async => null,
     );
+    messenger.setMockMethodCallHandler(
+      const MethodChannel('xyz.luan/audioplayers.global'),
+      (call) async => null,
+    );
+    messenger.setMockMethodCallHandler(
+      const MethodChannel('xyz.luan/audioplayers.global/events'),
+      (call) async => null,
+    );
+    messenger.setMockMethodCallHandler(
+      const MethodChannel('xyz.luan/audioplayers'),
+      (call) async {
+        final args = call.arguments;
+        if (call.method == 'create' && args is Map && args['playerId'] is String) {
+          messenger.setMockMethodCallHandler(
+            MethodChannel('xyz.luan/audioplayers/events/${args['playerId']}'),
+            (_) async => null,
+          );
+        }
+        return null;
+      },
+    );
 
     final db = await DatabaseHelper.instance.database;
     if (db != null) {

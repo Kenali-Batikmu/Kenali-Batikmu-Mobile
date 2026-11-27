@@ -239,7 +239,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
               // 1. Background Ilustrasi Studio Batik
               Positioned.fill(
                 child: Image.asset(
-                  'assets/images/login_bg.png',
+                  'assets/images/login_bg.webp',
                   fit: BoxFit.cover,
                   alignment: Alignment.topCenter,
                 ),

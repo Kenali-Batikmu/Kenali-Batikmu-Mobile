@@ -1,10 +1,7 @@
-import 'dart:io';
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_native_splash/flutter_native_splash.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 import 'core/config/env_config.dart';
 import 'core/services/supabase_service.dart';
 import 'core/theme/app_theme.dart';
@@ -21,16 +18,6 @@ import 'screens/onboarding/onboarding_screen.dart';
 void main() async {
   final widgetsBinding = WidgetsFlutterBinding.ensureInitialized();
   FlutterNativeSplash.preserve(widgetsBinding: widgetsBinding);
-
-  // Inisialisasi SQLite platform-aware (non-blocking fallback)
-  try {
-    if (!kIsWeb && (Platform.isWindows || Platform.isLinux || Platform.isMacOS)) {
-      sqfliteFfiInit();
-      databaseFactory = databaseFactoryFfi;
-    }
-  } catch (e) {
-    debugPrint('Database factory init info: $e');
-  }
 
   // Muat konfigurasi kredensial dari .env (tidak di-commit ke Git)
   await EnvConfig.load();

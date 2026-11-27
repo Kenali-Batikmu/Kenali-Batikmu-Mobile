@@ -41,20 +41,20 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
   // Foto untuk kartu modul.
   static const List<String> _motifPhotos = [
-    'assets/images/batik_parang_kusumo.jpg',
-    'assets/images/batik_mega.jpg',
-    'assets/images/batik_parang.jpg',
-    'assets/images/batik_kawung.jpg',
-    'assets/images/batik_indo.jpg',
-    'assets/images/hero_sekar.png',
+    'assets/images/batik_parang_kusumo.webp',
+    'assets/images/batik_mega.webp',
+    'assets/images/batik_parang.webp',
+    'assets/images/batik_kawung.webp',
+    'assets/images/batik_indo.webp',
+    'assets/images/hero_sekar.webp',
   ];
 
   String _getPhotoForModule(String title, int idx) {
     final lower = title.toLowerCase();
     if (lower.contains('parang kusumo') || lower.contains('kusumo')) {
-      return 'assets/images/batik_parang_kusumo.jpg';
+      return 'assets/images/batik_parang_kusumo.webp';
     } else if (lower.contains('mega') || lower.contains('mendung')) {
-      return 'assets/images/batik_mega.jpg';
+      return 'assets/images/batik_mega.webp';
     }
     return _motifPhotos[idx % _motifPhotos.length];
   }
@@ -133,7 +133,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                         'Batik Indonesia diakui UNESCO sebagai Warisan Budaya Takbenda sejak 2009.',
                     tag: 'WARISAN BUDAYA',
                     icon: Icons.public_rounded,
-                    imagePath: 'assets/images/batik_indo.jpg',
+                    imagePath: 'assets/images/batik_indo.webp',
                   );
                 case 2:
                   return _buildBatikSlide(
@@ -142,7 +142,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                         'Motif tertua yang melambangkan kekuatan dan keteguhan hati.',
                     tag: 'MOTIF BATIK',
                     icon: Icons.waves_rounded,
-                    imagePath: 'assets/images/batik_parang.jpg',
+                    imagePath: 'assets/images/batik_parang.webp',
                   );
                 case 3:
                 default:
@@ -152,7 +152,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                         'Pola lingkaran yang melambangkan kesucian dan keadilan.',
                     tag: 'MOTIF BATIK',
                     icon: Icons.grain_rounded,
-                    imagePath: 'assets/images/batik_kawung.jpg',
+                    imagePath: 'assets/images/batik_kawung.webp',
                   );
               }
             },
@@ -235,7 +235,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
       fit: StackFit.expand,
       children: [
         Image.asset(
-          'assets/images/hero_sekar.png',
+          'assets/images/hero_sekar.webp',
           fit: BoxFit.cover,
           alignment: const Alignment(0.6, 0.3),
         ),
